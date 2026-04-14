@@ -1,37 +1,21 @@
 import express from 'express';
 import User from '../models/User.js';
+import Tenant from '../models/Tenant.js';
 import { sendEmail, generateOTP } from '../services/emailService.js';
+import { tenantAuth, requireRole, requireSuperAdmin, addTenantFilter, addTenantData, checkUsageLimit } from '../middleware/tenantAuth.js';
 
 const router = express.Router();
 
-// Middleware to get current user
-const getCurrentUser = async (req, res, next) => {
+// Get all users (admin only, tenant-scoped)
+router.get('/', tenantAuth, requireRole(['admin', 'superadmin']), async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-
-    const jwt = await import('jsonwebtoken');
-    const decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Invalid token' });
-  }
-};
-
-// Get all users (admin only)
-router.get('/', getCurrentUser, async (req, res) => {
-  try {
-    // Only admins can access this route
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Access denied. Admin only.' });
-    }
-
-    // Optimize query: use lean() for faster JSON, sort by createdAt, limit fields
-    const users = await User.find()
+    // Build query with tenant filtering
+    const query = addTenantFilter(req, {});
+    
+    // Get users with tenant filtering
+    const users = await User.find(query)
       .select('-password -otp')
+      .populate('tenant', 'name slug')
       .lean()
       .sort({ createdAt: -1 });
     
@@ -42,13 +26,17 @@ router.get('/', getCurrentUser, async (req, res) => {
   }
 });
 
-// Create new agent with OTP (admin only)
-router.post('/', async (req, res) => {
+// Create new agent with OTP (admin only, with usage limits)
+router.post('/', tenantAuth, requireRole(['admin', 'superadmin']), checkUsageLimit('users'), async (req, res) => {
   try {
     const { name, email, phone, role = 'agent', nin = null } = req.body;
     
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    // Check if user already exists (tenant-scoped for regular admins)
+    const existingUserQuery = req.isSuperAdmin 
+      ? { email } 
+      : { email, $or: [{ tenant: req.tenantId }, { tenant: null }] };
+    
+    const existingUser = await User.findOne(existingUserQuery);
     if (existingUser) {
       return res.status(400).json({ message: 'User with this email already exists' });
     }
@@ -56,8 +44,8 @@ router.post('/', async (req, res) => {
     // Generate OTP (6-digit code)
     const otp = generateOTP();
     
-    // Create user with OTP as temporary password
-    const user = new User({
+    // Prepare user data with tenant context
+    const userData = {
       name,
       email,
       phone,
@@ -67,9 +55,22 @@ router.post('/', async (req, res) => {
       isFirstLogin: true,
       otp: otp,
       otpExpires: new Date(Date.now() + 12 * 60 * 60 * 1000) // OTP expires in 12 hours
-    });
+    };
 
+    // Add tenant data (super admin must specify tenant manually if needed)
+    const userDataWithTenant = addTenantData(req, userData);
+    
+    // Create user
+    const user = new User(userDataWithTenant);
     await user.save();
+
+    // Update tenant usage statistics
+    if (req.tenantId) {
+      await Tenant.findByIdAndUpdate(req.tenantId, {
+        $inc: { 'usage.totalUsers': 1 },
+        'usage.lastActivity': new Date()
+      });
+    }
 
     // Send welcome email with OTP
     const emailResult = await sendEmail(
@@ -79,7 +80,9 @@ router.post('/', async (req, res) => {
     );
 
     // Return user data without sensitive information
-    const userResponse = await User.findById(user._id).select('-password -otp');
+    const userResponse = await User.findById(user._id)
+      .select('-password -otp')
+      .populate('tenant', 'name slug');
 
     if (emailResult.success) {
       res.status(201).json({ 
@@ -105,10 +108,12 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Resend OTP
-router.post('/:id/resend-otp', async (req, res) => {
+// Resend OTP (admin only, tenant-scoped)
+router.post('/:id/resend-otp', tenantAuth, requireRole(['admin', 'superadmin']), async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    // Find user with tenant filtering
+    const query = addTenantFilter(req, { _id: req.params.id });
+    const user = await User.findOne(query);
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -143,8 +148,8 @@ router.post('/:id/resend-otp', async (req, res) => {
   }
 });
 
-// Update user profile
-router.put('/:id', async (req, res) => {
+// Update user profile (admin only, tenant-scoped)
+router.put('/:id', tenantAuth, requireRole(['admin', 'superadmin']), async (req, res) => {
   try {
     const { name, phone, profileImage, nin, isActive, status } = req.body;
 
@@ -160,11 +165,13 @@ router.put('/:id', async (req, res) => {
     }
     if (typeof status !== 'undefined') update.status = status;
 
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
+    // Find and update user with tenant filtering
+    const query = addTenantFilter(req, { _id: req.params.id });
+    const user = await User.findOneAndUpdate(
+      query,
       update,
       { new: true, runValidators: true }
-    ).select('-password -otp');
+    ).select('-password -otp').populate('tenant', 'name slug');
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -177,13 +184,23 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete user
-router.delete('/:id', async (req, res) => {
+// Delete user (admin only, tenant-scoped)
+router.delete('/:id', tenantAuth, requireRole(['admin', 'superadmin']), async (req, res) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
+    // Find and delete user with tenant filtering
+    const query = addTenantFilter(req, { _id: req.params.id });
+    const user = await User.findOneAndDelete(query);
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Update tenant usage statistics
+    if (req.tenantId) {
+      await Tenant.findByIdAndUpdate(req.tenantId, {
+        $inc: { 'usage.totalUsers': -1 },
+        'usage.lastActivity': new Date()
+      });
     }
 
     res.json({ message: 'User deleted successfully' });
