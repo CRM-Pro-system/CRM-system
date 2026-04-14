@@ -6,6 +6,13 @@ const performanceSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  
+  // Multi-Tenant Field
+  tenant: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: [true, 'Tenant is required']
+  },
   period: {
     month: Number,
     year: Number

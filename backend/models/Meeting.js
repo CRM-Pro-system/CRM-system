@@ -15,6 +15,13 @@ const meetingSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  
+  // Multi-Tenant Field
+  tenant: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: [true, 'Tenant is required']
+  },
   scheduledTime: {
     type: Date,
     required: true
