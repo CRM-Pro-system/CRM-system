@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'agent'],
+    enum: ['superadmin', 'admin', 'agent'],
     default: 'agent'
   },
   nin: {
@@ -95,6 +95,13 @@ const userSchema = new mongoose.Schema({
   lastRankUpdate: {
     type: Date,
     default: Date.now
+  },
+  
+  // Multi-Tenant Fields
+  tenant: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    default: null // null for superadmin users
   }
 }, {
   timestamps: true
