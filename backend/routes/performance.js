@@ -2,32 +2,19 @@ import express from 'express';
 import User from '../models/User.js';
 import Deal from '../models/Deal.js';
 import { getAgentRankings, updateAgentRating } from '../utils/ratingSystem.js';
+import { tenantAuth } from '../middleware/tenantAuth.js';
 
 const router = express.Router();
 
-// Middleware to get current user
-const getCurrentUser = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-
-    const jwt = await import('jsonwebtoken');
-    const decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Invalid token' });
-  }
-};
+// Apply tenant-aware middleware to all routes
+router.use(tenantAuth);
 
 // Get performance stats for agent
-router.get('/agent/:agentId', getCurrentUser, async (req, res) => {
+router.get('/agent/:agentId', async (req, res) => {
   try {
     const { agentId } = req.params;
 
-    const deals = await Deal.find({ agent: agentId });
+    const deals = await Deal.find({ agent: agentId, ...req.tenantQuery });
     const wonDeals = deals.filter(d => d.stage === 'won');
     const lostDeals = deals.filter(d => d.stage === 'lost');
     const pendingDeals = deals.filter(d => !['won', 'lost'].includes(d.stage));
@@ -60,14 +47,13 @@ router.get('/agent/:agentId', getCurrentUser, async (req, res) => {
 });
 
 // Get overall performance stats (admin)
-router.get('/overall', getCurrentUser, async (req, res) => {
+router.get('/overall', async (req, res) => {
   try {
-    // Only admins can access overall performance
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'Access denied. Admin only.' });
     }
-    const agents = await User.find({ role: 'agent' });
-    const deals = await Deal.find().populate('agent');
+    const agents = await User.find({ role: 'agent', ...req.tenantQuery });
+    const deals = await Deal.find({ ...req.tenantQuery }).populate('agent');
     
     const totalSuccessful = deals.filter(d => d.stage === 'won').length;
     const totalFailed = deals.filter(d => d.stage === 'lost').length;
@@ -108,10 +94,9 @@ router.get('/overall', getCurrentUser, async (req, res) => {
 });
 
 // Get agent rankings
-router.get('/rankings', getCurrentUser, async (req, res) => {
+router.get('/rankings', async (req, res) => {
   try {
-    // Only admins can access rankings
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'Access denied. Admin only.' });
     }
 

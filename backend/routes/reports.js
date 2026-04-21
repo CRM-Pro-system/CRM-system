@@ -8,50 +8,41 @@ import Deal from '../models/Deal.js';
 import Schedule from '../models/Schedule.js';
 import User from '../models/User.js';
 import Sale from '../models/Sale.js';
+import { tenantAuth } from '../middleware/tenantAuth.js';
 
 const router = express.Router();
 
-// Get Analytics Data
+// Apply tenant-aware middleware to all routes
+router.use(tenantAuth);
+
 // Get Analytics Data
 router.get('/analytics', async (req, res) => {
   try {
     const { start, end, agent } = req.query;
 
-    // Date Filters
     const dateFilter = {};
     const saleDateFilter = {};
     if (start || end) {
       dateFilter.createdAt = {};
       saleDateFilter.saleDate = {};
-      if (start) {
-        dateFilter.createdAt.$gte = new Date(start);
-        saleDateFilter.saleDate.$gte = new Date(start);
-      }
-      if (end) {
-        dateFilter.createdAt.$lte = new Date(end);
-        saleDateFilter.saleDate.$lte = new Date(end);
-      }
+      if (start) { dateFilter.createdAt.$gte = new Date(start); saleDateFilter.saleDate.$gte = new Date(start); }
+      if (end) { dateFilter.createdAt.$lte = new Date(end); saleDateFilter.saleDate.$lte = new Date(end); }
     }
 
-    // Agent Filter
-    const agentFilter = {};
-    if (agent) {
-      agentFilter.agent = agent;
-    }
+    const agentFilter = agent ? { agent } : {};
+    if (req.user.role === 'agent') agentFilter.agent = req.user.userId;
 
-    // Combined Filters
-    const dealFilter = { ...dateFilter, ...agentFilter };
-    const scheduleFilter = { ...agentFilter };
+    const dealFilter = { ...req.tenantQuery, ...dateFilter, ...agentFilter };
+    const saleFilter = { ...req.tenantQuery, ...saleDateFilter, ...agentFilter };
+    const clientFilter = { ...req.tenantQuery, ...dateFilter, ...agentFilter };
+    const scheduleFilter = { ...req.tenantQuery, ...agentFilter };
     if (start || end) {
       scheduleFilter.date = {};
       if (start) scheduleFilter.date.$gte = new Date(start);
       if (end) scheduleFilter.date.$lte = new Date(end);
     }
-    const saleFilter = { ...saleDateFilter, ...agentFilter };
-    const clientFilter = { ...dateFilter, ...agentFilter };
 
-    // 1. Fetch Agents
-    const agents = await User.find({ role: 'agent' }).select('name email _id');
+    const agents = await User.find({ role: 'agent', ...req.tenantQuery }).select('name email _id');
 
     // 2. Fetch all data
     const [deals, schedules, sales, clients] = await Promise.all([

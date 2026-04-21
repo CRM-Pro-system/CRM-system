@@ -1,6 +1,7 @@
 import express from 'express';
 import Schedule from '../models/Schedule.js';
 import { createNotification } from '../utils/notifications.js';
+import { tenantAuth } from '../middleware/tenantAuth.js';
 
 // Generate pseudo-realistic meeting link based on mode
 const generateMeetingLink = (mode) => {
@@ -30,44 +31,19 @@ const generateMeetingLink = (mode) => {
 
 const router = express.Router();
 
-// Middleware to get current user
-const getCurrentUser = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-
-    const jwt = await import('jsonwebtoken');
-    const decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Invalid token' });
-  }
-};
+// Apply tenant-aware middleware to all routes
+router.use(tenantAuth);
 
 // Get all schedules with filters
-router.get('/', getCurrentUser, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const {
-      agentId,
-      clientId,
-      type,
-      status,
-      startDate,
-      endDate,
-      page = 1,
-      limit = 10
-    } = req.query;
+    const { agentId, clientId, type, status, startDate, endDate, page = 1, limit = 10 } = req.query;
 
-    let query = {};
+    let query = { ...req.tenantQuery };
 
-    // Agents can only see their own schedules, admins see all
     if (req.user.role === 'agent') {
       query.agent = req.user.userId;
     } else if (agentId) {
-      // Admin can filter by specific agent
       query.agent = agentId;
     }
     if (clientId) query.client = clientId;
@@ -123,7 +99,7 @@ router.get('/:id', async (req, res) => {
 // Create new schedule
 router.post('/', async (req, res) => {
   try {
-    const scheduleData = { ...req.body };
+    const scheduleData = { ...req.body, tenant: req.user.tenantId };
 
     // Generate meeting link if it's a virtual meeting
     if (scheduleData.type === 'meeting' && ['zoom', 'google-meet', 'teams'].includes(scheduleData.mode)) {
@@ -212,8 +188,8 @@ router.post('/', async (req, res) => {
 // Update schedule
 router.put('/:id', async (req, res) => {
   try {
-    const schedule = await Schedule.findByIdAndUpdate(
-      req.params.id,
+    const schedule = await Schedule.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
       req.body,
       { new: true, runValidators: true }
     )
@@ -234,7 +210,7 @@ router.put('/:id', async (req, res) => {
 // Delete schedule
 router.delete('/:id', async (req, res) => {
   try {
-    const schedule = await Schedule.findByIdAndDelete(req.params.id);
+    const schedule = await Schedule.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
 
     if (!schedule) {
       return res.status(404).json({ message: 'Schedule not found' });
@@ -250,8 +226,8 @@ router.delete('/:id', async (req, res) => {
 // Mark as completed
 router.patch('/:id/complete', async (req, res) => {
   try {
-    const schedule = await Schedule.findByIdAndUpdate(
-      req.params.id,
+    const schedule = await Schedule.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
       { status: 'completed' },
       { new: true }
     )
@@ -274,8 +250,8 @@ router.patch('/:id/reschedule', async (req, res) => {
   try {
     const { date, duration, notes } = req.body;
 
-    const schedule = await Schedule.findByIdAndUpdate(
-      req.params.id,
+    const schedule = await Schedule.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
       {
         date,
         duration,
@@ -313,7 +289,8 @@ router.get('/agent/:agentId/upcoming', async (req, res) => {
     const upcomingSchedules = await Schedule.find({
       agent: agentId,
       date: { $gte: today },
-      status: 'scheduled'
+      status: 'scheduled',
+      ...req.tenantQuery
     })
       .populate('client', 'name email phone company')
       .sort({ date: 1 })

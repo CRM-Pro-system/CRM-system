@@ -2,15 +2,19 @@
 import express from 'express';
 import Stock from '../models/Stock.js';
 import { body, validationResult } from 'express-validator';
+import { tenantAuth } from '../middleware/tenantAuth.js';
 
 const router = express.Router();
+
+// Apply tenant-aware middleware to all routes
+router.use(tenantAuth);
 
 // Get all stock items
 router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 10, search, category, lowStock } = req.query;
 
-    let query = {};
+    let query = { ...req.tenantQuery };
 
     if (search) {
       query.itemName = { $regex: search, $options: 'i' };
@@ -127,14 +131,9 @@ router.post('/', [
     }
 
     const item = new Stock({
-      itemName,
-      description,
-      category,
-      unitPrice,
-      currentStock,
-      minimumStock,
-      maximumStock,
-      supplier
+      itemName, description, category, unitPrice,
+      currentStock, minimumStock, maximumStock, supplier,
+      tenant: req.user.tenantId
     });
 
     await item.save();
@@ -173,7 +172,11 @@ router.put('/:id', [
     if (maximumStock !== undefined) update.maximumStock = maximumStock;
     if (supplier !== undefined) update.supplier = supplier;
 
-    const item = await Stock.findByIdAndUpdate(req.params.id, update, { new: true });
+    const item = await Stock.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
+      update,
+      { new: true }
+    );
 
     if (!item) {
       return res.status(404).json({ message: 'Stock item not found' });
@@ -205,7 +208,7 @@ router.patch('/:id/stock', [
 
     const { quantity, operation } = req.body;
 
-    const item = await Stock.findById(req.params.id);
+    const item = await Stock.findOne({ _id: req.params.id, ...req.tenantQuery });
 
     if (!item) {
       return res.status(404).json({ message: 'Stock item not found' });
@@ -229,7 +232,7 @@ router.patch('/:id/stock', [
 // Delete stock item
 router.delete('/:id', async (req, res) => {
   try {
-    const item = await Stock.findByIdAndDelete(req.params.id);
+    const item = await Stock.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
 
     if (!item) {
       return res.status(404).json({ message: 'Stock item not found' });
