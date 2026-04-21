@@ -14,7 +14,8 @@ import {
   UserPlus,
   Bell,
   TrendingUp,
-  ChevronDown
+  Building2,
+  ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { notificationsAPI } from '../services/api';
@@ -35,23 +36,19 @@ const Layout = ({ children }) => {
   const navigate = useNavigate();
 
   const isAdmin = user?.role === 'admin';
+  const isSuperAdmin = user?.role === 'superadmin';
 
   // Load unread notifications count for admin with periodic polling
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin || isSuperAdmin) {
       loadUnreadNotifications();
-
-      // Poll for new notifications every 30 seconds
-      const interval = setInterval(() => {
-        loadUnreadNotifications();
-      }, 30000);
-
+      const interval = setInterval(() => { loadUnreadNotifications(); }, 30000);
       return () => clearInterval(interval);
     }
-  }, [isAdmin]);
+  }, [isAdmin, isSuperAdmin]);
 
   const loadUnreadNotifications = async () => {
-    if (!isAdmin) return;
+    if (!isAdmin && !isSuperAdmin) return;
 
     try {
       const response = await notificationsAPI.getUnreadCount();
@@ -60,6 +57,15 @@ const Layout = ({ children }) => {
       console.error('Failed to load unread notifications:', error);
     }
   };
+
+  const superAdminNavItems = [
+    { path: '/superadmin', icon: ShieldCheck, label: 'Super Admin' },
+    { path: '/superadmin/tenants', icon: Building2, label: 'Tenant Management' },
+    { path: '/admin', icon: Home, label: 'Admin View' },
+    { path: '/admin/users', icon: UserPlus, label: 'User Management' },
+    { path: '/admin/reports', icon: PieChart, label: 'Reports' },
+    { path: '/admin/settings', icon: Settings, label: 'Settings' },
+  ];
 
   const adminNavItems = [
     {
@@ -121,7 +127,7 @@ const Layout = ({ children }) => {
     },
   ];
 
-  const navItems = isAdmin ? adminNavItems : agentNavItems;
+  const navItems = isSuperAdmin ? superAdminNavItems : isAdmin ? adminNavItems : agentNavItems;
 
   const handleLogout = () => {
     setShowLogoutModal(true);
@@ -311,7 +317,7 @@ const Layout = ({ children }) => {
             </div>
 
             <div className="flex items-center space-x-3 sm:space-x-4">
-              {isAdmin && (
+              {(isAdmin || isSuperAdmin) && (
                 <button
                   onClick={() => setShowNotifications(true)}
                   className="p-2 text-gray-400 hover:text-gray-500 relative transition-colors"
@@ -359,8 +365,8 @@ const Layout = ({ children }) => {
         </main>
       </div>
 
-      {/* Notification Center - Only for admins */}
-      {isAdmin && (
+      {/* Notification Center - Only for admins and superadmin */}
+      {(isAdmin || isSuperAdmin) && (
         <NotificationCenter
           isOpen={showNotifications}
           onClose={() => {
