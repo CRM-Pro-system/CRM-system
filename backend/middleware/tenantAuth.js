@@ -58,9 +58,20 @@ export const tenantAuth = async (req, res, next) => {
 
     // Handle Super Admin (no tenant restrictions)
     if (user.role === 'superadmin') {
-      req.user = user;
-      req.tenant = null; // Super admin has access to all tenants
+      req.user = {
+        userId: user._id,
+        email: user.email,
+        role: user.role,
+        tenantId: null,
+        name: user.name
+      };
+      req.tenant = null;
       req.isSuperAdmin = true;
+      req.tenantQuery = {}; // Super admin sees all data
+      req.canAddUsers = () => true;
+      req.canAddClients = () => true;
+      req.canAddDeals = () => true;
+      req.updateTenantUsage = async () => {}; // No-op for super admin
       return next();
     }
 
@@ -89,10 +100,40 @@ export const tenantAuth = async (req, res, next) => {
     }
 
     // Add user and tenant context to request
-    req.user = user;
+    req.user = {
+      userId: user._id,
+      email: user.email,
+      role: user.role,
+      tenantId: user.tenant._id,
+      name: user.name
+    };
     req.tenant = user.tenant;
     req.tenantId = user.tenant._id;
     req.isSuperAdmin = false;
+
+    // Tenant-scoped query filter helper
+    req.tenantQuery = { tenant: user.tenant._id };
+
+    // Usage check helpers
+    req.canAddUsers = () => user.tenant.canAddUser();
+    req.canAddClients = () => user.tenant.canAddClient();
+    req.canAddDeals = () => user.tenant.canAddDeal();
+
+    // Usage update helper
+    req.updateTenantUsage = async (resource, increment) => {
+      const fieldMap = {
+        users: 'usage.totalUsers',
+        clients: 'usage.totalClients',
+        deals: 'usage.totalDeals'
+      };
+      const field = fieldMap[resource];
+      if (field) {
+        await Tenant.findByIdAndUpdate(user.tenant._id, {
+          $inc: { [field]: increment },
+          'usage.lastActivity': new Date()
+        });
+      }
+    };
 
     next();
   } catch (error) {
@@ -247,19 +288,19 @@ export const checkUsageLimit = (resourceType) => {
 
       switch (resourceType) {
         case 'users':
-          canAdd = tenant.canAddUser();
-          currentUsage = tenant.usage.totalUsers;
-          limit = tenant.settings.features.maxUsers;
+          currentUsage = tenant.usage.totalUsers || 0;
+          limit = tenant.settings?.features?.maxUsers || 5;
+          canAdd = currentUsage < limit;
           break;
         case 'clients':
-          canAdd = tenant.canAddClient();
-          currentUsage = tenant.usage.totalClients;
-          limit = tenant.settings.features.maxClients;
+          currentUsage = tenant.usage.totalClients || 0;
+          limit = tenant.settings?.features?.maxClients || 100;
+          canAdd = currentUsage < limit;
           break;
         case 'deals':
-          canAdd = tenant.canAddDeal();
-          currentUsage = tenant.usage.totalDeals;
-          limit = tenant.settings.features.maxDeals;
+          currentUsage = tenant.usage.totalDeals || 0;
+          limit = tenant.settings?.features?.maxDeals || 50;
+          canAdd = currentUsage < limit;
           break;
         default:
           return next(); // Unknown resource type, allow through
