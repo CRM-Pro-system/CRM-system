@@ -1,43 +1,16 @@
 // routes/otp.js
 import express from 'express';
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
+import { tenantAuth } from '../middleware/tenantAuth.js';
+import { sendEmail } from '../services/emailService.js';
 
 const router = express.Router();
 
 // In-memory OTP storage (in production, use Redis or database)
 const otpStore = new Map();
 
-// Middleware to get current user
-const getCurrentUser = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-
-    const jwt = await import('jsonwebtoken');
-    const decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Invalid token' });
-  }
-};
-
-// Create email transporter
-const createTransporter = () => {
-  return nodemailer.createTransporter({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER || 'your-email@gmail.com',
-      pass: process.env.EMAIL_PASS || 'your-app-password'
-    }
-  });
-};
-
 // Generate and send OTP
-router.post('/send', getCurrentUser, async (req, res) => {
+router.post('/send', tenantAuth, async (req, res) => {
   try {
     const { email, purpose = 'settings_change' } = req.body;
 
@@ -45,53 +18,17 @@ router.post('/send', getCurrentUser, async (req, res) => {
       return res.status(400).json({ message: 'Email is required' });
     }
 
-    // Generate 6-digit OTP
     const otp = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = Date.now() + (10 * 60 * 1000); // 10 minutes
+    const expiresAt = Date.now() + (10 * 60 * 1000);
 
-    // Store OTP
     const key = `${req.user.userId}_${purpose}`;
-    otpStore.set(key, {
-      otp,
-      email,
-      expiresAt,
-      attempts: 0
-    });
+    otpStore.set(key, { otp, email, expiresAt, attempts: 0 });
 
-    // Send email
-    const transporter = createTransporter();
+    await sendEmail(email, 'passwordReset', { name: req.user.name || email, otp });
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER || 'your-email@gmail.com',
-      to: email,
-      subject: 'CRM System - Verification Code',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #ff8c00;">CRM System Verification</h2>
-          <p>You requested to make changes to company settings. Here is your verification code:</p>
-          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; text-align: center; margin: 20px 0;">
-            <h1 style="color: #ff8c00; font-size: 32px; margin: 0; letter-spacing: 5px;">${otp}</h1>
-          </div>
-          <p><strong>Important:</strong></p>
-          <ul>
-            <li>This code will expire in 10 minutes</li>
-            <li>Do not share this code with anyone</li>
-            <li>If you didn't request this, please ignore this email</li>
-          </ul>
-          <p>Best regards,<br>CRM System Team</p>
-        </div>
-      `
-    };
-
-    await transporter.sendMail(mailOptions);
-
-    // Clean up expired OTPs
     cleanupExpiredOTPs();
 
-    res.json({
-      message: 'OTP sent successfully',
-      expiresIn: 600 // 10 minutes in seconds
-    });
+    res.json({ message: 'OTP sent successfully', expiresIn: 600 });
   } catch (error) {
     console.error('Error sending OTP:', error);
     res.status(500).json({ message: 'Failed to send OTP', error: error.message });
@@ -99,7 +36,7 @@ router.post('/send', getCurrentUser, async (req, res) => {
 });
 
 // Verify OTP
-router.post('/verify', getCurrentUser, async (req, res) => {
+router.post('/verify', tenantAuth, async (req, res) => {
   try {
     const { otp, purpose = 'settings_change' } = req.body;
 
