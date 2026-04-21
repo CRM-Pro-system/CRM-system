@@ -289,17 +289,17 @@ export const checkUsageLimit = (resourceType) => {
       switch (resourceType) {
         case 'users':
           currentUsage = tenant.usage.totalUsers || 0;
-          limit = tenant.settings?.features?.maxUsers || 5;
+          limit = tenant.settings?.features?.maxUsers || 100;
           canAdd = currentUsage < limit;
           break;
         case 'clients':
           currentUsage = tenant.usage.totalClients || 0;
-          limit = tenant.settings?.features?.maxClients || 100;
+          limit = tenant.settings?.features?.maxClients || 1000;
           canAdd = currentUsage < limit;
           break;
         case 'deals':
           currentUsage = tenant.usage.totalDeals || 0;
-          limit = tenant.settings?.features?.maxDeals || 50;
+          limit = tenant.settings?.features?.maxDeals || 500;
           canAdd = currentUsage < limit;
           break;
         default:
