@@ -19,6 +19,7 @@ import { stockRoutes } from './routes/stock.js';
 import { notificationRoutes } from './routes/notifications.js';
 import { uploadRoutes } from './routes/upload.js';
 import { meetingRoutes } from './routes/meetings.js';
+import { settingsRoutes } from './routes/settings.js';
 import { testEmailConfig } from './services/emailService.js';
 
 
@@ -106,6 +107,7 @@ app.use('/api/stock', stockRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/meetings', meetingRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Lightweight health/version endpoints for deployed debugging
 app.get('/api/health', (req, res) => {
