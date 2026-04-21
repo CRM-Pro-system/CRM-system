@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Tenant from '../models/Tenant.js';
+import Subscription from '../models/Subscription.js';
 
 /**
  * Tenant-Aware Authentication Middleware
@@ -220,8 +221,7 @@ export const requireFeature = (featureName) => {
     }
 
     try {
-      // Load tenant with subscription details
-      const tenant = await Tenant.findById(req.tenantId).populate('subscription');
+      const tenant = await Tenant.findById(req.tenantId);
       
       if (!tenant) {
         return res.status(403).json({ 
@@ -272,7 +272,7 @@ export const checkUsageLimit = (resourceType) => {
     }
 
     try {
-      const tenant = await Tenant.findById(req.tenantId).populate('subscription');
+      const tenant = await Tenant.findById(req.tenantId);
       
       if (!tenant) {
         return res.status(403).json({ 
@@ -303,7 +303,7 @@ export const checkUsageLimit = (resourceType) => {
           canAdd = currentUsage < limit;
           break;
         default:
-          return next(); // Unknown resource type, allow through
+          return next();
       }
 
       if (!canAdd) {
