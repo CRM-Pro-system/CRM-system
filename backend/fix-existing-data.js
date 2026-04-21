@@ -1,17 +1,17 @@
+import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-import dotenv from 'dotenv';
-
-// Load environment variables
 dotenv.config();
 
-// Import models
 import User from './models/User.js';
 import Tenant from './models/Tenant.js';
 import Subscription from './models/Subscription.js';
 import Client from './models/Client.js';
 import Deal from './models/Deal.js';
 import Sale from './models/Sale.js';
+import Schedule from './models/Schedule.js';
+import Meeting from './models/Meeting.js';
+import Stock from './models/Stock.js';
 
 async function fixExistingData() {
     try {
@@ -206,6 +206,38 @@ async function fixExistingData() {
         console.log('Email: admin@test.com');
         console.log('Password: admin123');
         console.log(`Tenant: ${defaultTenant.name} (${defaultTenant._id})`);
+
+        // Step 9: Update existing schedules without tenant
+        console.log('\n📅 Step 9: Updating existing schedules...');
+        const schedulesWithoutTenant = await Schedule.find({ $or: [{ tenant: { $exists: false } }, { tenant: null }] });
+        console.log(`Found ${schedulesWithoutTenant.length} schedules without tenant`);
+        for (const s of schedulesWithoutTenant) {
+            s.tenant = defaultTenant._id;
+            await s.save();
+            console.log(`✅ Updated schedule: ${s.title}`);
+        }
+
+        // Step 10: Update existing meetings without tenant
+        console.log('\n🤝 Step 10: Updating existing meetings...');
+        const meetingsWithoutTenant = await Meeting.find({ $or: [{ tenant: { $exists: false } }, { tenant: null }] });
+        console.log(`Found ${meetingsWithoutTenant.length} meetings without tenant`);
+        for (const m of meetingsWithoutTenant) {
+            m.tenant = defaultTenant._id;
+            await m.save();
+            console.log(`✅ Updated meeting: ${m.title}`);
+        }
+
+        // Step 11: Update existing stock without tenant
+        console.log('\n📦 Step 11: Updating existing stock items...');
+        const stockWithoutTenant = await Stock.find({ $or: [{ tenant: { $exists: false } }, { tenant: null }] });
+        console.log(`Found ${stockWithoutTenant.length} stock items without tenant`);
+        for (const item of stockWithoutTenant) {
+            item.tenant = defaultTenant._id;
+            await item.save();
+            console.log(`✅ Updated stock: ${item.itemName}`);
+        }
+
+        console.log('\n🎉 Full data migration completed successfully!');
 
     } catch (error) {
         console.error('❌ Migration failed:', error.message);
