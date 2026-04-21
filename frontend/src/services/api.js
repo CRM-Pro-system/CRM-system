@@ -59,6 +59,19 @@ export const clientsAPI = {
   create: (data) => api.post('/clients', data),
   update: (id, data) => api.put(`/clients/${id}`, data),
   delete: (id) => api.delete(`/clients/${id}`),
+  addInteraction: (id, data) => api.post(`/clients/${id}/interactions`, data),
+  addTask: (id, data) => api.post(`/clients/${id}/tasks`, data),
+  exportCSV: async (params) => {
+    const res = await api.get('/clients', { params: { ...params, limit: 1000 } });
+    const clients = res.data?.clients || res.data || [];
+    const headers = ['Name', 'Email', 'Phone', 'Company', 'Status', 'Priority', 'Created'];
+    const rows = clients.map(c => [
+      c.name, c.email, c.phone, c.company || '', c.status, c.priority,
+      new Date(c.createdAt).toLocaleDateString()
+    ]);
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    return { data: csv };
+  }
 };
 
 // Deals API
@@ -67,7 +80,9 @@ export const dealsAPI = {
   getById: (id) => api.get(`/deals/${id}`),
   create: (data) => api.post('/deals', data),
   update: (id, data) => api.put(`/deals/${id}`, data),
+  updateStatus: (id, status) => api.patch(`/deals/${id}/status`, { status }),
   delete: (id) => api.delete(`/deals/${id}`),
+  getStats: () => api.get('/deals/stats'),
 };
 
 // Sales API
@@ -77,7 +92,10 @@ export const salesAPI = {
   create: (data) => api.post('/sales', data),
   update: (id, data) => api.put(`/sales/${id}`, data),
   delete: (id) => api.delete(`/sales/${id}`),
-  getStats: () => api.get('/sales/stats'),
+  getStats: (params) => api.get('/sales/stats', { params }),
+  getSummary: (params) => api.get('/sales/summary', { params }),
+  recordPayment: (id, data) => api.post(`/sales/${id}/payment`, data),
+  getRecent: (params) => api.get('/sales/recent/list', { params }),
 };
 
 // Schedules API
