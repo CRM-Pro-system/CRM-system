@@ -25,12 +25,12 @@ api.interceptors.request.use(
 // Auth API
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
-  register: (userData) => api.post('/auth/register', userData),
   logout: () => api.post('/auth/logout'),
-  verifyToken: () => api.get('/auth/verify'),
+  getMe: () => api.get('/auth/me'),
   changePassword: (data) => api.post('/auth/change-password', data),
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
-  resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
+  verifyOtp: (data) => api.post('/auth/verify-otp', data),
+  resetPassword: (data) => api.post('/auth/reset-password', data),
 };
 
 // Users API
@@ -94,34 +94,42 @@ export const notificationsAPI = {
   getAll: (params) => api.get('/notifications', { params }),
   getUnreadCount: () => api.get('/notifications/unread-count'),
   markAsRead: (id) => api.put(`/notifications/${id}/read`),
-  markAllAsRead: () => api.put('/notifications/read-all'),
+  markAllAsRead: () => api.put('/notifications/mark-all-read'),
   delete: (id) => api.delete(`/notifications/${id}`),
+  getStats: () => api.get('/notifications/stats/summary'),
 };
 
 // Performance API
 export const performanceAPI = {
-  getAgentPerformance: (agentId, params) => api.get(`/performance/agent/${agentId}`, { params }),
-  getTeamPerformance: (params) => api.get('/performance/team', { params }),
-  getLeaderboard: (params) => api.get('/performance/leaderboard', { params }),
+  getAgentStats: (agentId) => api.get(`/performance/agent/${agentId}`),
+  getOverall: () => api.get('/performance/overall'),
+  getRankings: () => api.get('/performance/rankings'),
+  recalculate: () => api.post('/performance/recalculate-ratings'),
 };
 
 // Reports API
 export const reportsAPI = {
-  generateReport: (type, params) => api.get(`/reports/${type}`, { params }),
   getAnalytics: (params) => api.get('/reports/analytics', { params }),
-  exportReport: (type, format, params) => api.get(`/reports/${type}/export/${format}`, { 
-    params,
-    responseType: 'blob' 
+  shareReport: (data) => api.post('/reports/share', data),
+  importData: (formData) => api.post('/reports/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
   }),
 };
 
-// Email API
-export const emailAPI = {
-  send: (data) => api.post('/email/send', data),
-  getTemplates: () => api.get('/email/templates'),
-  createTemplate: (data) => api.post('/email/templates', data),
-  updateTemplate: (id, data) => api.put(`/email/templates/${id}`, data),
-  deleteTemplate: (id) => api.delete(`/email/templates/${id}`),
+// Settings API
+export const settingsAPI = {
+  get: () => api.get('/settings'),
+  update: (data) => api.put('/settings', data),
+};
+
+// Tenants API (Super Admin only)
+export const tenantsAPI = {
+  getAll: () => api.get('/tenants'),
+  getById: (id) => api.get(`/tenants/${id}`),
+  create: (data) => api.post('/tenants', data),
+  update: (id, data) => api.put(`/tenants/${id}`, data),
+  updateStatus: (id, status) => api.patch(`/tenants/${id}/status`, { status }),
+  getStats: (id) => api.get(`/tenants/${id}/stats`),
 };
 
 // Meetings API
