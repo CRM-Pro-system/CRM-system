@@ -6,27 +6,19 @@ import Deal from '../models/Deal.js';
  * Calculate automatic ratings for all agents based on won deal values
  * Rating is based on the highest value of won deals relative to other agents
  */
-export const calculateAgentRatings = async () => {
+export const calculateAgentRatings = async (tenantId = null) => {
   try {
+    const query = { role: 'agent', isActive: true };
+    if (tenantId) query.tenant = tenantId;
+    const agents = await User.find(query);
+    if (agents.length === 0) return [];
 
-    // Get all agents
-    const agents = await User.find({ role: 'agent', isActive: true });
-
-    if (agents.length === 0) {
-      return;
-    }
-
-    // Calculate won deal values for each agent
+    const dealQuery = tenantId ? { tenant: tenantId } : {};
     const agentStats = await Promise.all(
       agents.map(async (agent) => {
-        const wonDeals = await Deal.find({
-          agent: agent._id,
-          stage: 'won'
-        });
-
+        const wonDeals = await Deal.find({ agent: agent._id, stage: 'won', ...dealQuery });
         const totalWonValue = wonDeals.reduce((sum, deal) => sum + (Number(deal.value) || 0), 0);
         const wonDealsCount = wonDeals.length;
-
         return {
           agentId: agent._id,
           name: agent.name,
@@ -93,12 +85,12 @@ export const calculateAgentRatings = async () => {
 /**
  * Get current agent rankings
  */
-export const getAgentRankings = async () => {
+export const getAgentRankings = async (tenantId = null) => {
   try {
-    const agents = await User.find(
-      { role: 'agent', isActive: true },
-      'name email performanceScore totalDeals successfulDeals'
-    ).sort({ performanceScore: -1 });
+    const query = { role: 'agent', isActive: true };
+    if (tenantId) query.tenant = tenantId;
+    const agents = await User.find(query, 'name email performanceScore totalDeals successfulDeals')
+      .sort({ performanceScore: -1 });
 
     return agents.map((agent, index) => ({
       rank: index + 1,
