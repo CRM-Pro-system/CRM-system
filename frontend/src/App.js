@@ -17,6 +17,8 @@ const SalesManagement = lazy(() => import('./pages/agent/SalesManagement'));
 const UserManagement = lazy(() => import('./pages/admin/UserManagement'));
 const Reports = lazy(() => import('./pages/admin/Reports'));
 const Settings = lazy(() => import('./pages/admin/Settings'));
+const SuperAdminDashboard = lazy(() => import('./pages/superadmin/Dashboard'));
+const TenantManagement = lazy(() => import('./pages/superadmin/TenantManagement'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
@@ -31,16 +33,17 @@ const PageLoader = () => (
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const { user } = useAuth();
 
-  // Use cached user from localStorage for instant rendering
-  if (!user) {
-    const cachedUser = localStorage.getItem('user');
-    if (!cachedUser) {
-      return <Navigate to="/login" replace />;
-    }
-  }
+  const cachedUser = user || (() => {
+    try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
+  })();
 
-  if (allowedRoles.length > 0 && user && !allowedRoles.includes(user.role)) {
-    const redirectPath = user.role === 'admin' ? '/admin' : '/agent';
+  if (!cachedUser) return <Navigate to="/login" replace />;
+
+  // Superadmin can access everything
+  if (cachedUser.role === 'superadmin') return <Layout>{children}</Layout>;
+
+  if (allowedRoles.length > 0 && !allowedRoles.includes(cachedUser.role)) {
+    const redirectPath = cachedUser.role === 'admin' ? '/admin' : '/agent';
     return <Navigate to={redirectPath} replace />;
   }
 
@@ -50,9 +53,13 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 const PublicRoute = ({ children }) => {
   const { user } = useAuth();
 
-  // Use cached user from localStorage for instant rendering
-  if (user) {
-    const redirectPath = user.role === 'admin' ? '/admin' : '/agent';
+  const cachedUser = user || (() => {
+    try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
+  })();
+
+  if (cachedUser) {
+    if (cachedUser.role === 'superadmin') return <Navigate to="/superadmin" replace />;
+    const redirectPath = cachedUser.role === 'admin' ? '/admin' : '/agent';
     return <Navigate to={redirectPath} replace />;
   }
 
@@ -81,6 +88,18 @@ function App() {
                   <PublicRoute>
                     <ResetPassword />
                   </PublicRoute>
+                } />
+
+                {/* Super Admin Routes */}
+                <Route path="/superadmin" element={
+                  <ProtectedRoute allowedRoles={['superadmin']}>
+                    <SuperAdminDashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="/superadmin/tenants" element={
+                  <ProtectedRoute allowedRoles={['superadmin']}>
+                    <TenantManagement />
+                  </ProtectedRoute>
                 } />
 
                 {/* Admin Routes */}
