@@ -800,9 +800,6 @@ const Schedules = () => {
   });
 
   // Load schedules and clients on mount
-useEffect(() => {
-  loadData();
-}, [loadData]); 
   const loadData = async () => {
     try {
       setLoading(true);
@@ -833,6 +830,11 @@ useEffect(() => {
       setLoading(false);
     }
   };
+
+  // Load data on component mount
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const filteredSchedules = schedules.filter(schedule => {
     if (filters.type && schedule.type !== filters.type) return false;

@@ -21,6 +21,13 @@ const notificationSchema = new mongoose.Schema({
     ref: 'User',
     required: true // Admin user ID
   },
+  
+  // Multi-Tenant Field
+  tenant: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: [true, 'Tenant is required']
+  },
   actor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

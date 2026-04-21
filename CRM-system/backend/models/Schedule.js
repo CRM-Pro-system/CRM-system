@@ -17,6 +17,13 @@ const scheduleSchema = new mongoose.Schema({
     ref: 'Client',
     required: [true, 'Client is required']
   },
+  
+  // Multi-Tenant Field
+  tenant: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: [true, 'Tenant is required']
+  },
   date: {
     type: Date,
     required: [true, 'Date is required']

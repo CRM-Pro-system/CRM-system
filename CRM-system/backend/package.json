@@ -26,6 +26,7 @@
     "pug": "^3.0.2"
   },
   "devDependencies": {
+    "axios": "^1.15.0",
     "nodemon": "^3.1.11"
   }
 }

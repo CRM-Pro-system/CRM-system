@@ -17,8 +17,8 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    // Check if user exists
-    const user = await User.findOne({ email });
+    // Check if user exists and populate tenant
+    const user = await User.findOne({ email }).populate('tenant');
     if (!user) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
@@ -41,9 +41,19 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Create token
+    // Create token with tenant context
+    const tokenPayload = {
+      userId: user._id,
+      role: user.role
+    };
+    
+    // Add tenant ID to token for regular users
+    if (user.tenant) {
+      tokenPayload.tenantId = user.tenant._id;
+    }
+    
     const token = jwt.sign(
-      { userId: user._id, role: user.role },
+      tokenPayload,
       process.env.JWT_SECRET || 'fallback_secret',
       { expiresIn: '24h' }
     );
@@ -64,6 +74,11 @@ router.post('/login', async (req, res) => {
       role: user.role,
       phone: user.phone,
       nin: user.nin || null,
+      tenant: user.tenant ? {
+        id: user.tenant._id,
+        name: user.tenant.name,
+        slug: user.tenant.slug
+      } : null,
       isFirstLogin: user.isFirstLogin,
       isActive: user.isActive,
       status: user.status,

@@ -22,6 +22,13 @@ const dealSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  
+  // Multi-Tenant Field
+  tenant: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: [true, 'Tenant is required']
+  },
   teamMembers: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
@@ -118,5 +125,15 @@ dealSchema.pre('save', function(next) {
   this.lastActivityDate = new Date();
   next();
 });
+
+// Add indexes for better performance
+dealSchema.index({ agent: 1 });
+dealSchema.index({ client: 1 });
+dealSchema.index({ stage: 1 });
+dealSchema.index({ tenant: 1 });
+dealSchema.index({ tenant: 1, agent: 1 });
+dealSchema.index({ tenant: 1, stage: 1 });
+dealSchema.index({ expectedCloseDate: 1 });
+dealSchema.index({ lastActivityDate: -1 });
 
 export default mongoose.model('Deal', dealSchema);

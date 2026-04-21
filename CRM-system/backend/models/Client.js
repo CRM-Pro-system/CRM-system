@@ -176,6 +176,13 @@ const clientSchema = new mongoose.Schema({
     required: [true, 'Agent is required']
   },
   
+  // Multi-Tenant Field
+  tenant: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: [true, 'Tenant is required']
+  },
+  
   // Contact Persons
   contacts: {
     type: [{
@@ -209,5 +216,7 @@ clientSchema.index({ email: 1 }); // Fast email lookups
 clientSchema.index({ status: 1 }); // Fast status filtering
 clientSchema.index({ nin: 1 }); // Fast NIN lookups
 clientSchema.index({ createdAt: -1 }); // Fast date-based sorting
+clientSchema.index({ tenant: 1 }); // Fast tenant-based filtering
+clientSchema.index({ tenant: 1, agent: 1 }); // Compound index for tenant + agent queries
 
 export default mongoose.model('Client', clientSchema);
