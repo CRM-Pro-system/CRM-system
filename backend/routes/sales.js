@@ -6,32 +6,20 @@ import Stock from '../models/Stock.js';
 import User from '../models/User.js';
 import { body, validationResult } from 'express-validator';
 import { createNotification } from '../utils/notifications.js';
+import { tenantAuth } from '../middleware/tenantAuth.js';
 
 const router = express.Router();
 
-// Middleware to get current user
-const getCurrentUser = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-
-    const jwt = await import('jsonwebtoken');
-    const decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Invalid token' });
-  }
-};
+// Apply tenant-aware middleware to all routes
+router.use(tenantAuth);
 
 // Get all sales (admin sees all, agents see their own)
-router.get('/', getCurrentUser, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 10, startDate, endDate, paymentMethod, status, customerName, agent } = req.query;
 
-    let query = {};
+    // Start with tenant-filtered query
+    let query = req.tenantQuery;
 
     // Agents can only see their own sales, or filter by specific agent if admin
     if (req.user.role === 'agent') {
@@ -88,7 +76,7 @@ router.get('/', getCurrentUser, async (req, res) => {
 });
 
 // Get sales summary (daily, weekly, monthly)
-router.get('/summary', getCurrentUser, async (req, res) => {
+router.get('/summary', async (req, res) => {
   try {
     const { period = 'daily', agent } = req.query;
     const now = new Date();
@@ -104,7 +92,8 @@ router.get('/summary', getCurrentUser, async (req, res) => {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
-    let query = { saleDate: { $gte: startDate } };
+    // Start with tenant-filtered query and add date filter
+    let query = { ...req.tenantQuery, saleDate: { $gte: startDate } };
 
     // Agents can only see their own sales, or filter by specific agent if admin
     if (req.user.role === 'agent') {
@@ -136,11 +125,12 @@ router.get('/summary', getCurrentUser, async (req, res) => {
 });
 
 // Get sales statistics (admin only - sees all data)
-router.get('/stats', getCurrentUser, async (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
-    let query = {};
+    // Start with tenant-filtered query
+    let query = req.tenantQuery;
 
     // Apply date filters if provided
     if (startDate && endDate) {
@@ -237,7 +227,6 @@ router.get('/stats', getCurrentUser, async (req, res) => {
 
 // Create new sale
 router.post('/', [
-  getCurrentUser,
   body('customerName').trim().isLength({ min: 1 }).withMessage('Customer name is required'),
   body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
   body('paymentMethod').isIn(['cash', 'credit']).withMessage('Invalid payment method')
@@ -270,7 +259,7 @@ router.post('/', [
       }
     }
 
-    // Create sale
+    // Create sale with tenant assignment
     const sale = new Sale({
       customerName,
       customerEmail,
@@ -278,6 +267,7 @@ router.post('/', [
       items,
       paymentMethod,
       agent: req.user.userId,
+      tenant: req.user.tenantId,
       client: client || null,
       notes,
       dueDate: paymentMethod === 'credit' ? dueDate : null,
@@ -354,9 +344,10 @@ router.post('/', [
 });
 
 // Get single sale
-router.get('/:id', getCurrentUser, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    let query = { _id: req.params.id };
+    // Start with tenant-filtered query
+    let query = { _id: req.params.id, ...req.tenantQuery };
 
     // Agents can only access their own sales
     if (req.user.role === 'agent') {
@@ -380,7 +371,6 @@ router.get('/:id', getCurrentUser, async (req, res) => {
 
 // Update sale (only for credit sales, agents can edit their own)
 router.put('/:id', [
-  getCurrentUser,
   body('customerName').optional().trim().isLength({ min: 1 }).withMessage('Customer name cannot be empty'),
   body('items').optional().isArray({ min: 1 }).withMessage('At least one item is required'),
   body('items.*.itemName').optional().trim().isLength({ min: 1 }).withMessage('Item name is required'),
@@ -394,7 +384,8 @@ router.put('/:id', [
       return res.status(400).json({ message: 'Validation errors', errors: errors.array() });
     }
 
-    let query = { _id: req.params.id };
+    // Start with tenant-filtered query
+    let query = { _id: req.params.id, ...req.tenantQuery };
 
     // Agents can only update their own sales
     if (req.user.role === 'agent') {
@@ -438,7 +429,6 @@ router.put('/:id', [
 
 // Record payment for credit sale
 router.post('/:id/payment', [
-  getCurrentUser,
   body('amount').isFloat({ min: 0.01 }).withMessage('Payment amount must be greater than 0'),
   body('paymentMethod').optional().isIn(['cash', 'bank_transfer', 'online']).withMessage('Invalid payment method'),
   body('cardNumber').if(body('paymentMethod').equals('bank_transfer')).notEmpty().withMessage('Card/Account number is required for bank transfers'),
@@ -451,7 +441,8 @@ router.post('/:id/payment', [
       return res.status(400).json({ message: 'Validation errors', errors: errors.array() });
     }
 
-    let query = { _id: req.params.id };
+    // Start with tenant-filtered query
+    let query = { _id: req.params.id, ...req.tenantQuery };
 
     // Agents can only access their own sales
     if (req.user.role === 'agent') {
@@ -500,11 +491,12 @@ router.post('/:id/payment', [
 });
 
 // Get recent sales for dashboard
-router.get('/recent/list', getCurrentUser, async (req, res) => {
+router.get('/recent/list', async (req, res) => {
   try {
     const { limit = 5 } = req.query;
 
-    let query = {};
+    // Start with tenant-filtered query
+    let query = req.tenantQuery;
 
     // Agents can only see their own sales
     if (req.user.role === 'agent') {
