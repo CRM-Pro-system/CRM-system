@@ -2,35 +2,22 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import Notification from '../models/Notification.js';
+import { tenantAuth } from '../middleware/tenantAuth.js';
 
 const router = express.Router();
 
-// Middleware to get current user
-const getCurrentUser = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-
-    const jwt = await import('jsonwebtoken');
-    const decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Invalid token' });
-  }
-};
+// Apply tenant-aware middleware to all routes
+router.use(tenantAuth);
 
 // Get notifications for current user (admin)
-router.get('/', getCurrentUser, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 20, isRead, type } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Convert userId to ObjectId for proper MongoDB matching
     const recipientId = new mongoose.Types.ObjectId(req.user.userId);
-    let query = { recipient: recipientId };
+    let query = { recipient: recipientId, ...req.tenantQuery };
 
     if (isRead !== undefined) {
       query.isRead = isRead === 'true';
@@ -65,12 +52,13 @@ router.get('/', getCurrentUser, async (req, res) => {
 });
 
 // Get unread notification count
-router.get('/unread-count', getCurrentUser, async (req, res) => {
+router.get('/unread-count', async (req, res) => {
   try {
     const recipientId = new mongoose.Types.ObjectId(req.user.userId);
     const count = await Notification.countDocuments({
       recipient: recipientId,
-      isRead: false
+      isRead: false,
+      ...req.tenantQuery
     });
 
     res.json({ count });
@@ -81,11 +69,11 @@ router.get('/unread-count', getCurrentUser, async (req, res) => {
 });
 
 // Mark notification as read
-router.put('/:id/read', getCurrentUser, async (req, res) => {
+router.put('/:id/read', async (req, res) => {
   try {
     const recipientId = new mongoose.Types.ObjectId(req.user.userId);
     const notification = await Notification.findOneAndUpdate(
-      { _id: req.params.id, recipient: recipientId },
+      { _id: req.params.id, recipient: recipientId, ...req.tenantQuery },
       { isRead: true },
       { new: true }
     );
@@ -102,11 +90,11 @@ router.put('/:id/read', getCurrentUser, async (req, res) => {
 });
 
 // Mark all notifications as read
-router.put('/mark-all-read', getCurrentUser, async (req, res) => {
+router.put('/mark-all-read', async (req, res) => {
   try {
     const recipientId = new mongoose.Types.ObjectId(req.user.userId);
     const result = await Notification.updateMany(
-      { recipient: recipientId, isRead: false },
+      { recipient: recipientId, isRead: false, ...req.tenantQuery },
       { isRead: true }
     );
 
@@ -118,12 +106,13 @@ router.put('/mark-all-read', getCurrentUser, async (req, res) => {
 });
 
 // Delete notification
-router.delete('/:id', getCurrentUser, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const recipientId = new mongoose.Types.ObjectId(req.user.userId);
     const notification = await Notification.findOneAndDelete({
       _id: req.params.id,
-      recipient: recipientId
+      recipient: recipientId,
+      ...req.tenantQuery
     });
 
     if (!notification) {
@@ -137,12 +126,13 @@ router.delete('/:id', getCurrentUser, async (req, res) => {
 });
 
 // Get notification stats
-router.get('/stats/summary', getCurrentUser, async (req, res) => {
+router.get('/stats/summary', async (req, res) => {
   try {
     const userId = new mongoose.Types.ObjectId(req.user.userId);
+    const tenantId = new mongoose.Types.ObjectId(req.user.tenantId);
 
     const stats = await Notification.aggregate([
-      { $match: { recipient: userId } },
+      { $match: { recipient: userId, tenant: tenantId } },
       {
         $group: {
           _id: null,
@@ -158,7 +148,7 @@ router.get('/stats/summary', getCurrentUser, async (req, res) => {
     ]);
 
     const typeStats = await Notification.aggregate([
-      { $match: { recipient: userId } },
+      { $match: { recipient: userId, tenant: tenantId } },
       {
         $group: {
           _id: '$type',
