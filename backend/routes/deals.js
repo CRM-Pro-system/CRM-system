@@ -3,32 +3,20 @@ import express from 'express';
 import Deal from '../models/Deal.js';
 import { body, validationResult } from 'express-validator';
 import { createNotification } from '../utils/notifications.js';
+import { tenantAuth } from '../middleware/tenantAuth.js';
 
 const router = express.Router();
 
-// Middleware to get current user
-const getCurrentUser = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-
-    const jwt = await import('jsonwebtoken');
-    const decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Invalid token' });
-  }
-};
+// Apply tenant-aware middleware to all routes
+router.use(tenantAuth);
 
 // Get all deals (admin sees all, agents see their own)
-router.get('/', getCurrentUser, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 10, stage, client, agent, search, minValue, maxValue } = req.query;
 
-    let query = {};
+    // Start with tenant-filtered query
+    let query = req.tenantQuery;
 
     // Agents can only see their own deals, or filter by specific agent if admin
     if (req.user.role === 'agent') {
@@ -90,9 +78,10 @@ router.get('/', getCurrentUser, async (req, res) => {
 });
 
 // Get deal statistics
-router.get('/stats', getCurrentUser, async (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
-    let query = {};
+    // Start with tenant-filtered query
+    let query = req.tenantQuery;
 
     // Agents can only see stats for their own deals
     if (req.user.role === 'agent') {
@@ -141,9 +130,9 @@ router.get('/stats', getCurrentUser, async (req, res) => {
 });
 
 // Get deal by ID
-router.get('/:id', getCurrentUser, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const deal = await Deal.findById(req.params.id)
+    const deal = await Deal.findOne({ _id: req.params.id, ...req.tenantQuery })
       .populate('client', 'name email phone')
       .populate('agent', 'name email')
       .populate('teamMembers', 'name email')
@@ -169,7 +158,7 @@ router.get('/:id', getCurrentUser, async (req, res) => {
 });
 
 // Create new deal
-router.post('/', getCurrentUser, [
+router.post('/', [
   body('title').notEmpty().withMessage('Title is required'),
   body('value').isNumeric().withMessage('Value must be a number'),
   body('client').notEmpty().withMessage('Client is required')
@@ -180,13 +169,25 @@ router.post('/', getCurrentUser, [
       return res.status(400).json({ errors: errors.array() });
     }
 
+    // Check usage limits
+    if (!req.canAddDeals()) {
+      return res.status(403).json({ 
+        message: 'Deal limit reached for your subscription plan',
+        limit: req.tenant.subscription?.features?.maxDeals || 0
+      });
+    }
+
     const dealData = {
       ...req.body,
+      tenant: req.user.tenantId,
       agent: req.user.role === 'agent' ? req.user.userId : req.body.agent
     };
 
     const deal = new Deal(dealData);
     await deal.save();
+
+    // Update tenant usage
+    await req.updateTenantUsage('deals', 1);
 
     const populatedDeal = await Deal.findById(deal._id)
       .populate('client', 'name email phone')
@@ -213,9 +214,9 @@ router.post('/', getCurrentUser, [
 });
 
 // Update deal
-router.put('/:id', getCurrentUser, async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
-    const deal = await Deal.findById(req.params.id)
+    const deal = await Deal.findOne({ _id: req.params.id, ...req.tenantQuery })
       .populate('client', 'name');
 
     if (!deal) {
@@ -234,7 +235,11 @@ router.put('/:id', getCurrentUser, async (req, res) => {
       req.body.closedAt = new Date();
     }
 
-    const updatedDeal = await Deal.findByIdAndUpdate(req.params.id, req.body, { new: true })
+    const updatedDeal = await Deal.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery }, 
+      req.body, 
+      { new: true }
+    )
       .populate('client', 'name email phone')
       .populate('agent', 'name email')
       .populate('teamMembers', 'name email');
@@ -308,11 +313,11 @@ router.put('/:id', getCurrentUser, async (req, res) => {
 });
 
 // Update deal status
-router.patch('/:id/status', getCurrentUser, async (req, res) => {
+router.patch('/:id/status', async (req, res) => {
   try {
     const { status } = req.body;
 
-    const deal = await Deal.findById(req.params.id)
+    const deal = await Deal.findOne({ _id: req.params.id, ...req.tenantQuery })
       .populate('client', 'name');
 
     if (!deal) {
@@ -332,7 +337,11 @@ router.patch('/:id/status', getCurrentUser, async (req, res) => {
       updateData.closedAt = new Date();
     }
 
-    const updatedDeal = await Deal.findByIdAndUpdate(req.params.id, updateData, { new: true })
+    const updatedDeal = await Deal.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery }, 
+      updateData, 
+      { new: true }
+    )
       .populate('client', 'name email phone')
       .populate('agent', 'name email');
 
@@ -389,9 +398,9 @@ router.patch('/:id/status', getCurrentUser, async (req, res) => {
 });
 
 // Delete deal
-router.delete('/:id', getCurrentUser, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const deal = await Deal.findById(req.params.id);
+    const deal = await Deal.findOne({ _id: req.params.id, ...req.tenantQuery });
 
     if (!deal) {
       return res.status(404).json({ message: 'Deal not found' });
@@ -402,7 +411,11 @@ router.delete('/:id', getCurrentUser, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    await Deal.findByIdAndDelete(req.params.id);
+    await Deal.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
+    
+    // Update tenant usage
+    await req.updateTenantUsage('deals', -1);
+    
     res.json({ message: 'Deal deleted successfully' });
   } catch (error) {
     console.error('Error deleting deal:', error);
