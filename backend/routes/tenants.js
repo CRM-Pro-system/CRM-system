@@ -2,48 +2,37 @@ import express from 'express';
 import Tenant from '../models/Tenant.js';
 import Subscription from '../models/Subscription.js';
 import User from '../models/User.js';
+import Client from '../models/Client.js';
+import Deal from '../models/Deal.js';
 import { tenantAuth, requireSuperAdmin } from '../middleware/tenantAuth.js';
 
 const router = express.Router();
 
-// All tenant management routes require authentication
 router.use(tenantAuth);
 
-// GET all tenants (super admin only)
+// GET all tenants
 router.get('/', requireSuperAdmin, async (req, res) => {
   try {
-    const tenants = await Tenant.find({})
-      .populate('subscription', 'planDisplayName pricing features')
-      .populate('owner', 'name email')
-      .sort({ createdAt: -1 });
-
+    const tenants = await Tenant.find({}).sort({ createdAt: -1 });
     res.json({ tenants, total: tenants.length });
   } catch (error) {
-    console.error('Error fetching tenants:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// GET single tenant (super admin only)
+// GET single tenant
 router.get('/:id', requireSuperAdmin, async (req, res) => {
   try {
-    const tenant = await Tenant.findById(req.params.id)
-      .populate('subscription', 'planDisplayName pricing features')
-      .populate('owner', 'name email');
-
+    const tenant = await Tenant.findById(req.params.id);
     if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
-
-    // Get user count for this tenant
     const userCount = await User.countDocuments({ tenant: tenant._id });
-
     res.json({ ...tenant.toObject(), userCount });
   } catch (error) {
-    console.error('Error fetching tenant:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// POST create new tenant (super admin only)
+// POST create new tenant
 router.post('/', requireSuperAdmin, async (req, res) => {
   try {
     const { name, email, phone, address, subscriptionPlan = 'starter', settings, metadata } = req.body;
@@ -52,21 +41,17 @@ router.post('/', requireSuperAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Name and email are required' });
     }
 
-    // Check if tenant with email already exists
     const existing = await Tenant.findOne({ email });
-    if (existing) return res.status(400).json({ message: 'Tenant with this email already exists' });
+    if (existing) return res.status(400).json({ message: 'Organization with this email already exists' });
 
-    // Find or create subscription
-    let subscription = await Subscription.findOne({ planName: subscriptionPlan });
-    if (!subscription) {
-      subscription = await Subscription.findOne({ planName: 'starter' });
-    }
+    const subscription = await Subscription.findOne({ planName: subscriptionPlan }) ||
+      await Subscription.findOne({ planName: 'starter' });
 
     const tenant = new Tenant({
       name,
       email,
-      phone,
-      address,
+      phone: phone || '',
+      address: address || {},
       subscription: subscription?._id || null,
       settings: {
         primaryColor: settings?.primaryColor || '#f97316',
@@ -90,19 +75,18 @@ router.post('/', requireSuperAdmin, async (req, res) => {
     });
 
     await tenant.save();
-    res.status(201).json({ message: 'Tenant created successfully', tenant });
+    res.status(201).json({ message: 'Organization created successfully', tenant });
   } catch (error) {
     console.error('Error creating tenant:', error);
-    if (error.code === 11000) return res.status(400).json({ message: 'Tenant with this name or email already exists' });
+    if (error.code === 11000) return res.status(400).json({ message: 'Organization with this name or email already exists' });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// PUT update tenant (super admin only)
+// PUT update tenant
 router.put('/:id', requireSuperAdmin, async (req, res) => {
   try {
     const { name, email, phone, address, status, settings, metadata } = req.body;
-
     const update = {};
     if (name) update.name = name;
     if (email) update.email = email;
@@ -122,54 +106,39 @@ router.put('/:id', requireSuperAdmin, async (req, res) => {
         });
       }
     }
-
-    const tenant = await Tenant.findByIdAndUpdate(req.params.id, update, { new: true })
-      .populate('subscription', 'planDisplayName pricing');
-
+    const tenant = await Tenant.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
-
-    res.json({ message: 'Tenant updated successfully', tenant });
+    res.json({ message: 'Organization updated successfully', tenant });
   } catch (error) {
-    console.error('Error updating tenant:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// PATCH suspend/activate tenant (super admin only)
+// PATCH update tenant status
 router.patch('/:id/status', requireSuperAdmin, async (req, res) => {
   try {
     const { status } = req.body;
     if (!['active', 'suspended', 'inactive', 'trial'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status' });
     }
-
-    const tenant = await Tenant.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    );
-
+    const tenant = await Tenant.findByIdAndUpdate(req.params.id, { status }, { new: true });
     if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
-
-    res.json({ message: `Tenant ${status} successfully`, tenant });
+    res.json({ message: `Organization ${status} successfully`, tenant });
   } catch (error) {
-    console.error('Error updating tenant status:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// GET tenant usage stats (super admin only)
+// GET tenant stats
 router.get('/:id/stats', requireSuperAdmin, async (req, res) => {
   try {
     const tenant = await Tenant.findById(req.params.id);
     if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
-
     const [userCount, clientCount, dealCount] = await Promise.all([
       User.countDocuments({ tenant: tenant._id }),
-      (await import('../models/Client.js')).default.countDocuments({ tenant: tenant._id }),
-      (await import('../models/Deal.js')).default.countDocuments({ tenant: tenant._id })
+      Client.countDocuments({ tenant: tenant._id }),
+      Deal.countDocuments({ tenant: tenant._id })
     ]);
-
     res.json({
       tenantId: tenant._id,
       name: tenant.name,
@@ -179,7 +148,6 @@ router.get('/:id/stats', requireSuperAdmin, async (req, res) => {
       createdAt: tenant.createdAt
     });
   } catch (error) {
-    console.error('Error fetching tenant stats:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
