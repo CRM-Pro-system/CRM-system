@@ -1,10 +1,12 @@
 import express from 'express';
+import bcrypt from 'bcryptjs';
 import Tenant from '../models/Tenant.js';
 import Subscription from '../models/Subscription.js';
 import User from '../models/User.js';
 import Client from '../models/Client.js';
 import Deal from '../models/Deal.js';
 import { tenantAuth, requireSuperAdmin } from '../middleware/tenantAuth.js';
+import { sendEmail, generateOTP } from '../services/emailService.js';
 
 const router = express.Router();
 
@@ -35,18 +37,23 @@ router.get('/:id', requireSuperAdmin, async (req, res) => {
 // POST create new tenant
 router.post('/', requireSuperAdmin, async (req, res) => {
   try {
-    const { name, email, phone, address, subscriptionPlan = 'starter', settings, metadata } = req.body;
+    const { name, email, phone, address, adminName, subscriptionPlan = 'starter', settings, metadata } = req.body;
 
     if (!name || !email) {
       return res.status(400).json({ message: 'Name and email are required' });
     }
 
+    // Check if tenant or admin user already exists
     const existing = await Tenant.findOne({ email });
     if (existing) return res.status(400).json({ message: 'Organization with this email already exists' });
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ message: 'A user with this email already exists' });
 
     const subscription = await Subscription.findOne({ planName: subscriptionPlan }) ||
       await Subscription.findOne({ planName: 'starter' });
 
+    // Create the tenant
     const tenant = new Tenant({
       name,
       email,
@@ -73,9 +80,49 @@ router.post('/', requireSuperAdmin, async (req, res) => {
       status: 'active',
       metadata: metadata || {}
     });
-
     await tenant.save();
-    res.status(201).json({ message: 'Organization created successfully', tenant });
+
+    // Auto-create admin user for this organization
+    const otp = generateOTP();
+    const hashedPassword = await bcrypt.hash(otp, 10);
+    const companyAdminName = adminName || `${name} Admin`;
+
+    const adminUser = new User({
+      name: companyAdminName,
+      email,
+      password: hashedPassword,
+      role: 'admin',
+      tenant: tenant._id,
+      otp,
+      otpExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+      isFirstLogin: true,
+      isActive: true,
+      phone: phone || '',
+      status: 'offline'
+    });
+    await adminUser.save();
+
+    // Update tenant usage
+    await Tenant.findByIdAndUpdate(tenant._id, { 'usage.totalUsers': 1 });
+
+    // Send welcome email to the company admin
+    const emailResult = await sendEmail(email, 'agentWelcome', {
+      name: companyAdminName,
+      email,
+      otp
+    });
+
+    res.status(201).json({
+      message: 'Organization created successfully',
+      tenant,
+      admin: {
+        name: companyAdminName,
+        email,
+        role: 'admin'
+      },
+      emailSent: emailResult.success,
+      otp: emailResult.success ? undefined : otp // Only return OTP if email failed
+    });
   } catch (error) {
     console.error('Error creating tenant:', error);
     if (error.code === 11000) return res.status(400).json({ message: 'Organization with this name or email already exists' });
