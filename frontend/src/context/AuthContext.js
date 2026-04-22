@@ -35,20 +35,22 @@ export const AuthProvider = ({ children }) => {
 
       if (storedToken && storedUser) {
         try {
-          try {
-            const response = await authAPI.getMe();
-            const userData = response.data;
-            setUser(userData);
-            localStorage.setItem('user', JSON.stringify(userData));
-          } catch (validationError) {
-            console.warn('Token validation failed, but keeping session for user experience');
+          const response = await authAPI.getMe();
+          const userData = response.data;
+          setUser(userData);
+          localStorage.setItem('user', JSON.stringify(userData));
+        } catch (validationError) {
+          // Token is expired or invalid - clear session and redirect to login
+          const status = validationError.response?.status;
+          if (status === 401 || status === 403) {
+            console.warn('Session expired, clearing login state');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('tenantId');
+            localStorage.removeItem('tenantName');
+            setToken(null);
+            setUser(null);
           }
-        } catch (parseError) {
-          console.error('Failed to parse stored user data, clearing session');
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          setToken(null);
-          setUser(null);
         }
       }
     };

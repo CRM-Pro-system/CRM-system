@@ -17,7 +17,23 @@ api.interceptors.request.use(
     }
     return config;
   },
+  (error) => Promise.reject(error)
+);
+
+// Auto logout on 401 - token expired or invalid
+api.interceptors.response.use(
+  (response) => response,
   (error) => {
+    if (error.response?.status === 401) {
+      const isLoginRequest = error.config?.url?.includes('/auth/login');
+      if (!isLoginRequest) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('tenantId');
+        localStorage.removeItem('tenantName');
+        window.location.href = '/login';
+      }
+    }
     return Promise.reject(error);
   }
 );
