@@ -21,6 +21,7 @@ import { uploadRoutes } from './routes/upload.js';
 import { meetingRoutes } from './routes/meetings.js';
 import { settingsRoutes } from './routes/settings.js';
 import { tenantRoutes } from './routes/tenants.js';
+import { auditLogRoutes } from './routes/auditLogs.js';
 import { testEmailConfig } from './services/emailService.js';
 
 
@@ -110,6 +111,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/meetings', meetingRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/tenants', tenantRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
 
 // Lightweight health/version endpoints for deployed debugging
 app.get('/api/health', (req, res) => {
