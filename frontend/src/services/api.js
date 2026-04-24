@@ -166,6 +166,12 @@ export const tenantsAPI = {
   getStats: (id) => api.get(`/tenants/${id}/stats`),
 };
 
+// Audit Logs API
+export const auditLogsAPI = {
+  getAll: (params) => api.get('/audit-logs', { params }),
+  getStats: () => api.get('/audit-logs/stats'),
+};
+
 // Meetings API
 export const meetingsAPI = {
   getAll: (params) => api.get('/meetings', { params }),
