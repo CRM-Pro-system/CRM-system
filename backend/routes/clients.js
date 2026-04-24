@@ -2,6 +2,7 @@ import express from 'express';
 import Client from '../models/Client.js';
 import { body, validationResult } from 'express-validator';
 import { tenantAuth } from '../middleware/tenantAuth.js';
+import { logAction } from '../utils/auditLog.js';
 
 const router = express.Router();
 
@@ -121,6 +122,8 @@ router.post('/', [
     // Update tenant usage
     await req.updateTenantUsage('clients', 1);
 
+    await logAction(req, 'CREATE_CLIENT', `Created client ${clientData.name}`, { entityType: 'Client', entityId: client._id });
+
     const populatedClient = await Client.findById(client._id)
       .populate('agent', 'name email');
 
@@ -163,6 +166,7 @@ router.put('/:id', [
       { new: true }
     ).populate('agent', 'name email');
 
+    await logAction(req, 'UPDATE_CLIENT', `Updated client ${client.name}`, { entityType: 'Client', entityId: client._id });
     res.json(updatedClient);
   } catch (error) {
     console.error('Error updating client:', error);
@@ -188,10 +192,8 @@ router.delete('/:id', async (req, res) => {
     }
 
     await Client.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
-
-    // Update tenant usage
     await req.updateTenantUsage('clients', -1);
-
+    await logAction(req, 'DELETE_CLIENT', `Deleted client ${client.name}`, { entityType: 'Client', entityId: client._id });
     res.json({ message: 'Client deleted successfully' });
   } catch (error) {
     console.error('Error deleting client:', error);
