@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import AuditLog from '../models/AuditLog.js';
 import { sendEmail, generateOTP } from '../services/emailService.js';
 import { forgotPasswordLimiter, authLimiter } from '../middleware/rateLimiter.js';
 
@@ -65,6 +66,20 @@ router.post('/login', async (req, res) => {
     } catch (err) {
       // Silent fail - status update is not critical
     }
+
+    // Log the login action
+    try {
+      await AuditLog.create({
+        action: 'LOGIN',
+        description: `${user.name} logged in`,
+        user: user._id,
+        userName: user.name,
+        userEmail: user.email,
+        userRole: user.role,
+        tenant: user.tenant || null,
+        status: 'success'
+      });
+    } catch (err) {}
 
     // Return user data without password
     const userResponse = {
