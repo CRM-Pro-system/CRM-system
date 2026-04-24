@@ -47,6 +47,45 @@ const UserManagement = () => {
     loadUsers();
   }, []);
 
+  const handleExportCSV = () => {
+    try {
+      const headers = ['Name', 'Email', 'Phone', 'Role', 'Status', 'NIN', 'Performance Score', 'Total Deals', 'Successful Deals', 'Total Sales Amount', 'Joined Date'];
+      const rows = filteredUsers.map(u => [
+        u.name || '',
+        u.email || '',
+        u.phone || '',
+        u.role || '',
+        u.isActive === false ? 'Inactive' : u.isFirstLogin ? 'Pending' : 'Active',
+        u.nin || '',
+        u.performanceScore || 0,
+        u.totalDeals || 0,
+        u.successfulDeals || 0,
+        u.totalSalesAmount || 0,
+        u.createdAt ? new Date(u.createdAt).toLocaleDateString() : ''
+      ]);
+
+      const csvContent = [
+        `CRM User Management Report`,
+        `Generated: ${new Date().toLocaleString()}`,
+        `Total Users: ${filteredUsers.length}`,
+        '',
+        headers.join(','),
+        ...rows.map(r => r.map(v => `"${v}"`).join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `users-report-${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${filteredUsers.length} users to CSV`);
+    } catch (error) {
+      toast.error('Failed to export users');
+    }
+  };
+
   const loadUsers = async () => {
     try {
       setLoading(true);
@@ -477,7 +516,7 @@ const UserManagement = () => {
                 <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
               </button>
               
-              <button className="px-4 py-3 bg-gray-50 text-gray-600 rounded-xl flex items-center space-x-2 hover:bg-gray-100 transition-all border border-gray-200">
+              <button className="px-4 py-3 bg-gray-50 text-gray-600 rounded-xl flex items-center space-x-2 hover:bg-gray-100 transition-all border border-gray-200" onClick={handleExportCSV}>
                 <Download className="w-4 h-4" />
                 <span>Export</span>
               </button>
