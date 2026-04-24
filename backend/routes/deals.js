@@ -4,6 +4,7 @@ import Deal from '../models/Deal.js';
 import { body, validationResult } from 'express-validator';
 import { createNotification } from '../utils/notifications.js';
 import { tenantAuth } from '../middleware/tenantAuth.js';
+import { logAction } from '../utils/auditLog.js';
 
 const router = express.Router();
 
@@ -188,6 +189,7 @@ router.post('/', [
 
     // Update tenant usage
     await req.updateTenantUsage('deals', 1);
+    await logAction(req, 'CREATE_DEAL', `Created deal ${dealData.title}`, { entityType: 'Deal', entityId: deal._id });
 
     const populatedDeal = await Deal.findById(deal._id)
       .populate('client', 'name email phone')
@@ -412,10 +414,8 @@ router.delete('/:id', async (req, res) => {
     }
 
     await Deal.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
-    
-    // Update tenant usage
     await req.updateTenantUsage('deals', -1);
-    
+    await logAction(req, 'DELETE_DEAL', `Deleted deal ${deal.title}`, { entityType: 'Deal', entityId: deal._id });
     res.json({ message: 'Deal deleted successfully' });
   } catch (error) {
     console.error('Error deleting deal:', error);
