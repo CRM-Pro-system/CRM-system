@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import Tenant from '../models/Tenant.js';
 import { sendEmail, generateOTP } from '../services/emailService.js';
 import { tenantAuth, requireRole, requireSuperAdmin, addTenantFilter, addTenantData, checkUsageLimit } from '../middleware/tenantAuth.js';
+import { logAction } from '../utils/auditLog.js';
 
 const router = express.Router();
 
@@ -71,6 +72,9 @@ router.post('/', tenantAuth, requireRole(['admin', 'superadmin']), checkUsageLim
         'usage.lastActivity': new Date()
       });
     }
+
+    // Log the action
+    await logAction(req, 'CREATE_USER', `Created user ${email}`, { entityType: 'User', entityId: user._id });
 
     // Send welcome email with OTP
     const emailResult = await sendEmail(
@@ -203,6 +207,7 @@ router.delete('/:id', tenantAuth, requireRole(['admin', 'superadmin']), async (r
       });
     }
 
+    await logAction(req, 'DELETE_USER', `Deleted user ${user.email}`, { entityType: 'User', entityId: user._id });
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Error deleting user:', error);
