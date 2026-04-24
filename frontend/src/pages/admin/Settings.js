@@ -1,19 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  Save,
-  User,
-  Bell,
-  Shield,
-  FileText,
-  Eye,
-  EyeOff,
-  Clock,
-  XCircle,
-  Mail,
+  Save, User, Bell, Shield, FileText, Eye, EyeOff, Clock, XCircle, Mail,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { usersAPI, authAPI } from "../../services/api";
+import { usersAPI, authAPI, auditLogsAPI } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
 const Settings = () => {
@@ -51,29 +42,24 @@ const Settings = () => {
     loginAttemptLimit: 5,            // editable
   });
 
-  const [auditLogs, setAuditLogs] = useState([
-    {
-      id: 1,
-      action: "Login",
-      user: "Admin",
-      timestamp: new Date(Date.now() - 3600000),
-      details: "Successful login from 192.168.1.1",
-    },
-    {
-      id: 2,
-      action: "Settings Update",
-      user: "Admin",
-      timestamp: new Date(Date.now() - 7200000),
-      details: "Updated notification preferences",
-    },
-    {
-      id: 3,
-      action: "Password Change",
-      user: "Admin",
-      timestamp: new Date(Date.now() - 86400000),
-      details: "Password changed successfully",
-    },
-  ]);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'security') loadAuditLogs();
+  }, [activeTab]);
+
+  const loadAuditLogs = async () => {
+    try {
+      setAuditLoading(true);
+      const res = await auditLogsAPI.getAll({ limit: 20 });
+      setAuditLogs(res.data.logs || []);
+    } catch (error) {
+      console.error('Failed to load audit logs:', error);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
 
   // Compliance – only terms and privacy versions remain
   const [complianceSettings, setComplianceSettings] = useState({
@@ -545,47 +531,53 @@ const Settings = () => {
                 <h3 className="text-lg font-semibold text-gray-900 mb-6">
                   Recent Audit Logs
                 </h3>
+                {auditLoading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                  </div>
+                ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b">
                       <tr>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700">
-                          Action
-                        </th>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700">
-                          User
-                        </th>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700">
-                          Timestamp
-                        </th>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700">
-                          Details
-                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-700">Action</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-700">User</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-700">Timestamp</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-700">Details</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {auditLogs.map((log) => (
-                        <tr
-                          key={log.id}
-                          className="border-b hover:bg-gray-50"
-                        >
-                          <td className="px-4 py-3 text-gray-900 font-medium">
-                            {log.action}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
-                            {log.user}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
-                            {log.timestamp.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
-                            {log.details}
+                      {auditLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan="4" className="px-4 py-8 text-center text-gray-500">
+                            No audit logs yet. Actions will appear here as users interact with the system.
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        auditLogs.map((log) => (
+                          <tr key={log._id} className="border-b hover:bg-gray-50">
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                log.action.includes('DELETE') ? 'bg-red-100 text-red-700' :
+                                log.action.includes('CREATE') ? 'bg-green-100 text-green-700' :
+                                log.action === 'LOGIN' ? 'bg-blue-100 text-blue-700' :
+                                'bg-orange-100 text-orange-700'
+                              }`}>
+                                {log.action.replace(/_/g, ' ')}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-gray-600">{log.userName || 'System'}</td>
+                            <td className="px-4 py-3 text-gray-600">
+                              {new Date(log.createdAt).toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-gray-600">{log.description}</td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
+                )}
               </div>
 
               <div className="flex justify-end pt-6 border-t border-gray-200">
