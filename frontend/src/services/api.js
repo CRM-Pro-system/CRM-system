@@ -77,6 +77,7 @@ export const clientsAPI = {
   delete: (id) => api.delete(`/clients/${id}`),
   addInteraction: (id, data) => api.post(`/clients/${id}/interactions`, data),
   addTask: (id, data) => api.post(`/clients/${id}/tasks`, data),
+  sendEmail: (id, data) => api.post(`/clients/${id}/send-email`, data),
   exportCSV: async (params) => {
     const res = await api.get('/clients', { params: { ...params, limit: 1000 } });
     const clients = res.data?.clients || res.data || [];
