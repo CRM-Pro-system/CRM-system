@@ -1,33 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Plus,
-  Search,
-  Filter,
-  Download,
-  Mail,
-  MapPin,
-  Building,
-  User,
-  Star,
-  Calendar,
-  Edit,
-  Trash2,
-  Eye,
-  Users,
-  FileText,
-  Tag,
-  MessageCircle,
-  ChevronDown,
-  ChevronUp,
-  X,
-  Globe,
-  Briefcase,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Award,
-  MessageSquare
+  Plus, Search, Filter, Download, Mail, MapPin, Building, User, Star,
+  Calendar, Edit, Trash2, Eye, Users, FileText, Tag, MessageCircle,
+  ChevronDown, ChevronUp, X, Globe, Briefcase, AlertCircle, CheckCircle,
+  Clock, Award, MessageSquare, Send
 } from 'lucide-react';
 import { clientsAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext'; 
@@ -40,6 +17,8 @@ const Clients = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailClient, setEmailClient] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
@@ -1039,6 +1018,13 @@ const Clients = () => {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
+                        <button
+                          onClick={() => { setEmailClient(client); setShowEmailModal(true); }}
+                          className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg"
+                          title="Send Email"
+                        >
+                          <Mail className="w-4 h-4" />
+                        </button>
                         <button 
                           onClick={() => handleEditClient(client)} 
                           className="p-2 text-gray-500 hover:text-gray-700 rounded-lg" 
@@ -1109,6 +1095,15 @@ const Clients = () => {
         </div>
       )}
 
+      {/* Send Email Modal */}
+      {showEmailModal && emailClient && (
+        <SendEmailModal
+          client={emailClient}
+          onClose={() => { setShowEmailModal(false); setEmailClient(null); }}
+          onSent={() => { setShowEmailModal(false); setEmailClient(null); loadClients(); }}
+        />
+      )}
+
       {/* Add Client Modal */}
       {showAddModal && (
         <ClientRegistrationForm
@@ -1141,6 +1136,88 @@ const Clients = () => {
           }}
         />
       )}
+    </div>
+  );
+};
+
+const SendEmailModal = ({ client, onClose, onSent }) => {
+  const [form, setForm] = useState({ subject: '', message: '' });
+  const [sending, setSending] = useState(false);
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    if (!form.subject.trim() || !form.message.trim()) {
+      toast.error('Subject and message are required');
+      return;
+    }
+    try {
+      setSending(true);
+      await clientsAPI.sendEmail(client._id, form);
+      toast.success(`Email sent to ${client.name} successfully!`);
+      onSent();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to send email');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg"
+      >
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Send Email</h2>
+            <p className="text-sm text-gray-500 mt-0.5">To: {client.name} ({client.email})</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+        <form onSubmit={handleSend} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Subject *</label>
+            <input
+              type="text"
+              value={form.subject}
+              onChange={e => setForm({ ...form, subject: e.target.value })}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+              placeholder="e.g. Follow-up on our meeting"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Message *</label>
+            <textarea
+              rows={6}
+              value={form.message}
+              onChange={e => setForm({ ...form, message: e.target.value })}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+              placeholder={`Dear ${client.name},\n\nWrite your message here...`}
+            />
+          </div>
+          <div className="flex space-x-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={sending}
+              className="flex-1 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium flex items-center justify-center space-x-2 disabled:opacity-50"
+            >
+              <Send className="w-4 h-4" />
+              <span>{sending ? 'Sending...' : 'Send Email'}</span>
+            </button>
+          </div>
+        </form>
+      </motion.div>
     </div>
   );
 };
