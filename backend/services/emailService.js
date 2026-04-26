@@ -190,6 +190,49 @@ const emailTemplates = {
     };
   },
 
+  clientEmail: (templateData) => {
+    const { clientName, agentName, subject, message } = templateData;
+
+    return {
+      subject: subject || 'Message from your CRM Agent',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
+            .header { background: linear-gradient(135deg, #FF6B35, #FF8C42); color: white; padding: 30px; text-align: center; }
+            .content { padding: 30px; }
+            .message-box { background: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 4px solid #FF6B35; margin: 25px 0; white-space: pre-wrap; }
+            .footer { text-align: center; margin-top: 30px; padding: 20px; color: #666; font-size: 12px; border-top: 1px solid #eee; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>📧 Message from ${agentName}</h1>
+            </div>
+            
+            <div class="content">
+              <h2>Hello ${clientName},</h2>
+              
+              <div class="message-box">
+                ${message}
+              </div>
+
+              <div class="footer">
+                <p>This email was sent by ${agentName} via CRM System.</p>
+                <p>© ${new Date().getFullYear()} CRM System. All rights reserved.</p>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+  },
+
   passwordReset: (templateData) => {
     const { name, otp } = templateData;
 
