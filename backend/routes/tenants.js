@@ -176,6 +176,18 @@ router.patch('/:id/status', requireSuperAdmin, async (req, res) => {
   }
 });
 
+// DELETE tenant
+router.delete('/:id', requireSuperAdmin, async (req, res) => {
+  try {
+    const tenant = await Tenant.findById(req.params.id);
+    if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
+    await Tenant.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Organization deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // GET tenant stats
 router.get('/:id/stats', requireSuperAdmin, async (req, res) => {
   try {
