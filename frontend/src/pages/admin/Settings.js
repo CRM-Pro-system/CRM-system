@@ -542,6 +542,8 @@ const Settings = () => {
                       <tr>
                         <th className="px-4 py-3 text-left font-medium text-gray-700">Action</th>
                         <th className="px-4 py-3 text-left font-medium text-gray-700">User</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-700">Browser</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-700">IP Address</th>
                         <th className="px-4 py-3 text-left font-medium text-gray-700">Timestamp</th>
                         <th className="px-4 py-3 text-left font-medium text-gray-700">Details</th>
                       </tr>
@@ -567,6 +569,12 @@ const Settings = () => {
                               </span>
                             </td>
                             <td className="px-4 py-3 text-gray-600">{log.userName || 'System'}</td>
+                            <td className="px-4 py-3 text-gray-600 text-xs">
+                              {log.metadata?.browser || 'Unknown'} · {log.metadata?.device || 'Unknown'}
+                            </td>
+                            <td className="px-4 py-3 text-gray-600 text-xs font-mono">
+                              {log.ipAddress || 'N/A'}
+                            </td>
                             <td className="px-4 py-3 text-gray-600">
                               {new Date(log.createdAt).toLocaleString()}
                             </td>
