@@ -163,6 +163,33 @@ router.put('/:id', requireSuperAdmin, async (req, res) => {
 
 // PATCH update tenant status
 router.patch('/:id/status', requireSuperAdmin, async (req, res) => {
+
+// PATCH upload tenant logo (admin of that tenant)
+router.patch('/branding/logo', tenantAuth, async (req, res) => {
+  try {
+    if (req.isSuperAdmin) {
+      return res.status(400).json({ message: 'Super admin does not have a tenant to update' });
+    }
+    const { logo, primaryColor, secondaryColor } = req.body;
+    const update = {};
+    if (logo) update['settings.logo'] = logo;
+    if (primaryColor) update['settings.primaryColor'] = primaryColor;
+    if (secondaryColor) update['settings.secondaryColor'] = secondaryColor;
+
+    const tenant = await Tenant.findByIdAndUpdate(
+      req.tenantId,
+      update,
+      { new: true }
+    );
+    if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
+    res.json({ message: 'Branding updated successfully', tenant });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// PATCH update tenant status (super admin only)
+router.patch('/:id/status', requireSuperAdmin, async (req, res) => {
   try {
     const { status } = req.body;
     if (!['active', 'suspended', 'inactive', 'trial'].includes(status)) {
