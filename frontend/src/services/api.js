@@ -166,6 +166,7 @@ export const tenantsAPI = {
   updateStatus: (id, status) => api.patch(`/tenants/${id}/status`, { status }),
   delete: (id) => api.delete(`/tenants/${id}`),
   getStats: (id) => api.get(`/tenants/${id}/stats`),
+  updateBranding: (data) => api.patch('/tenants/branding/logo', data),
 };
 
 // Audit Logs API
