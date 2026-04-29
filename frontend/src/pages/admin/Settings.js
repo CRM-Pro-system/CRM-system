@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  Save, User, Bell, Shield, FileText, Eye, EyeOff, Clock, XCircle, Mail,
+  Save, User, Bell, Shield, FileText, Eye, EyeOff, Clock, XCircle, Mail, Palette, Upload
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { usersAPI, authAPI, auditLogsAPI } from "../../services/api";
+import { usersAPI, authAPI, auditLogsAPI, tenantsAPI, uploadAPI } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
 const Settings = () => {
@@ -45,6 +45,15 @@ const Settings = () => {
   const [auditLogs, setAuditLogs] = useState([]);
   const [auditLoading, setAuditLoading] = useState(false);
 
+  // Branding
+  const [branding, setBranding] = useState({
+    logo: user?.tenant?.logo || '',
+    primaryColor: '#f97316',
+    secondaryColor: '#1f2937'
+  });
+  const [logoPreview, setLogoPreview] = useState(user?.tenant?.logo || '');
+  const [brandingLoading, setBrandingLoading] = useState(false);
+
   useEffect(() => {
     if (activeTab === 'security') loadAuditLogs();
   }, [activeTab]);
@@ -69,6 +78,7 @@ const Settings = () => {
 
   const tabs = [
     { id: "profile", label: "Profile", icon: User },
+    { id: "branding", label: "Branding", icon: Palette },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "security", label: "Security", icon: Shield },
     { id: "compliance", label: "Legal & Compliance", icon: FileText },
@@ -169,6 +179,40 @@ const Settings = () => {
       );
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Branding save
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+    try {
+      setBrandingLoading(true);
+      const res = await uploadAPI.uploadFile(file);
+      const logoUrl = res.data.url;
+      setLogoPreview(logoUrl);
+      setBranding(prev => ({ ...prev, logo: logoUrl }));
+      toast.success('Logo uploaded successfully');
+    } catch (error) {
+      toast.error('Failed to upload logo');
+    } finally {
+      setBrandingLoading(false);
+    }
+  };
+
+  const handleSaveBranding = async () => {
+    try {
+      setBrandingLoading(true);
+      await tenantsAPI.updateBranding(branding);
+      toast.success('Branding updated successfully!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update branding');
+    } finally {
+      setBrandingLoading(false);
     }
   };
 
@@ -418,6 +462,115 @@ const Settings = () => {
                 >
                   <Save className="w-5 h-5" />
                   <span>{isSaving ? "Saving..." : "Save Profile"}</span>
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Branding Tab */}
+          {activeTab === "branding" && (
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="space-y-8"
+            >
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Company Branding</h3>
+                
+                {/* Logo Upload */}
+                <div className="mb-8">
+                  <label className="block text-sm font-medium text-gray-700 mb-4">Company Logo</label>
+                  <div className="flex items-center space-x-6">
+                    <div className="w-24 h-24 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-gray-50">
+                      {logoPreview ? (
+                        <img src={logoPreview} alt="Company Logo" className="w-full h-full object-contain p-2" />
+                      ) : (
+                        <div className="text-center">
+                          <Upload className="w-8 h-8 text-gray-400 mx-auto" />
+                          <p className="text-xs text-gray-400 mt-1">No logo</p>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoUpload}
+                        className="hidden"
+                        id="logo-upload"
+                      />
+                      <label
+                        htmlFor="logo-upload"
+                        className="cursor-pointer bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
+                      >
+                        <Upload className="w-4 h-4" />
+                        <span>{brandingLoading ? 'Uploading...' : 'Upload Logo'}</span>
+                      </label>
+                      <p className="text-xs text-gray-500 mt-2">PNG, JPG up to 5MB. Recommended: 200x200px</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Brand Colors */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Primary Color</label>
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="color"
+                        value={branding.primaryColor}
+                        onChange={e => setBranding(prev => ({ ...prev, primaryColor: e.target.value }))}
+                        className="w-12 h-10 rounded-lg border border-gray-300 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={branding.primaryColor}
+                        onChange={e => setBranding(prev => ({ ...prev, primaryColor: e.target.value }))}
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-mono"
+                        placeholder="#f97316"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Used for buttons, active states and highlights</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Secondary Color</label>
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="color"
+                        value={branding.secondaryColor}
+                        onChange={e => setBranding(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                        className="w-12 h-10 rounded-lg border border-gray-300 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={branding.secondaryColor}
+                        onChange={e => setBranding(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-mono"
+                        placeholder="#1f2937"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Used for sidebar and secondary elements</p>
+                  </div>
+                </div>
+
+                {/* Preview */}
+                <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <p className="text-sm font-medium text-gray-700 mb-3">Preview</p>
+                  <div className="flex items-center space-x-3 p-3 rounded-lg" style={{ backgroundColor: branding.primaryColor }}>
+                    {logoPreview && <img src={logoPreview} alt="Logo" className="w-8 h-8 object-contain" />}
+                    <span className="text-white font-bold">Your Company CRM</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-6 border-t border-gray-200">
+                <button
+                  onClick={handleSaveBranding}
+                  disabled={brandingLoading}
+                  className="bg-orange-500 text-white px-6 py-2 rounded-lg flex items-center space-x-2 hover:bg-orange-600 transition-colors disabled:opacity-50"
+                >
+                  <Save className="w-5 h-5" />
+                  <span>{brandingLoading ? 'Saving...' : 'Save Branding'}</span>
                 </button>
               </div>
             </motion.div>
