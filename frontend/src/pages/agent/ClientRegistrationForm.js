@@ -20,6 +20,7 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
 
   const [formData, setFormData] = useState({
     name: '',
+    title: '',
     gender: '',
     nin: '',
     idType: 'national_id',
@@ -30,6 +31,7 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
     state: '',
     postalCode: '',
     country: '',
+    region: '',
     company: '',
     position: '',
     industry: '',
@@ -195,9 +197,11 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
 
       // Add optional fields only if they have values
       if (formData.gender) submissionData.gender = formData.gender;
+      if (formData.title) submissionData.title = formData.title;
       if (formData.company) submissionData.company = formData.company;
       if (formData.position) submissionData.position = formData.position;
       if (formData.industry) submissionData.industry = formData.industry;
+      if (formData.region) submissionData.region = formData.region;
       if (formData.address) submissionData.address = formData.address;
       if (formData.city) submissionData.city = formData.city;
       if (formData.state) submissionData.state = formData.state;
@@ -308,6 +312,27 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
                 className="space-y-6"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Title
+                    </label>
+                    <select
+                      value={formData.title}
+                      onChange={(e) => handleInputChange('title', e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    >
+                      <option value="">Select Title</option>
+                      <option value="Mr">Mr</option>
+                      <option value="Mrs">Mrs</option>
+                      <option value="Ms">Ms</option>
+                      <option value="Miss">Miss</option>
+                      <option value="Dr">Dr</option>
+                      <option value="Prof">Prof</option>
+                      <option value="Rev">Rev</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Full Name *
@@ -492,15 +517,50 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
 
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Industry/Sector
+                      Craft Sector
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={formData.industry}
                       onChange={(e) => handleInputChange('industry', e.target.value)}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      placeholder="Industry or sector"
-                    />
+                    >
+                      <option value="">Select Craft Sector</option>
+                      <option value="Arts & Crafts">🎨 Arts & Crafts</option>
+                      <option value="Textiles & Fashion">🧵 Textiles & Fashion</option>
+                      <option value="Woodwork & Furniture">🪵 Woodwork & Furniture</option>
+                      <option value="Pottery & Ceramics">🏺 Pottery & Ceramics</option>
+                      <option value="Weaving & Basketry">🧶 Weaving & Basketry</option>
+                      <option value="Jewelry & Accessories">💍 Jewelry & Accessories</option>
+                      <option value="Paintings & Visual Art">🖼️ Paintings & Visual Art</option>
+                      <option value="Cultural & Heritage Crafts">🎭 Cultural & Heritage Crafts</option>
+                      <option value="Natural & Organic Products">🌿 Natural & Organic Products</option>
+                      <option value="Leather & Beadwork">🪡 Leather & Beadwork</option>
+                      <option value="Musical Instruments">🎵 Musical Instruments</option>
+                      <option value="Home Décor & Interior">🏠 Home Décor & Interior</option>
+                      <option value="Export & Trade">🌍 Export & Trade</option>
+                      <option value="Wholesale & Distribution">📦 Wholesale & Distribution</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Region (Africa)
+                    </label>
+                    <select
+                      value={formData.region}
+                      onChange={(e) => handleInputChange('region', e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    >
+                      <option value="">Select Region</option>
+                      <option value="East Africa">🌍 East Africa</option>
+                      <option value="West Africa">🌍 West Africa</option>
+                      <option value="Central Africa">🌍 Central Africa</option>
+                      <option value="Southern Africa">🌍 Southern Africa</option>
+                      <option value="North Africa">🌍 North Africa</option>
+                      <option value="Pan-African">🌍 Pan-African</option>
+                      <option value="International">🌐 International</option>
+                    </select>
                   </div>
                 </div>
 
