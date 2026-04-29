@@ -136,7 +136,7 @@ const AgentDashboard = () => {
 
       // Fetch all data
       const [performanceResponse, clientsResponse, dealsResponse, salesResponse, schedulesResponse] = await Promise.allSettled([
-        performanceAPI.getAgentPerformance(userId),
+        performanceAPI.getAgentStats(userId),
         clientsAPI.getAll(),
         dealsAPI.getAll(),
         salesAPI.getAll({ limit: 1000 }),
