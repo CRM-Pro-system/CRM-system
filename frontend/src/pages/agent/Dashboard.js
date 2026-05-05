@@ -136,11 +136,11 @@ const AgentDashboard = () => {
 
       // Fetch all data
       const [performanceResponse, clientsResponse, dealsResponse, salesResponse, schedulesResponse] = await Promise.allSettled([
-        performanceAPI.getAgentPerformance(userId),
-        clientsAPI.getAll(),
-        dealsAPI.getAll(),
-        salesAPI.getAll({ limit: 1000 }),
-        schedulesAPI.getAll().catch(() => ({ data: { schedules: [] } })) // Handle schedules API gracefully
+        performanceAPI.getAgentStats(userId),
+        clientsAPI.getAll({ limit: 10000 }),
+        dealsAPI.getAll({ limit: 10000 }),
+        salesAPI.getAll({ limit: 10000 }),
+        schedulesAPI.getAll({ limit: 10000 })
       ]);
 
       const perf = performanceResponse.status === 'fulfilled' ? performanceResponse.value?.data || {} : {};
@@ -399,21 +399,21 @@ const AgentDashboard = () => {
       }));
       setDealsVsSalesData(dealsVsSales);
 
-      // 4. Pipeline Value by Stage
-      const pipelineStages = ['lead', 'qualification', 'proposal', 'negotiation'];
-      const pipelineValue = pipelineStages.map(stage => {
-        const stageDeals = allDeals.filter(d => d.stage === stage);
-        const totalValue = stageDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
-        return {
-          stage: stage.charAt(0).toUpperCase() + stage.slice(1),
-          value: totalValue,
-          count: stageDeals.length
-        };
-      });
-      setPipelineValueData(pipelineValue);
+       // 4. Pipeline Value by Stage
+       const pipelineStages = ['lead', 'qualification', 'proposal', 'negotiation'];
+       const pipelineValue = pipelineStages.map(stage => {
+         const stageDeals = deals.filter(d => d.stage === stage);
+         const totalValue = stageDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
+         return {
+           stage: stage.charAt(0).toUpperCase() + stage.slice(1),
+           value: totalValue,
+           count: stageDeals.length
+         };
+       });
+       setPipelineValueData(pipelineValue);
 
-      // 5. Outstanding Payments
-      const creditSales = allSales.filter(s => s.paymentMethod === 'credit');
+       // 5. Outstanding Payments
+       const creditSales = sales.filter(s => s.paymentMethod === 'credit');
       const outstanding = creditSales.filter(s => s.creditStatus !== 'paid').reduce((sum, s) => {
         const paid = s.payments?.reduce((pSum, p) => pSum + (Number(p.amount) || 0), 0) || 0;
         return sum + ((Number(s.finalAmount) || 0) - paid);
@@ -464,17 +464,17 @@ const AgentDashboard = () => {
         });
       setClientMeetingsData(meetingsData);
 
-      // 7. Conversion Rates
-      const totalLeads = clients.length;
-      const totalClosedDealsCount2 = allDeals.filter(d => d.stage === 'won' || d.stage === 'lost').length;
-      const totalWonDeals = allDeals.filter(d => d.stage === 'won').length;
-      
-      setConversionRatesData([
-        { stage: 'Leads', count: totalLeads, rate: 100 },
-        { stage: 'Qualified', count: allDeals.length, rate: totalLeads > 0 ? ((allDeals.length / totalLeads) * 100).toFixed(1) : 0 },
-        { stage: 'Closed', count: totalClosedDealsCount2, rate: allDeals.length > 0 ? ((totalClosedDealsCount2 / allDeals.length) * 100).toFixed(1) : 0 },
-        { stage: 'Won', count: totalWonDeals, rate: totalClosedDealsCount2 > 0 ? ((totalWonDeals / totalClosedDealsCount2) * 100).toFixed(1) : 0 }
-      ]);
+       // 7. Conversion Rates
+       const totalLeads = clients.length;
+       const totalClosedDealsCount2 = deals.filter(d => d.stage === 'won' || d.stage === 'lost').length;
+       const totalWonDeals = deals.filter(d => d.stage === 'won').length;
+       
+       setConversionRatesData([
+         { stage: 'Leads', count: totalLeads, rate: 100 },
+         { stage: 'Qualified', count: deals.length, rate: totalLeads > 0 ? ((deals.length / totalLeads) * 100).toFixed(1) : 0 },
+         { stage: 'Closed', count: totalClosedDealsCount2, rate: deals.length > 0 ? ((totalClosedDealsCount2 / deals.length) * 100).toFixed(1) : 0 },
+         { stage: 'Won', count: totalWonDeals, rate: totalClosedDealsCount2 > 0 ? ((totalWonDeals / totalClosedDealsCount2) * 100).toFixed(1) : 0 }
+       ]);
 
       // 8. Follow-up Status
       const today = new Date();
