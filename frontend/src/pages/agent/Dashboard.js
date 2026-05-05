@@ -137,10 +137,10 @@ const AgentDashboard = () => {
       // Fetch all data
       const [performanceResponse, clientsResponse, dealsResponse, salesResponse, schedulesResponse] = await Promise.allSettled([
         performanceAPI.getAgentStats(userId),
-        clientsAPI.getAll({ limit: 10000 }),
-        dealsAPI.getAll({ limit: 10000 }),
-        salesAPI.getAll({ limit: 10000 }),
-        schedulesAPI.getAll({ limit: 10000 })
+        clientsAPI.getAll(),
+        dealsAPI.getAll(),
+        salesAPI.getAll({ limit: 1000 }),
+        schedulesAPI.getAll().catch(() => ({ data: { schedules: [] } })) // Handle schedules API gracefully
       ]);
 
       const perf = performanceResponse.status === 'fulfilled' ? performanceResponse.value?.data || {} : {};

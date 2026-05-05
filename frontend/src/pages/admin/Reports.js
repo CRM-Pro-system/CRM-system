@@ -421,44 +421,40 @@ const Reports = () => {
   };
 
   const getSortedAgents = () => {
-    return detailedData.agents.map((agent) => {
-      // Get agent's sales using agent._id or by matching agent object
+    return detailedData.agents.filter(agent => agent && agent._id).map((agent) => {
+      const agentId = agent._id?.toString();
+
       const agentSales = detailedData.sales.filter(s => {
-        if (typeof s.agent === 'object') {
-          return s.agent._id === agent._id;
+        if (!s.agent) return false;
+        if (typeof s.agent === 'object' && s.agent !== null) {
+          return s.agent._id?.toString() === agentId;
         }
-        return s.agent === agent._id;
+        return s.agent?.toString() === agentId;
       });
-      
-      // Calculate revenue
-      const agentRevenue = agentSales.reduce((sum, s) => {
-        const amount = Number(s.finalAmount || s.totalAmount || 0);
-        return sum + amount;
-      }, 0);
-      
-      // Get agent's deals using agent._id or by matching agent object
+
+      const agentRevenue = agentSales.reduce((sum, s) => sum + Number(s.finalAmount || s.totalAmount || 0), 0);
+
       const agentDeals = detailedData.deals.filter(d => {
-        if (typeof d.agent === 'object') {
-          return d.agent._id === agent._id;
+        if (!d.agent) return false;
+        if (typeof d.agent === 'object' && d.agent !== null) {
+          return d.agent._id?.toString() === agentId;
         }
-        return d.agent === agent._id;
+        return d.agent?.toString() === agentId;
       });
-      
-      // Calculate deals won and lost
+
       const agentDealsWon = agentDeals.filter(d => d.stage === 'won').length;
       const agentDealsLost = agentDeals.filter(d => d.stage === 'lost').length;
-      
-      // Get agent's clients
+
       const agentClients = detailedData.clients.filter(c => {
-        if (typeof c.agent === 'object') {
-          return c.agent._id === agent._id;
+        if (!c.agent) return false;
+        if (typeof c.agent === 'object' && c.agent !== null) {
+          return c.agent._id?.toString() === agentId;
         }
-        return c.agent === agent._id;
+        return c.agent?.toString() === agentId;
       });
-      
-      // Calculate conversion rate
+
       const conversionRate = agentDeals.length > 0 ? ((agentDealsWon / agentDeals.length) * 100).toFixed(1) : 0;
-      
+
       return {
         ...agent,
         sales: agentSales,
@@ -469,7 +465,7 @@ const Reports = () => {
         clients: agentClients,
         conversionRate: parseFloat(conversionRate)
       };
-    }).sort((a, b) => b.dealsWon - a.dealsWon); // Sort by deals won (best performers first)
+    }).sort((a, b) => b.dealsWon - a.dealsWon);
   };
 
   const toggleRowExpand = (weekStart) => {

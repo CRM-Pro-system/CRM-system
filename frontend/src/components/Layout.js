@@ -15,7 +15,8 @@ import {
   Bell,
   TrendingUp,
   Building2,
-  ShieldCheck
+  ShieldCheck,
+  ArrowLeftRight
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { notificationsAPI } from '../services/api';
@@ -68,30 +69,11 @@ const Layout = ({ children }) => {
   ];
 
   const adminNavItems = [
-    {
-      path: '/admin',
-      icon: Home,
-      label: 'Dashboard',
-
-    },
-    {
-      path: '/admin/users',
-      icon: UserPlus,
-      label: 'User Management',
-
-    },
-    {
-      path: '/admin/reports',
-      icon: PieChart,
-      label: 'Reports',
-
-    },
-    {
-      path: '/admin/settings',
-      icon: Settings,
-      label: 'Settings',
-
-    },
+    { path: '/admin', icon: Home, label: 'Dashboard' },
+    { path: '/admin/users', icon: UserPlus, label: 'User Management' },
+    { path: '/admin/reports', icon: PieChart, label: 'Reports' },
+    { path: '/admin/bulk-operations', icon: ArrowLeftRight, label: 'Bulk Operations' },
+    { path: '/admin/settings', icon: Settings, label: 'Settings' },
   ];
 
   const agentNavItems = [
@@ -175,9 +157,15 @@ const Layout = ({ children }) => {
           {/* Header */}
           <div className="flex items-center justify-between h-16 px-6 border-b border-orange-700">
             <div className="flex items-center space-x-3">
-              <img src={logo} alt="Logo" className="w-10 h-10 object-contain" />
+              <img 
+                src={user?.tenant?.logo || user?.tenant?.settings?.logo || logo} 
+                alt="Logo" 
+                className="w-10 h-10 object-contain" 
+              />
               <div>
-                <span className="text-xl font-bold text-white">CRM</span>
+                <span className="text-xl font-bold text-white">
+                  {user?.tenant?.name || 'CRM'}
+                </span>
               </div>
             </div>
           </div>

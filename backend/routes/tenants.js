@@ -12,7 +12,7 @@ const router = express.Router();
 
 router.use(tenantAuth);
 
-// GET all tenants
+// GET all tenants (super admin only)
 router.get('/', requireSuperAdmin, async (req, res) => {
   try {
     const tenants = await Tenant.find({}).sort({ createdAt: -1 });
@@ -22,19 +22,27 @@ router.get('/', requireSuperAdmin, async (req, res) => {
   }
 });
 
-// GET single tenant
-router.get('/:id', requireSuperAdmin, async (req, res) => {
+// PATCH branding/logo - MUST be before /:id routes
+router.patch('/branding/logo', async (req, res) => {
   try {
-    const tenant = await Tenant.findById(req.params.id);
+    if (req.isSuperAdmin) {
+      return res.status(400).json({ message: 'Super admin does not have a tenant to update' });
+    }
+    const { logo, primaryColor, secondaryColor } = req.body;
+    const update = {};
+    if (logo) update['settings.logo'] = logo;
+    if (primaryColor) update['settings.primaryColor'] = primaryColor;
+    if (secondaryColor) update['settings.secondaryColor'] = secondaryColor;
+
+    const tenant = await Tenant.findByIdAndUpdate(req.tenantId, update, { new: true });
     if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
-    const userCount = await User.countDocuments({ tenant: tenant._id });
-    res.json({ ...tenant.toObject(), userCount });
+    res.json({ message: 'Branding updated successfully', tenant });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// POST create new tenant
+// POST create new tenant (super admin only)
 router.post('/', requireSuperAdmin, async (req, res) => {
   try {
     const { name, email, phone, address, adminName, subscriptionPlan = 'starter', settings, metadata } = req.body;
@@ -43,7 +51,6 @@ router.post('/', requireSuperAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Name and email are required' });
     }
 
-    // Check if tenant or admin user already exists
     const existing = await Tenant.findOne({ email });
     if (existing) return res.status(400).json({ message: 'Organization with this email already exists' });
 
@@ -53,7 +60,6 @@ router.post('/', requireSuperAdmin, async (req, res) => {
     const subscription = await Subscription.findOne({ planName: subscriptionPlan }) ||
       await Subscription.findOne({ planName: 'starter' });
 
-    // Create the tenant
     const tenant = new Tenant({
       name,
       email,
@@ -82,7 +88,6 @@ router.post('/', requireSuperAdmin, async (req, res) => {
     });
     await tenant.save();
 
-    // Auto-create admin user for this organization
     const otp = generateOTP();
     const hashedPassword = await bcrypt.hash(otp, 10);
     const companyAdminName = adminName || `${name} Admin`;
@@ -94,7 +99,7 @@ router.post('/', requireSuperAdmin, async (req, res) => {
       role: 'admin',
       tenant: tenant._id,
       otp,
-      otpExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+      otpExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
       isFirstLogin: true,
       isActive: true,
       phone: phone || '',
@@ -102,10 +107,8 @@ router.post('/', requireSuperAdmin, async (req, res) => {
     });
     await adminUser.save();
 
-    // Update tenant usage
     await Tenant.findByIdAndUpdate(tenant._id, { 'usage.totalUsers': 1 });
 
-    // Send welcome email to the company admin
     const emailResult = await sendEmail(email, 'agentWelcome', {
       name: companyAdminName,
       email,
@@ -115,13 +118,9 @@ router.post('/', requireSuperAdmin, async (req, res) => {
     res.status(201).json({
       message: 'Organization created successfully',
       tenant,
-      admin: {
-        name: companyAdminName,
-        email,
-        role: 'admin'
-      },
+      admin: { name: companyAdminName, email, role: 'admin' },
       emailSent: emailResult.success,
-      otp: emailResult.success ? undefined : otp // Only return OTP if email failed
+      otp: emailResult.success ? undefined : otp
     });
   } catch (error) {
     console.error('Error creating tenant:', error);
@@ -130,7 +129,19 @@ router.post('/', requireSuperAdmin, async (req, res) => {
   }
 });
 
-// PUT update tenant
+// GET single tenant (super admin only)
+router.get('/:id', requireSuperAdmin, async (req, res) => {
+  try {
+    const tenant = await Tenant.findById(req.params.id);
+    if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
+    const userCount = await User.countDocuments({ tenant: tenant._id });
+    res.json({ ...tenant.toObject(), userCount });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// PUT update tenant (super admin only)
 router.put('/:id', requireSuperAdmin, async (req, res) => {
   try {
     const { name, email, phone, address, status, settings, metadata } = req.body;
@@ -161,7 +172,7 @@ router.put('/:id', requireSuperAdmin, async (req, res) => {
   }
 });
 
-// PATCH update tenant status
+// PATCH update tenant status (super admin only)
 router.patch('/:id/status', requireSuperAdmin, async (req, res) => {
   try {
     const { status } = req.body;
@@ -176,7 +187,19 @@ router.patch('/:id/status', requireSuperAdmin, async (req, res) => {
   }
 });
 
-// GET tenant stats
+// DELETE tenant (super admin only)
+router.delete('/:id', requireSuperAdmin, async (req, res) => {
+  try {
+    const tenant = await Tenant.findById(req.params.id);
+    if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
+    await Tenant.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Organization deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// GET tenant stats (super admin only)
 router.get('/:id/stats', requireSuperAdmin, async (req, res) => {
   try {
     const tenant = await Tenant.findById(req.params.id);

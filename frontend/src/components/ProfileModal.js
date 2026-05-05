@@ -52,7 +52,7 @@ const ProfileModal = ({ isOpen, onClose }) => {
       console.log('File details:', { name: file.name, type: file.type, size: file.size });
       
       // Upload file first
-      const uploadResponse = await uploadAPI.uploadFile(formData);
+      const uploadResponse = await uploadAPI.uploadFile(file);
       
       if (!uploadResponse || !uploadResponse.data) {
         throw new Error('Invalid response from upload server');
@@ -167,11 +167,7 @@ const ProfileModal = ({ isOpen, onClose }) => {
                     src={photoPreview || user.profileImage || user.photo}
                     alt={user?.name}
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // If image fails to load, show default icon
-                      e.target.style.display = 'none';
-                      e.target.parentElement.innerHTML = '<svg class="w-16 h-16 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>';
-                    }}
+                    onError={(e) => { e.target.style.display = 'none'; }}
                   />
                 ) : (
                   <User className="w-16 h-16 text-orange-500" />

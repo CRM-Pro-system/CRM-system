@@ -365,7 +365,7 @@ const emailTemplates = {
 
               <div class="steps">
                 <h3>🚀 Getting Started:</h3>
-                <div class="step">1. Go to the login page: <a href="http://localhost:3000/login">http://localhost:3000/login</a></div>
+                <div class="step">1. Go to the login page: <a href="https://crm-system-brown-kappa.vercel.app/login">https://crm-system-brown-kappa.vercel.app/login</a></div>
                 <div class="step">2. Enter your email: <strong>${email}</strong></div>
                 <div class="step">3. Use the OTP above as your password</div>
                 <div class="step">4. You'll be prompted to create a new secure password</div>
@@ -377,7 +377,7 @@ const emailTemplates = {
               </div>
 
               <div style="text-align: center;">
-                <a href="http://localhost:3000/login" class="button">🎯 Login to Your Dashboard</a>
+                <a href="https://crm-system-brown-kappa.vercel.app/login" class="button">🎯 Login to Your Dashboard</a>
               </div>
 
               <div class="footer">
@@ -408,7 +408,7 @@ export const sendEmail = async (to, templateName, templateData) => {
     const emailContent = template(templateData);
 
     const mailOptions = {
-      from: process.env.EMAIL_FROM || '"CRM System" <noreply@crm-system.com>',
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'florencenamukisa08@gmail.com',
       to,
       subject: emailContent.subject,
       html: emailContent.html
@@ -446,7 +446,7 @@ export const sendEmailWithAttachment = async (to, subject, htmlContent, attachme
     const transporter = await createTransporter();
 
     const mailOptions = {
-      from: process.env.EMAIL_FROM || '"CRM System" <noreply@crm-system.com>',
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'florencenamukisa08@gmail.com',
       to,
       subject,
       html: htmlContent || '<p>Please find the attached report.</p>',

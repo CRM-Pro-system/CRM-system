@@ -160,7 +160,9 @@ export const tenantsAPI = {
   create: (data) => api.post('/tenants', data),
   update: (id, data) => api.put(`/tenants/${id}`, data),
   updateStatus: (id, status) => api.patch(`/tenants/${id}/status`, { status }),
+  delete: (id) => api.delete(`/tenants/${id}`),
   getStats: (id) => api.get(`/tenants/${id}/stats`),
+  updateBranding: (data) => api.patch('/tenants/branding/logo', data),
 };
 
 // Audit Logs API

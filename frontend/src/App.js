@@ -19,6 +19,7 @@ const Reports = lazy(() => import('./pages/admin/Reports'));
 const Settings = lazy(() => import('./pages/admin/Settings'));
 const SuperAdminDashboard = lazy(() => import('./pages/superadmin/Dashboard'));
 const TenantManagement = lazy(() => import('./pages/superadmin/TenantManagement'));
+const BulkOperations = lazy(() => import('./pages/admin/BulkOperations'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
@@ -121,6 +122,11 @@ function App() {
                 <Route path="/admin/settings" element={
                   <ProtectedRoute allowedRoles={['admin']}>
                     <Settings />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/bulk-operations" element={
+                  <ProtectedRoute allowedRoles={['admin', 'superadmin']}>
+                    <BulkOperations />
                   </ProtectedRoute>
                 } />
 
