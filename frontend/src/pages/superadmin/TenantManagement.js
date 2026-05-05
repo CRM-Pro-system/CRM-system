@@ -30,7 +30,7 @@ const CreateTenantModal = ({ onClose, onCreated }) => {
       setLoading(true);
       const res = await tenantsAPI.create(form);
       setSuccess(res.data);
-      onCreated();
+      onCreated(); // refresh the list in background
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to create organization');
     } finally {
@@ -58,14 +58,25 @@ const CreateTenantModal = ({ onClose, onCreated }) => {
           </div>
 
           {success.emailSent ? (
-            <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-6">
-              <p className="text-sm text-green-700">✅ Welcome email with login credentials sent to <strong>{success.admin?.email}</strong></p>
-              <p className="text-xs text-green-600 mt-1">They can log in and change their password immediately.</p>
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+              <div className="flex items-center space-x-2 mb-1">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <p className="text-sm font-semibold text-green-700">Email Sent Successfully!</p>
+              </div>
+              <p className="text-sm text-green-600">Welcome email with login credentials was sent to <strong>{success.admin?.email}</strong></p>
+              <p className="text-xs text-green-500 mt-1">They can log in immediately and will be prompted to set a new password.</p>
             </div>
           ) : (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-6">
-              <p className="text-sm text-yellow-700">⚠️ Email failed to send. Share this OTP manually:</p>
-              <p className="text-2xl font-mono font-bold text-center text-gray-900 mt-2">{success.otp}</p>
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+              <div className="flex items-center space-x-2 mb-1">
+                <XCircle className="w-5 h-5 text-red-600" />
+                <p className="text-sm font-semibold text-red-700">Email Failed to Send</p>
+              </div>
+              <p className="text-sm text-red-600">Please share this OTP manually with <strong>{success.admin?.email}</strong>:</p>
+              <div className="bg-white border-2 border-red-300 rounded-xl p-3 mt-2">
+                <p className="text-2xl font-mono font-bold text-center text-gray-900 tracking-widest">{success.otp}</p>
+              </div>
+              <p className="text-xs text-red-500 mt-2">Login URL: https://crm-system-brown-kappa.vercel.app/login</p>
             </div>
           )}
 
@@ -749,10 +760,7 @@ const TenantManagement = () => {
       {showCreateModal && (
         <CreateTenantModal
           onClose={() => setShowCreateModal(false)}
-          onCreated={() => {
-            setShowCreateModal(false);
-            loadTenants();
-          }}
+          onCreated={loadTenants}
         />
       )}
       {showViewModal && selectedTenant && (
