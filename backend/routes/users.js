@@ -27,7 +27,7 @@ router.get('/', tenantAuth, requireRole(['admin', 'superadmin']), async (req, re
   }
 });
 
-// Create new agent with OTP (admin only, with usage limits)
+// Create new user with OTP (admin/superadmin only, with usage limits)
 router.post('/', tenantAuth, requireRole(['admin', 'superadmin']), checkUsageLimit('users'), async (req, res) => {
   try {
     const { name, email, phone, role = 'agent', nin = null } = req.body;
@@ -42,9 +42,15 @@ router.post('/', tenantAuth, requireRole(['admin', 'superadmin']), checkUsageLim
       return res.status(400).json({ message: 'User with this email already exists' });
     }
 
+     // Validate role
+    const validRoles = ['superadmin', 'admin', 'manager', 'agent'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ message: 'Invalid role specified' });
+    }
+     
     // Generate OTP (6-digit code)
     const otp = generateOTP();
-    
+     
     // Prepare user data with tenant context
     const userData = {
       name,
@@ -199,20 +205,80 @@ router.delete('/:id', tenantAuth, requireRole(['admin', 'superadmin']), async (r
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Update tenant usage statistics
-    if (req.tenantId) {
-      await Tenant.findByIdAndUpdate(req.tenantId, {
-        $inc: { 'usage.totalUsers': -1 },
-        'usage.lastActivity': new Date()
-      });
-    }
+     // Update tenant usage statistics
+     if (req.tenantId) {
+       await Tenant.findByIdAndUpdate(req.tenantId, {
+         $inc: { 'usage.totalUsers': -1 },
+         'usage.lastActivity': new Date()
+       });
+     }
+ 
+     await logAction(req, 'DELETE_USER', `Deleted user ${user.email}`, { entityType: 'User', entityId: user._id });
+     res.json({ message: 'User deleted successfully' });
+   } catch (error) {
+     console.error('Error deleting user:', error);
+     res.status(500).json({ message: 'Server error', error: error.message });
+   }
+ });
 
-    await logAction(req, 'DELETE_USER', `Deleted user ${user.email}`, { entityType: 'User', entityId: user._id });
-    res.json({ message: 'User deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
+// Set user targets (manager/superadmin only, tenant-scoped for manager)
+router.put('/:userId/targets', tenantAuth, requireRole(['admin', 'superadmin', 'manager']), async (req, res) => {
+   try {
+     const { userId } = req.params;
+     const { monthlyTargetDeals, monthlyTargetAmount, monthlyTargetClients } = req.body;
+     
+     // Find user with tenant filtering
+     const query = req.isSuperAdmin 
+       ? { _id: userId } 
+       : { _id: userId, tenant: req.tenantId };
+     
+     const user = await User.findOne(query);
+     
+     if (!user) {
+       return res.status(404).json({ message: 'User not found' });
+     }
+     
+     // Update targets
+     const updateData = {};
+     if (typeof monthlyTargetDeals !== 'undefined') {
+       updateData.monthlyTargetDeals = monthlyTargetDeals;
+     }
+     if (typeof monthlyTargetAmount !== 'undefined') {
+       updateData.monthlyTargetAmount = monthlyTargetAmount;
+     }
+     if (typeof monthlyTargetClients !== 'undefined') {
+       updateData.monthlyTargetClients = monthlyTargetClients;
+     }
+     
+     // Prevent managers from setting targets for other managers or admins
+     if (req.role === 'manager' && ['admin', 'manager'].includes(user.role)) {
+       return res.status(403).json({ 
+         message: 'Managers can only set targets for sales agents' 
+       });
+     }
+     
+     // Update user
+     const updatedUser = await User.findByIdAndUpdate(
+       userId,
+       updateData,
+       { new: true }
+     ).select('-password -otp');
+     
+     // Log the action
+     await logAction(req, 'SET_TARGETS', `Set targets for user ${user.email}`, { 
+       entityType: 'User', 
+       entityId: user._id,
+       targets: updateData
+     });
+     
+     res.json({ 
+       message: 'Targets updated successfully',
+       user: updatedUser
+     });
+   } catch (error) {
+     console.error('Error setting targets:', error);
+     res.status(500).json({ message: 'Server error', error: error.message });
+   }
+ });
 
 export { router as userRoutes };

@@ -41,7 +41,13 @@ const UserManagement = () => {
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   const [deactivateTarget, setDeactivateTarget] = useState(null);
 
-  const [formErrors, setFormErrors] = useState({});
+   const [formErrors, setFormErrors] = useState({});
+   const [targetForm, setTargetForm] = useState({
+     monthlyTargetDeals: 0,
+     monthlyTargetAmount: 0,
+     monthlyTargetClients: 0
+   });
+   const [targetErrors, setTargetErrors] = useState({});
 
   useEffect(() => {
     loadUsers();
@@ -111,30 +117,34 @@ const UserManagement = () => {
     }
   };
 
-  const validateForm = () => {
-    const errors = {};
+   const validateForm = () => {
+     const errors = {};
 
-    if (!newUser.name.trim()) {
-      errors.name = 'Name is required';
-    }
+     if (!newUser.name.trim()) {
+       errors.name = 'Name is required';
+     }
 
-    if (!newUser.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(newUser.email)) {
-      errors.email = 'Email is invalid';
-    }
+     if (!newUser.email.trim()) {
+       errors.email = 'Email is required';
+     } else if (!/\S+@\S+\.\S+/.test(newUser.email)) {
+       errors.email = 'Email is invalid';
+     }
 
-    if (newUser.phone && !/^\+?[\d\s-()]+$/.test(newUser.phone)) {
-      errors.phone = 'Phone number is invalid';
-    }
+     if (newUser.phone && !/^\+?[\d\s-()]+$/.test(newUser.phone)) {
+       errors.phone = 'Phone number is invalid';
+     }
 
-    if (newUser.nin && newUser.nin.trim().length < 6) {
-      errors.nin = 'NIN must be at least 6 characters';
-    }
+     if (newUser.nin && newUser.nin.trim().length < 6) {
+       errors.nin = 'NIN must be at least 6 characters';
+     }
 
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
+     if (!newUser.role) {
+       errors.role = 'Role is required';
+     }
+
+     setFormErrors(errors);
+     return Object.keys(errors).length === 0;
+   };
 
   const handleAddUser = async (e) => {
     e.preventDefault();
@@ -210,21 +220,61 @@ const UserManagement = () => {
     setShowDeactivateModal(true);
   };
 
-  const handleToggleActive = async () => {
-    if (!deactivateTarget) return;
-    const id = deactivateTarget._id;
-    const newActive = deactivateTarget.isActive === false ? true : false;
-    try {
-      await usersAPI.update(id, { isActive: newActive });
-      toast.success(newActive ? 'User activated successfully' : 'User deactivated successfully');
-      setShowDeactivateModal(false);
-      setDeactivateTarget(null);
-      loadUsers();
-    } catch (error) {
-      console.error('Toggle active error:', error);
-      toast.error(error.response?.data?.message || 'Failed to update user status');
-    }
-  };
+   const handleToggleActive = async () => {
+     if (!deactivateTarget) return;
+     const id = deactivateTarget._id;
+     const newActive = deactivateTarget.isActive === false ? true : false;
+     try {
+       await usersAPI.update(id, { isActive: newActive });
+       toast.success(newActive ? 'User activated successfully' : 'User deactivated successfully');
+       setShowDeactivateModal(false);
+       setDeactivateTarget(null);
+       loadUsers();
+     } catch (error) {
+       console.error('Toggle active error:', error);
+       toast.error(error.response?.data?.message || 'Failed to update user status');
+     }
+   };
+
+   const openTargetModal = (user) => {
+     setTargetUser(user);
+     setTargetForm({
+       monthlyTargetDeals: user.monthlyTargetDeals || 0,
+       monthlyTargetAmount: user.monthlyTargetAmount || 0,
+       monthlyTargetClients: user.monthlyTargetClients || 0
+     });
+     setShowTargetModal(true);
+   };
+
+   const handleSetTarget = async (e) => {
+     e.preventDefault();
+     
+     // Validate form
+     const errors = {};
+     if (targetForm.monthlyTargetDeals < 0) errors.monthlyTargetDeals = 'Target must be positive';
+     if (targetForm.monthlyTargetAmount < 0) errors.monthlyTargetAmount = 'Target must be positive';
+     if (targetForm.monthlyTargetClients < 0) errors.monthlyTargetClients = 'Target must be positive';
+     
+     if (Object.keys(errors).length > 0) {
+       setTargetErrors(errors);
+       return;
+     }
+     
+     setFormLoading(true);
+     try {
+       await usersAPI.setTargets(targetUser._id, targetForm);
+       toast.success('Targets set successfully');
+       setShowTargetModal(false);
+       setTargetErrors({});
+       setTargetForm({ monthlyTargetDeals: 0, monthlyTargetAmount: 0, monthlyTargetClients: 0 });
+       loadUsers();
+     } catch (error) {
+       console.error('Set target error:', error);
+       toast.error(error.response?.data?.message || 'Failed to set targets');
+     } finally {
+       setFormLoading(false);
+     }
+   };
 
   const handleUpdateUser = async (e) => {
     e.preventDefault();
@@ -704,20 +754,35 @@ const UserManagement = () => {
                         
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {userItem.role === 'agent' && userItem.isFirstLogin && (
-                              <motion.button
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleResendOTP(userItem._id, userItem.name);
-                                }}
-                                className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
-                                title="Resend OTP"
-                              >
-                                <RefreshCw className="w-4 h-4" />
-                              </motion.button>
-                            )}
+{userItem.role === 'agent' && userItem.isFirstLogin && (
+                                  <motion.button
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleResendOTP(userItem._id, userItem.name);
+                                    }}
+                                    className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
+                                    title="Resend OTP"
+                                  >
+                                    <RefreshCw className="w-4 h-4" />
+                                  </motion.button>
+                                )}
+                                
+                                {userItem.role === 'agent' && (
+                                  <motion.button
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openTargetModal(userItem);
+                                    }}
+                                    className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
+                                    title="Set Targets"
+                                  >
+                                    <TrendingUp className="w-4 h-4" />
+                                  </motion.button>
+                                )}
                             
                             <motion.button
                               whileHover={{ scale: 1.1 }}
@@ -1059,26 +1124,28 @@ const UserManagement = () => {
                   )}
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${
-                      formErrors.phone ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                    }`}
-                    placeholder="+1 (555) 123-4567"
-                    value={newUser.phone}
-                    onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
-                  />
-                  {formErrors.phone && (
-                    <p className="text-red-500 text-sm mt-1 flex items-center">
-                      <AlertCircle className="w-4 h-4 mr-1" />
-                      {formErrors.phone}
-                    </p>
-                  )}
-                </div>
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                     Role
+                   </label>
+                   <select
+                     value={newUser.role}
+                     onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                     className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${
+                       formErrors.role ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                     }"
+                   >
+                     <option value="admin">Administrator</option>
+                     <option value="manager">Manager</option>
+                     <option value="agent">Sales Agent</option>
+                   </select>
+                   {formErrors.role && (
+                     <p className="text-red-500 text-sm mt-1 flex items-center">
+                       <AlertCircle className="w-4 h-4 mr-1" />
+                       {formErrors.role}
+                     </p>
+                   )}
+                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1218,14 +1285,29 @@ const UserManagement = () => {
                   />
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">NIN</label>
-                  <input
-                    value={editUser.nin || ''}
-                    onChange={(e) => setEditUser({ ...editUser, nin: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  />
-                </div>
+<div>
+                   <label className="block text-sm font-medium text-gray-700 mb-2">NIN</label>
+                   <input
+                     value={editUser.nin || ''}
+                     onChange={(e) => setEditUser({ ...editUser, nin: e.target.value })}
+                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                   />
+                 </div>
+                 
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                     Role
+                   </label>
+                   <select
+                     value={editUser.role}
+                     onChange={(e) => setEditUser({ ...editUser, role: e.target.value })}
+                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                   >
+                     <option value="admin">Administrator</option>
+                     <option value="manager">Manager</option>
+                     <option value="agent">Sales Agent</option>
+                   </select>
+                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <label className="flex items-center space-x-2 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer">
@@ -1320,13 +1402,124 @@ const UserManagement = () => {
                 >
                   {deactivateTarget.isActive === false ? 'Activate' : 'Deactivate'}
                 </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
+               </div>
+             </motion.div>
+           </div>
+         )}
+       </AnimatePresence>
+
+       {/* Target Setting Modal */}
+       <AnimatePresence>
+         {showTargetModal && targetUser && (
+           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+             <motion.div
+               initial={{ opacity: 0, scale: 0.9, y: 20 }}
+               animate={{ opacity: 1, scale: 1, y: 0 }}
+               exit={{ opacity: 0, scale: 0.9, y: 20 }}
+               className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden"
+             >
+               <div className="px-6 py-4 bg-gradient-to-r from-orange-500 to-orange-600">
+                 <h3 className="text-lg font-semibold text-white">Set Targets for {targetUser.name}</h3>
+                 <p className="text-orange-100 text-sm mt-1">Define monthly performance goals</p>
+               </div>
+               
+               <form onSubmit={handleSetTarget} className="p-6 space-y-5">
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                     Monthly Target Deals
+                   </label>
+                   <input
+                     type="number"
+                     value={targetForm.monthlyTargetDeals}
+                     onChange={(e) => setTargetForm({ ...targetForm, monthlyTargetDeals: parseInt(e.target.value) || 0 })}
+                     className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${
+                       targetErrors.monthlyTargetDeals ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                     }`}
+                     placeholder="Enter target number of deals"
+                   />
+                   {targetErrors.monthlyTargetDeals && (
+                     <p className="text-red-500 text-sm mt-1 flex items-center">
+                       <AlertCircle className="w-4 h-4 mr-1" />
+                       {targetErrors.monthlyTargetDeals}
+                     </p>
+                   )}
+                 </div>
+                 
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                     Monthly Target Amount (UGX)
+                   </label>
+                   <input
+                     type="number"
+                     value={targetForm.monthlyTargetAmount}
+                     onChange={(e) => setTargetForm({ ...targetForm, monthlyTargetAmount: parseInt(e.target.value) || 0 })}
+                     className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${
+                       targetErrors.monthlyTargetAmount ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                     }`}
+                     placeholder="Enter target sales amount"
+                   />
+                   {targetErrors.monthlyTargetAmount && (
+                     <p className="text-red-500 text-sm mt-1 flex items-center">
+                       <AlertCircle className="w-4 h-4 mr-1" />
+                       {targetErrors.monthlyTargetAmount}
+                     </p>
+                   )}
+                 </div>
+                 
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                     Monthly Target Clients
+                   </label>
+                   <input
+                     type="number"
+                     value={targetForm.monthlyTargetClients}
+                     onChange={(e) => setTargetForm({ ...targetForm, monthlyTargetClients: parseInt(e.target.value) || 0 })}
+                     className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${
+                       targetErrors.monthlyTargetClients ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                     }`}
+                     placeholder="Enter target number of clients"
+                   />
+                   {targetErrors.monthlyTargetClients && (
+                     <p className="text-red-500 text-sm mt-1 flex items-center">
+                       <AlertCircle className="w-4 h-4 mr-1" />
+                       {targetErrors.monthlyTargetClients}
+                     </p>
+                   )}
+                 </div>
+                 
+                 <div className="flex space-x-3 pt-4">
+                   <button
+                     type="button"
+                     onClick={() => {
+                       setShowTargetModal(false);
+                       setTargetErrors({});
+                       setTargetForm({ monthlyTargetDeals: 0, monthlyTargetAmount: 0, monthlyTargetClients: 0 });
+                     }}
+                     className="flex-1 py-3 px-4 border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 transition-all"
+                   >
+                     Cancel
+                   </button>
+                   <button
+                     type="submit"
+                     className="flex-1 py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all disabled:opacity-50 shadow-lg shadow-orange-500/25"
+                   >
+                     {formLoading ? (
+                       <div className="flex items-center justify-center space-x-2">
+                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                         <span>Setting Targets...</span>
+                       </div>
+                     ) : (
+                       'Set Targets'
+                     )}
+                   </button>
+                 </div>
+               </form>
+             </motion.div>
+           </div>
+         )}
+       </AnimatePresence>
+     </div>
+   );
+ };
 
 export default UserManagement;
