@@ -150,7 +150,10 @@ const clientSchema = new mongoose.Schema({
         dueTime: String,
         completed: { type: Boolean, default: false },
         assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-        createdAt: { type: Date, default: Date.now }
+        createdAt: { type: Date, default: Date.now },
+        // Reminder tracking — prevents duplicate reminder emails/notifications
+        reminderSent: { type: Boolean, default: false },
+        overdueSent:  { type: Boolean, default: false }
       }
     ],
     default: []
