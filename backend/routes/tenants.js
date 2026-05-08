@@ -129,6 +129,106 @@ router.post('/', requireSuperAdmin, async (req, res) => {
   }
 });
 
+// PATCH onboarding progress — admin saves wizard step data
+router.patch('/onboarding', async (req, res) => {
+  try {
+    if (req.isSuperAdmin) {
+      return res.status(400).json({ message: 'Super admin does not have an onboarding flow' });
+    }
+
+    const {
+      step,          // 'branding' | 'localization' | 'team' | 'client' | 'complete'
+      completed,     // boolean — did the user complete (not skip) this step?
+      currentStep,   // numeric index of the current wizard step
+      // Branding fields
+      logo, primaryColor, secondaryColor,
+      // Localization fields
+      timezone, currency, language, dateFormat,
+      // Company name update
+      companyName
+    } = req.body;
+
+    const update = {};
+
+    // Save step-specific data
+    if (step === 'branding') {
+      if (logo)           update['settings.logo']           = logo;
+      if (primaryColor)   update['settings.primaryColor']   = primaryColor;
+      if (secondaryColor) update['settings.secondaryColor'] = secondaryColor;
+      if (companyName)    update.name                       = companyName;
+      if (completed)      update['onboarding.stepsCompleted.branding'] = true;
+    }
+
+    if (step === 'localization') {
+      if (timezone)   update['settings.timezone']   = timezone;
+      if (currency)   update['settings.currency']   = currency;
+      if (language)   update['settings.language']   = language;
+      if (dateFormat) update['settings.dateFormat'] = dateFormat;
+      if (completed)  update['onboarding.stepsCompleted.localization'] = true;
+    }
+
+    if (step === 'team' && completed) {
+      update['onboarding.stepsCompleted.team'] = true;
+    }
+
+    if (step === 'client' && completed) {
+      update['onboarding.stepsCompleted.client'] = true;
+    }
+
+    // Always track current step position
+    if (typeof currentStep === 'number') {
+      update['onboarding.currentStep'] = currentStep;
+    }
+
+    // Mark wizard as fully completed
+    if (step === 'complete') {
+      update['onboarding.completed']   = true;
+      update['onboarding.completedAt'] = new Date();
+    }
+
+    const tenant = await Tenant.findByIdAndUpdate(
+      req.tenantId,
+      { $set: update },
+      { new: true }
+    );
+
+    if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
+
+    res.json({
+      message: 'Onboarding progress saved',
+      onboarding: tenant.onboarding,
+      settings:   tenant.settings
+    });
+  } catch (error) {
+    console.error('Error saving onboarding progress:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// GET onboarding status for current tenant
+router.get('/onboarding', async (req, res) => {
+  try {
+    if (req.isSuperAdmin) {
+      return res.json({ completed: true });
+    }
+
+    const tenant = await Tenant.findById(req.tenantId)
+      .select('onboarding settings name');
+
+    if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
+
+    res.json({
+      completed:      tenant.onboarding?.completed    ?? false,
+      currentStep:    tenant.onboarding?.currentStep  ?? 0,
+      stepsCompleted: tenant.onboarding?.stepsCompleted ?? {},
+      settings:       tenant.settings,
+      name:           tenant.name
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // GET single tenant (super admin only)
 router.get('/:id', requireSuperAdmin, async (req, res) => {
   try {
