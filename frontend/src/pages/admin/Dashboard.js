@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Users, TrendingUp, DollarSign, Target } from 'lucide-react';
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from 'recharts';
 import { useAuth } from '../../context/AuthContext';
-import { dealsAPI, salesAPI, clientsAPI, usersAPI } from '../../services/api';
+import { dealsAPI, salesAPI, clientsAPI, usersAPI, tenantsAPI } from '../../services/api';
+import OnboardingWizard from '../../components/OnboardingWizard';
 import toast from 'react-hot-toast';
 
 const PERIODS = ['daily', 'weekly', 'monthly', 'yearly'];
@@ -24,6 +25,22 @@ const StatCard = ({ icon: Icon, title, value }) => (
 const AdminDashboard = () => {
   const { user } = useAuth();
   const [period, setPeriod] = useState('monthly');
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Check onboarding status on mount
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      try {
+        const res = await tenantsAPI.getOnboarding();
+        if (!res.data.completed) {
+          setShowOnboarding(true);
+        }
+      } catch {
+        // Non-critical — don't block dashboard
+      }
+    };
+    if (user?.role === 'admin') checkOnboarding();
+  }, [user]);
 
   // stats
   const [totalRevenue, setTotalRevenue] = useState(0);
@@ -337,6 +354,12 @@ const AdminDashboard = () => {
   }, [period]);
 
   return (
+    <>
+      {/* Onboarding wizard — shown automatically for new tenants */}
+      {showOnboarding && (
+        <OnboardingWizard onComplete={() => setShowOnboarding(false)} />
+      )}
+
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
@@ -509,6 +532,7 @@ const AdminDashboard = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
