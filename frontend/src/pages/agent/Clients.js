@@ -171,6 +171,34 @@ const Clients = () => {
     }
   };
 
+  const handleExportClientsPDF = async () => {
+    try {
+      toast.loading('Generating PDF...', { id: 'pdf-export' });
+
+      const params = {
+        search: searchTerm || undefined,
+        status: filters.status || undefined,
+      };
+
+      const response = await clientsAPI.exportPDF(params);
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url  = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href     = url;
+      link.download = `clients-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('PDF exported successfully', { id: 'pdf-export' });
+    } catch (error) {
+      toast.error('Failed to export PDF', { id: 'pdf-export' });
+      console.error('PDF export error:', error);
+    }
+  };
+
   const getStatusColor = (status) => {
     const colors = {
       prospect: 'bg-blue-100 text-blue-800',
@@ -694,13 +722,20 @@ const Clients = () => {
               <span>Delete Selected ({selectedClients.length})</span>
             </button>
           )}
-          <button
-            onClick={handleExportClients}
-            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            <span>Export</span>
-          </button>
+           <button
+             onClick={handleExportClients}
+             className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+           >
+             <Download className="w-4 h-4" />
+             <span>Export CSV</span>
+           </button>
+           <button
+             onClick={handleExportClientsPDF}
+             className="flex items-center space-x-2 px-4 py-2 border border-blue-300 rounded-lg text-blue-700 hover:bg-blue-50 transition-colors"
+           >
+             <FileText className="w-4 h-4" />
+             <span>Export PDF</span>
+           </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="bg-orange-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-orange-600 transition-colors"
