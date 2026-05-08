@@ -74,16 +74,17 @@ export const clientsAPI = {
   addTask: (id, data) => api.post(`/clients/${id}/tasks`, data),
   sendEmail: (id, data) => api.post(`/clients/${id}/send-email`, data),
   exportCSV: async (params) => {
-    const res = await api.get('/clients', { params: { ...params, limit: 1000 } });
-    const clients = res.data?.clients || res.data || [];
-    const headers = ['Name', 'Email', 'Phone', 'Company', 'Status', 'Priority', 'Created'];
-    const rows = clients.map(c => [
-      c.name, c.email, c.phone, c.company || '', c.status, c.priority,
-      new Date(c.createdAt).toLocaleDateString()
-    ]);
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-    return { data: csv };
-  }
+     const res = await api.get('/clients', { params: { ...params, limit: 1000 } });
+     const clients = res.data?.clients || res.data || [];
+     const headers = ['Name', 'Email', 'Phone', 'Company', 'Status', 'Priority', 'Created'];
+     const rows = clients.map(c => [
+       c.name, c.email, c.phone, c.company || '', c.status, c.priority,
+       new Date(c.createdAt).toLocaleDateString()
+     ]);
+     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+     return { data: csv };
+   },
+   exportPDF: (params) => api.get(`/clients/export/pdf`, { params, responseType: 'blob' })
 };
 
 // Deals API
@@ -167,7 +168,8 @@ export const tenantsAPI = {
 // Audit Logs API
 export const auditLogsAPI = {
   getAll: (params) => api.get('/audit-logs', { params }),
-  getStats: () => api.get('/audit-logs/stats'),
+  getById: (id) => api.get(`/audit-logs/${id}`),
+  getStats: () => api.get('/audit-logs/stats/summary'),
 };
 
 // Meetings API
