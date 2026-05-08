@@ -23,6 +23,7 @@ import { settingsRoutes } from './routes/settings.js';
 import { tenantRoutes } from './routes/tenants.js';
 import { auditLogRoutes } from './routes/auditLogs.js';
 import { testEmailConfig } from './services/emailService.js';
+import { startTaskReminderJob } from './jobs/taskReminderJob.js';
 
 
 dotenv.config();
@@ -272,4 +273,7 @@ app.listen(PORT, async () => {
 
   // Update rankings immediately on startup
   updateAgentRankings();
+
+  // Start task reminder cron job (runs every hour)
+  startTaskReminderJob();
 });
