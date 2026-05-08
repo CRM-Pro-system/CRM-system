@@ -119,6 +119,20 @@ const tenantSchema = new mongoose.Schema({
       enum: ['website', 'referral', 'marketing', 'direct', ''],
       default: 'website'
     }
+  },
+
+  // Onboarding tracking
+  onboarding: {
+    completed:    { type: Boolean, default: false },
+    currentStep:  { type: Number,  default: 0 },
+    // Which steps were completed (not skipped)
+    stepsCompleted: {
+      branding:     { type: Boolean, default: false },
+      localization: { type: Boolean, default: false },
+      team:         { type: Boolean, default: false },
+      client:       { type: Boolean, default: false }
+    },
+    completedAt: { type: Date, default: null }
   }
 }, {
   timestamps: true
