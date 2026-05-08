@@ -14,17 +14,26 @@ const auditLogSchema = new mongoose.Schema({
       'CREATE_MEETING', 'UPDATE_MEETING', 'DELETE_MEETING',
       'UPDATE_SETTINGS', 'CHANGE_PASSWORD',
       'CREATE_TENANT', 'UPDATE_TENANT', 'SUSPEND_TENANT',
-      'EXPORT_DATA', 'OTHER'
+      'EXPORT_DATA', 'SET_TARGETS', 'BULK_OPERATION',
+      'IMPORT_DATA', 'DELETE_STOCK', 'CREATE_STOCK', 'UPDATE_STOCK',
+      'OTHER'
     ]
   },
   description: {
     type: String,
     required: true
   },
+  // createdAt is immutable — set once, never changed
+  createdAt: {
+    type: Date,
+    immutable: true,
+    default: () => new Date()
+  },
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: true,
+    immutable: true
   },
   userName: {
     type: String,
@@ -41,15 +50,17 @@ const auditLogSchema = new mongoose.Schema({
   tenant: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Tenant',
-    default: null
+    default: null,
+    immutable: true
   },
   entityType: {
     type: String,
-    default: ''  // e.g. 'User', 'Client', 'Deal'
+    default: '' // e.g. 'User', 'Client', 'Deal'
   },
   entityId: {
     type: mongoose.Schema.Types.ObjectId,
-    default: null
+    default: null,
+    immutable: true
   },
   ipAddress: {
     type: String,
@@ -65,11 +76,42 @@ const auditLogSchema = new mongoose.Schema({
     default: {}
   }
 }, {
-  timestamps: true
+  // Only allow createdAt — updatedAt would imply mutability
+  timestamps: { createdAt: false, updatedAt: false }
 });
 
+// ─── IMMUTABILITY GUARDS ──────────────────────────────────────────────────────
+// Block any attempt to update an existing audit log document
+const IMMUTABILITY_ERROR = 'Audit logs are immutable and cannot be modified.';
+
+auditLogSchema.pre('findOneAndUpdate', function () {
+  throw new Error(IMMUTABILITY_ERROR);
+});
+
+auditLogSchema.pre('updateOne', function () {
+  throw new Error(IMMUTABILITY_ERROR);
+});
+
+auditLogSchema.pre('updateMany', function () {
+  throw new Error(IMMUTABILITY_ERROR);
+});
+
+auditLogSchema.pre('findOneAndDelete', function () {
+  throw new Error(IMMUTABILITY_ERROR);
+});
+
+auditLogSchema.pre('deleteOne', function () {
+  throw new Error(IMMUTABILITY_ERROR);
+});
+
+auditLogSchema.pre('deleteMany', function () {
+  throw new Error(IMMUTABILITY_ERROR);
+});
+
+// ─── INDEXES ─────────────────────────────────────────────────────────────────
 auditLogSchema.index({ tenant: 1, createdAt: -1 });
 auditLogSchema.index({ user: 1, createdAt: -1 });
 auditLogSchema.index({ action: 1 });
+auditLogSchema.index({ createdAt: -1 }); // for global superadmin queries
 
 export default mongoose.model('AuditLog', auditLogSchema);
