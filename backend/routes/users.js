@@ -1,6 +1,16 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Tenant from '../models/Tenant.js';
+import Client from '../models/Client.js';
+import Deal from '../models/Deal.js';
+import Sale from '../models/Sale.js';
+import Meeting from '../models/Meeting.js';
+import Schedule from '../models/Schedule.js';
+import Notification from '../models/Notification.js';
+import AuditLog from '../models/AuditLog.js';
+import SecurityBlock from '../models/SecurityBlock.js';
+import Performance from '../models/Performance.js';
 import { sendEmail, generateOTP } from '../services/emailService.js';
 import { tenantAuth, requireRole, requireSuperAdmin, addTenantFilter, addTenantData, checkUsageLimit } from '../middleware/tenantAuth.js';
 import { logAction } from '../utils/auditLog.js';
@@ -20,11 +30,10 @@ router.get('/', tenantAuth, requireRole(['admin', 'superadmin']), async (req, re
       .lean()
       .sort({ createdAt: -1 });
     
-    res.json(users);
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
+      res.json(users);
+    } catch {
+      res.status(500).json({ message: 'Server error' });
+    }
 });
 
 // Create new user with OTP (admin/superadmin only, with usage limits)
@@ -109,14 +118,13 @@ router.post('/', tenantAuth, requireRole(['admin', 'superadmin']), checkUsageLim
         error: emailResult.error
       });
     }
-  } catch (error) {
-    console.error('❌ Error creating user:', error);
-    if (error.code === 11000) {
-      return res.status(400).json({ message: 'Email already exists' });
+    } catch (error) {
+      if (error.code === 11000) {
+        return res.status(400).json({ message: 'Email already exists' });
+      }
+      res.status(500).json({ message: 'Server error', error: error.message });
     }
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
+  });
 
 // Resend OTP (admin only, tenant-scoped)
 router.post('/:id/resend-otp', tenantAuth, requireRole(['admin', 'superadmin']), async (req, res) => {
@@ -152,10 +160,9 @@ router.post('/:id/resend-otp', tenantAuth, requireRole(['admin', 'superadmin']),
       emailSent: emailResult.success,
       otp: newOTP // For admin reference
     });
-  } catch (error) {
-    console.error('Error resending OTP:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
+   } catch (error) {
+     res.status(500).json({ message: 'Server error', error: error.message });
+   }
 });
 
 // Update user profile (admin only, tenant-scoped)
@@ -189,37 +196,228 @@ router.put('/:id', tenantAuth, requireRole(['admin', 'superadmin']), async (req,
 
     res.json(user);
   } catch (error) {
-    console.error('Error updating user:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
 // Delete user (admin only, tenant-scoped)
-router.delete('/:id', tenantAuth, requireRole(['admin', 'superadmin']), async (req, res) => {
+router.delete('/:id', tenantAuth, requireRole(['admin', 'manager', 'superadmin']), async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
   try {
-    // Find and delete user with tenant filtering
-    const query = addTenantFilter(req, { _id: req.params.id });
-    const user = await User.findOneAndDelete(query);
+    // Find target user (allow superadmin to see all, others tenant-scoped)
+    const targetQuery = req.isSuperAdmin 
+      ? { _id: req.params.id } 
+      : addTenantFilter(req, { _id: req.params.id });
+    
+    const user = await User.findOne(targetQuery).session(session);
     
     if (!user) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({ message: 'User not found' });
     }
 
-     // Update tenant usage statistics
-     if (req.tenantId) {
-       await Tenant.findByIdAndUpdate(req.tenantId, {
-         $inc: { 'usage.totalUsers': -1 },
-         'usage.lastActivity': new Date()
-       });
-     }
- 
-     await logAction(req, 'DELETE_USER', `Deleted user ${user.email}`, { entityType: 'User', entityId: user._id });
-     res.json({ message: 'User deleted successfully' });
-   } catch (error) {
-     console.error('Error deleting user:', error);
-     res.status(500).json({ message: 'Server error', error: error.message });
-   }
- });
+    // Authorization check: who can delete whom?
+    if (req.isSuperAdmin) {
+      // Superadmin can delete anyone except themselves (optional safety) and other superadmins (protect platform)
+      if (user._id.equals(req.user.userId)) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(403).json({ message: 'You cannot delete your own account' });
+      }
+      if (user.role === 'superadmin') {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(403).json({ message: 'Superadmin accounts cannot be deleted' });
+      }
+      // Superadmin can delete admins, managers, agents freely
+    } else if (req.role === 'admin') {
+      // Regular admins can only delete agents within their tenant
+      if (user.role !== 'agent') {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(403).json({ message: 'Admins can only delete agent accounts' });
+      }
+      // Also ensure user is in same tenant (already enforced by query, but double-check)
+      if (user.tenant && !user.tenant.equals(req.tenantId)) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(403).json({ message: 'Cannot delete users from other organizations' });
+      }
+    } else if (req.role === 'manager') {
+      // Managers (platform-wide) can delete agents only for safety
+      if (user.role !== 'agent') {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(403).json({ message: 'Managers can only delete agent accounts' });
+      }
+    }
+    
+    // Use the tenant from the user for cleanup (handles superadmin deleting across tenants)
+    const tenantId = user.tenant;
+    
+    // Actually delete the user
+    const deletedUser = await User.findOneAndDelete(
+      { _id: user._id },
+      { session }
+    );
+    if (!deletedUser) {
+      throw new Error('Failed to delete user record');
+    }
+    
+    // Clean up all user's related data within the tenant
+    
+    // 1. Remove user from client assignedAgents arrays and reassign agent field if needed
+    const clientsHandledByUser = await Client.find({ 
+      tenant: tenantId,
+      $or: [
+        { agent: user._id },
+        { assignedAgents: user._id }
+      ]
+    }).session(session);
+    
+    for (const client of clientsHandledByUser) {
+      try {
+        const updates = {};
+        if (client.agent && client.agent.equals(user._id)) {
+          // Reassign primary agent to another active user from same tenant (any role)
+          const alternativeAgentForClient = await User.findOne({ 
+            tenant: tenantId, 
+            isActive: true, 
+            _id: { $ne: user._id } 
+          }).session(session);
+          if (alternativeAgentForClient) {
+            updates.agent = alternativeAgentForClient._id;
+          }
+          // If no alternative agent, leave as-is to avoid required constraint violation
+        }
+        if (client.assignedAgents && client.assignedAgents.some(id => id.equals(user._id))) {
+          updates.$pull = { assignedAgents: user._id };
+        }
+        if (Object.keys(updates).length > 0) {
+          await Client.findByIdAndUpdate(client._id, updates).session(session);
+        }
+      } catch (clientErr) {
+        // Continue with other clients
+      }
+    }
+    
+    // 2. Reassign user's deals to another agent (any active user)
+    const alternativeAgent = await User.findOne({ 
+      tenant: tenantId, 
+      isActive: true, 
+      _id: { $ne: user._id } 
+    }).session(session);
+    
+    let userDeals = [];
+    if (tenantId) {
+      userDeals = await Deal.find({ agent: user._id, tenant: tenantId }).session(session);
+      if (userDeals.length > 0 && alternativeAgent) {
+        await Deal.updateMany(
+          { agent: user._id, tenant: tenantId },
+          { 
+            $set: { agent: alternativeAgent._id },
+            $push: { 
+              notes: {
+                content: `Deal reassigned from deleted user (${user.name}) to ${alternativeAgent.name}`,
+                createdBy: null,
+                createdAt: new Date()
+              }
+            }
+          }
+        ).session(session);
+      } else if (userDeals.length > 0 && !alternativeAgent) {
+        await Deal.deleteMany({ agent: user._id, tenant: tenantId }).session(session);
+      }
+    }
+    
+    // 3. Reassign user's sales to another agent
+    try {
+      if (alternativeAgent) {
+        await Sale.updateMany(
+          { agent: user._id, tenant: tenantId },
+          { $set: { agent: alternativeAgent._id } }
+        ).session(session);
+      } else {
+        await Sale.deleteMany({ agent: user._id, tenant: tenantId }).session(session);
+      }
+    } catch {
+      // Continue; not critical
+    }
+    
+    // 4. Remove user from deal teamMembers arrays
+    try {
+      await Deal.updateMany(
+        { tenant: tenantId, teamMembers: user._id },
+        { $pull: { teamMembers: user._id } }
+      ).session(session);
+    } catch {
+      // Continue
+    }
+    
+    // 5. Delete user's meetings
+    await Meeting.deleteMany({ agent: user._id, tenant: tenantId }).session(session);
+    
+    // 6. Delete user's schedules
+    await Schedule.deleteMany({ agent: user._id, tenant: tenantId }).session(session);
+    
+    // 7. Delete user's notifications
+    try {
+      await Notification.deleteMany({
+        $or: [{ recipient: user._id }, { actor: user._id }],
+        tenant: tenantId
+      }).session(session);
+    } catch {
+      // Continue
+    }
+    
+    // 8. Delete user's audit logs (cannot null required user field)
+    try {
+      await AuditLog.deleteMany({ user: user._id, tenant: tenantId }).session(session);
+    } catch {
+      // Continue
+    }
+    
+    // 9. Deactivate user's security blocks
+    try {
+      await SecurityBlock.updateMany(
+        { createdBy: user._id, tenant: tenantId },
+        { $set: { isActive: false } }
+      ).session(session);
+    } catch {
+      // Continue
+    }
+    
+    // 10. Delete user's performance records
+    await Performance.deleteMany({ agent: user._id, tenant: tenantId }).session(session);
+    
+    // 10. Update tenant usage count if user belongs to a tenant
+    if (tenantId) {
+      await Tenant.findByIdAndUpdate(tenantId, {
+        $inc: { 'usage.totalUsers': -1 },
+        'usage.lastActivity': new Date()
+      }).session(session);
+    }
+
+    await logAction(req, 'DELETE_USER', `Deleted user ${user.email}`, { 
+      entityType: 'User', 
+      entityId: user._id,
+      reassignedDeals: userDeals.length,
+      reassignedTo: alternativeAgent ? alternativeAgent.email : null
+    });
+    
+    await session.commitTransaction();
+    session.endSession();
+    
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
 
 // Set user targets (manager/superadmin only, tenant-scoped for manager)
 router.put('/:userId/targets', tenantAuth, requireRole(['admin', 'superadmin', 'manager']), async (req, res) => {
@@ -271,14 +469,13 @@ router.put('/:userId/targets', tenantAuth, requireRole(['admin', 'superadmin', '
        targets: updateData
      });
      
-     res.json({ 
-       message: 'Targets updated successfully',
-       user: updatedUser
-     });
-   } catch (error) {
-     console.error('Error setting targets:', error);
-     res.status(500).json({ message: 'Server error', error: error.message });
-   }
+      res.json({ 
+        message: 'Targets updated successfully',
+        user: updatedUser
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
  });
 
 export { router as userRoutes };

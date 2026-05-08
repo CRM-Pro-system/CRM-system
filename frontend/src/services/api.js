@@ -51,14 +51,16 @@ export const authAPI = {
 
 // Users API
 export const usersAPI = {
-  getAll: () => api.get('/users'),
+  getAll: (params) => api.get('/users', { params }),
+  getById: (id) => api.get(`/users/${id}`),
+  create: (data) => api.post('/users', data),
   registerAgent: (data) => api.post('/users', data),
   resendOTP: (id) => api.post(`/users/${id}/resend-otp`),
   update: (id, data) => api.put(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`),
   getProfile: () => api.get('/auth/me'),
   updateProfile: (id, data) => api.put(`/users/${id}`, data),
-  setTargets: (userId, targets) => api.put(`/users/${userId}/targets`, targets),
+  setTargets: (id, data) => api.put(`/users/${id}/targets`, data),
 };
 
 

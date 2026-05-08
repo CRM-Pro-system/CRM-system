@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, Edit, Trash2, User, UserPlus, Shield, RefreshCw, 
-  UserX, X, Mail, Phone, MapPin, Calendar, Award, TrendingUp,
-  Filter, Download, MoreVertical, CheckCircle, XCircle,
-  Clock, AlertCircle, ChevronDown, Eye, EyeOff, Users
+  UserX, X, Mail, Phone, Calendar, Award, TrendingUp,
+  Filter, Download, CheckCircle, XCircle,
+  Clock, AlertCircle, ChevronDown, Users
 } from 'lucide-react';
 import { usersAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -37,18 +37,21 @@ const UserManagement = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successInfo, setSuccessInfo] = useState({});
 
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editUser, setEditUser] = useState(null);
-  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
-  const [deactivateTarget, setDeactivateTarget] = useState(null);
+   const [showEditModal, setShowEditModal] = useState(false);
+   const [editUser, setEditUser] = useState(null);
+   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+   const [deactivateTarget, setDeactivateTarget] = useState(null);
 
-   const [formErrors, setFormErrors] = useState({});
-   const [targetForm, setTargetForm] = useState({
-     monthlyTargetDeals: 0,
-     monthlyTargetAmount: 0,
-     monthlyTargetClients: 0
-   });
-   const [targetErrors, setTargetErrors] = useState({});
+   const [showTargetModal, setShowTargetModal] = useState(false);
+   const [targetUser, setTargetUser] = useState(null);
+
+    const [formErrors, setFormErrors] = useState({});
+    const [targetForm, setTargetForm] = useState({
+      monthlyTargetDeals: 0,
+      monthlyTargetAmount: 0,
+      monthlyTargetClients: 0
+    });
+    const [targetErrors, setTargetErrors] = useState({});
 
   useEffect(() => {
     loadUsers();
@@ -846,7 +849,12 @@ const UserManagement = () => {
                               <UserX className="w-4 h-4" />
                             </motion.button>
                             
-                            {userItem.role !== 'admin' && userItem.role !== 'superadmin' && (
+                            {/* Superadmin can delete anyone except other superadmins. Admins can only delete agents. */}
+                            {(
+                              user.role === 'superadmin' 
+                                ? userItem.role !== 'superadmin' 
+                                : userItem.role === 'agent'
+                            ) && (
                               <motion.button
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
