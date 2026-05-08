@@ -48,6 +48,8 @@ const UserManagement = () => {
      monthlyTargetClients: 0
    });
    const [targetErrors, setTargetErrors] = useState({});
+   const [showTargetModal, setShowTargetModal] = useState(false);
+   const [targetUser, setTargetUser] = useState(null);
 
   useEffect(() => {
     loadUsers();
