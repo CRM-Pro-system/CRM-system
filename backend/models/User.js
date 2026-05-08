@@ -21,11 +21,27 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  role: {
-    type: String,
-    enum: ['superadmin', 'manager', 'admin', 'agent'],
-    default: 'agent'
-  },
+
+   role: {
+     type: String,
+     enum: ['superadmin', 'admin', 'manager', 'agent'],
+     default: 'agent'
+   },
+
+   // Target fields for performance tracking
+   monthlyTargetDeals: {
+     type: Number,
+     default: 0
+   },
+   monthlyTargetAmount: {
+     type: Number,
+     default: 0
+   },
+   monthlyTargetClients: {
+     type: Number,
+     default: 0
+   },
+
   nin: {
     type: String,
     trim: true,
@@ -80,10 +96,30 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  monthlySales: {
-    type: Number,
-    default: 0
-  },
+   monthlySales: {
+     type: Number,
+     default: 0
+   },
+   monthlySalesAmount: {
+     type: Number,
+     default: 0
+   },
+   monthlyClients: {
+     type: Number,
+     default: 0
+   },
+   monthlyTargetDeals: {
+     type: Number,
+     default: 0
+   },
+   monthlyTargetAmount: {
+     type: Number,
+     default: 0
+   },
+   monthlyTargetClients: {
+     type: Number,
+     default: 0
+   },
   monthlySalesAmount: {
     type: Number,
     default: 0
