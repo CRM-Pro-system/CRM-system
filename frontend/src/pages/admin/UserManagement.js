@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, Edit, Trash2, User, UserPlus, Shield, RefreshCw, 
-  UserX, X, Mail, Phone, MapPin, Calendar, Award, TrendingUp,
-  Filter, Download, MoreVertical, CheckCircle, XCircle,
-  Clock, AlertCircle, ChevronDown, Eye, EyeOff, Users
+  UserX, X, Mail, Phone, Calendar, Award, TrendingUp,
+  Filter, Download, CheckCircle, XCircle,
+  Clock, AlertCircle, ChevronDown, Users
 } from 'lucide-react';
 import { usersAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 
 const UserManagement = () => {
   const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'superadmin';
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -36,10 +37,10 @@ const UserManagement = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successInfo, setSuccessInfo] = useState({});
 
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editUser, setEditUser] = useState(null);
-  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
-  const [deactivateTarget, setDeactivateTarget] = useState(null);
+   const [showEditModal, setShowEditModal] = useState(false);
+   const [editUser, setEditUser] = useState(null);
+   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+   const [deactivateTarget, setDeactivateTarget] = useState(null);
 
    const [formErrors, setFormErrors] = useState({});
    const [targetForm, setTargetForm] = useState({
@@ -169,7 +170,7 @@ const UserManagement = () => {
       setShowSuccessModal(true);
 
       setShowAddModal(false);
-      setNewUser({ name: '', email: '', phone: '', role: 'agent', nin: '' });
+      setNewUser({ name: '', email: '', phone: '', role: isSuperAdmin ? 'manager' : 'agent', nin: '' });
       setFormErrors({});
       loadUsers();
     } catch (error) {
@@ -391,9 +392,20 @@ const UserManagement = () => {
     }).format(value || 0);
   };
 
+  const getRoleMeta = (role) => {
+    const roles = {
+      superadmin: { label: 'Super Admin', badge: 'bg-red-100 text-red-700', iconBg: 'bg-red-100', icon: Shield, iconColor: 'text-red-600' },
+      manager: { label: 'Manager', badge: 'bg-blue-100 text-blue-700', iconBg: 'bg-blue-100', icon: Shield, iconColor: 'text-blue-600' },
+      admin: { label: 'Administrator', badge: 'bg-purple-100 text-purple-700', iconBg: 'bg-purple-100', icon: Shield, iconColor: 'text-purple-600' },
+      agent: { label: 'Sales Agent', badge: 'bg-orange-100 text-orange-700', iconBg: 'bg-orange-100', icon: User, iconColor: 'text-orange-600' }
+    };
+    return roles[role] || roles.agent;
+  };
+
   const stats = {
     total: users.length,
     admins: users.filter(u => u.role === 'admin').length,
+    managers: users.filter(u => u.role === 'manager').length,
     agents: users.filter(u => u.role === 'agent').length,
     pending: users.filter(u => u.isFirstLogin).length,
     active: users.filter(u => u.isActive !== false).length,
@@ -423,7 +435,11 @@ const UserManagement = () => {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-              <p className="text-gray-600 mt-1">Manage your team members and their access permissions</p>
+              <p className="text-gray-600 mt-1">
+                {isSuperAdmin
+                  ? 'Register platform admins and managers. Company onboarding stays in Tenant Management.'
+                  : 'Manage your team members and their access permissions'}
+              </p>
             </div>
             <div className="flex items-center space-x-3">
               <motion.button
@@ -437,15 +453,18 @@ const UserManagement = () => {
                 <span>Refresh</span>
               </motion.button>
               
-              {user?.role === 'admin' && (
+              {(user?.role === 'admin' || isSuperAdmin) && (
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => setShowAddModal(true)}
+                  onClick={() => {
+                    setNewUser({ name: '', email: '', phone: '', role: isSuperAdmin ? 'manager' : 'agent', nin: '' });
+                    setShowAddModal(true);
+                  }}
                   className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-2.5 rounded-xl flex items-center space-x-2 hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25"
                 >
                   <UserPlus className="w-5 h-5" />
-                  <span>Add New Agent</span>
+                  <span>{isSuperAdmin ? 'Register Platform Role' : 'Add New Agent'}</span>
                 </motion.button>
               )}
             </div>
@@ -453,7 +472,7 @@ const UserManagement = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -470,6 +489,25 @@ const UserManagement = () => {
               </div>
             </div>
           </motion.div>
+
+          {isSuperAdmin && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+              className="bg-white rounded-xl shadow-sm p-6 border border-gray-100"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Managers</p>
+                  <p className="text-2xl font-bold text-blue-600">{stats.managers}</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <Shield className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -593,6 +631,8 @@ const UserManagement = () => {
                       className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     >
                       <option value="all">All Roles</option>
+                      <option value="superadmin">Super Admin</option>
+                      <option value="manager">Manager</option>
                       <option value="admin">Admin</option>
                       <option value="agent">Agent</option>
                     </select>
@@ -662,6 +702,8 @@ const UserManagement = () => {
                   {filteredUsers.map((userItem, index) => {
                     const StatusIcon = getAccountStatus(userItem).icon;
                     const statusColor = getAccountStatus(userItem).color;
+                    const roleMeta = getRoleMeta(userItem.role);
+                    const RoleIcon = roleMeta.icon;
                     
                     return (
                       <motion.tr
@@ -674,14 +716,8 @@ const UserManagement = () => {
                       >
                         <td className="px-6 py-4">
                           <div className="flex items-center space-x-3">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                              userItem.role === 'admin' ? 'bg-purple-100' : 'bg-orange-100'
-                            }`}>
-                              {userItem.role === 'admin' ? (
-                                <Shield className="w-5 h-5 text-purple-600" />
-                              ) : (
-                                <User className="w-5 h-5 text-orange-600" />
-                              )}
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${roleMeta.iconBg}`}>
+                              <RoleIcon className={`w-5 h-5 ${roleMeta.iconColor}`} />
                             </div>
                             <div>
                               <p className="font-medium text-gray-900">{userItem.name}</p>
@@ -707,12 +743,8 @@ const UserManagement = () => {
                         
                         <td className="px-6 py-4">
                           <div className="space-y-2">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                              userItem.role === 'admin' 
-                                ? 'bg-purple-100 text-purple-700' 
-                                : 'bg-orange-100 text-orange-700'
-                            }`}>
-                              {userItem.role === 'admin' ? 'Administrator' : 'Sales Agent'}
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${roleMeta.badge}`}>
+                              {roleMeta.label}
                             </span>
                             <div className="flex items-center space-x-1">
                               <StatusIcon className={`w-4 h-4 ${statusColor}`} />
@@ -816,7 +848,12 @@ const UserManagement = () => {
                               <UserX className="w-4 h-4" />
                             </motion.button>
                             
-                            {userItem.role !== 'admin' && (
+                            {/* Superadmin can delete anyone except other superadmins. Admins can only delete agents. */}
+                            {(
+                              user.role === 'superadmin'
+                                ? userItem.role !== 'superadmin'
+                                : userItem.role === 'agent'
+                            ) && (
                               <motion.button
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
@@ -852,15 +889,18 @@ const UserManagement = () => {
                   : 'Get started by registering your first agent to manage your team.'
                 }
               </p>
-              {!searchTerm && user?.role === 'admin' && (
+              {!searchTerm && (user?.role === 'admin' || isSuperAdmin) && (
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => setShowAddModal(true)}
+                  onClick={() => {
+                    setNewUser({ name: '', email: '', phone: '', role: isSuperAdmin ? 'manager' : 'agent', nin: '' });
+                    setShowAddModal(true);
+                  }}
                   className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-xl inline-flex items-center space-x-2 hover:from-orange-600 hover:to-orange-700 shadow-lg shadow-orange-500/25"
                 >
                   <UserPlus className="w-5 h-5" />
-                  <span>Register First Agent</span>
+                  <span>{isSuperAdmin ? 'Register First Platform Role' : 'Register First Agent'}</span>
                 </motion.button>
               )}
             </div>
@@ -907,11 +947,7 @@ const UserManagement = () => {
               <div className="px-6 py-5 bg-gradient-to-r from-orange-500 to-orange-600 flex items-start justify-between">
                 <div className="flex items-center space-x-4">
                   <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-                    {detailsUser.role === 'admin' ? (
-                      <Shield className="w-8 h-8 text-white" />
-                    ) : (
-                      <User className="w-8 h-8 text-white" />
-                    )}
+                    {React.createElement(getRoleMeta(detailsUser.role).icon, { className: 'w-8 h-8 text-white' })}
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-white">{detailsUser.name}</h3>
@@ -947,12 +983,8 @@ const UserManagement = () => {
                         </div>
                         <div>
                           <p className="text-xs text-gray-500 mb-1">Role</p>
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                            detailsUser.role === 'admin' 
-                              ? 'bg-purple-100 text-purple-700' 
-                              : 'bg-orange-100 text-orange-700'
-                          }`}>
-                            {detailsUser.role === 'admin' ? 'Administrator' : 'Sales Agent'}
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getRoleMeta(detailsUser.role).badge}`}>
+                            {getRoleMeta(detailsUser.role).label}
                           </span>
                         </div>
                       </div>
@@ -1077,8 +1109,14 @@ const UserManagement = () => {
               className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden"
             >
               <div className="px-6 py-4 bg-gradient-to-r from-orange-500 to-orange-600">
-                <h3 className="text-lg font-semibold text-white">Register New Agent</h3>
-                <p className="text-orange-100 text-sm mt-1">Add a new team member to the system</p>
+                <h3 className="text-lg font-semibold text-white">
+                  {isSuperAdmin ? 'Register Platform Role' : 'Register New Agent'}
+                </h3>
+                <p className="text-orange-100 text-sm mt-1">
+                  {isSuperAdmin
+                    ? 'Create a platform admin or manager account. This does not onboard a company.'
+                    : 'Add a new team member to the system'}
+                </p>
               </div>
               
               <form onSubmit={handleAddUser} className="p-6 space-y-5">
@@ -1125,6 +1163,25 @@ const UserManagement = () => {
                     </p>
                   )}
                 </div>
+
+                {isSuperAdmin && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Platform Role <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={newUser.role}
+                      onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                    >
+                      <option value="manager">Manager</option>
+                      <option value="admin">Platform Admin</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Use Tenant Management to create company admins during company onboarding.
+                    </p>
+                  </div>
+                )}
                 
                  <div>
                    <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1193,7 +1250,7 @@ const UserManagement = () => {
                         <span>Registering...</span>
                       </div>
                     ) : (
-                      'Register Agent'
+                      isSuperAdmin ? 'Register Role' : 'Register Agent'
                     )}
                   </button>
                 </div>

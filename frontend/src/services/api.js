@@ -51,14 +51,16 @@ export const authAPI = {
 
 // Users API
 export const usersAPI = {
-  getAll: () => api.get('/users'),
+  getAll: (params) => api.get('/users', { params }),
+  getById: (id) => api.get(`/users/${id}`),
+  create: (data) => api.post('/users', data),
   registerAgent: (data) => api.post('/users', data),
   resendOTP: (id) => api.post(`/users/${id}/resend-otp`),
   update: (id, data) => api.put(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`),
   getProfile: () => api.get('/auth/me'),
   updateProfile: (id, data) => api.put(`/users/${id}`, data),
-  setTargets: (userId, targets) => api.put(`/users/${userId}/targets`, targets),
+  setTargets: (id, data) => api.put(`/users/${id}/targets`, data),
 };
 
 
@@ -156,6 +158,18 @@ export const settingsAPI = {
 // Tenants API (Super Admin only)
 export const tenantsAPI = {
   getAll: () => api.get('/tenants'),
+  getCommandCenter: () => api.get('/tenants/command-center/overview'),
+  getActivity: (params) => api.get('/tenants/activity/live', { params }),
+  getLoginForensics: (params) => api.get('/tenants/login-forensics', { params }),
+  createSecurityBlock: (data) => api.post('/tenants/security-blocks', data),
+  updateSecurityBlock: (id, data) => api.patch(`/tenants/security-blocks/${id}`, data),
+  getProfile: (id) => api.get(`/tenants/${id}/profile`),
+  getImpact: (id) => api.get(`/tenants/${id}/impact`),
+  control: (id, data) => api.patch(`/tenants/${id}/control`, data),
+  updateFeatures: (id, data) => api.patch(`/tenants/${id}/features`, data),
+  updateSubscription: (id, data) => api.patch(`/tenants/${id}/subscription`, data),
+  impersonateAdmin: (id) => api.post(`/tenants/${id}/impersonate-admin`),
+  sendAnnouncement: (data) => api.post('/tenants/communications/announce', data),
   getById: (id) => api.get(`/tenants/${id}`),
   create: (data) => api.post('/tenants', data),
   update: (id, data) => api.put(`/tenants/${id}`, data),

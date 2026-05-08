@@ -6,7 +6,8 @@ const router = express.Router();
 
 router.use(tenantAuth);
 
-// ─── READ-ONLY GUARD ──────────────────────────────────────────────────────────
+const auditRoles = ['admin', 'manager', 'superadmin'];
+
 // Audit logs are immutable. Block all write methods at the HTTP layer.
 const blockWrites = (req, res) => {
   res.status(405).json({
@@ -21,43 +22,44 @@ router.put('/:id', blockWrites);
 router.patch('/:id', blockWrites);
 router.delete('/:id', blockWrites);
 
-// ─── GET audit logs (admin and superadmin only) ───────────────────────────────
-router.get('/', requireRole(['admin', 'superadmin']), async (req, res) => {
+const buildAuditQuery = (req) => {
+  const {
+    action,
+    userId,
+    startDate,
+    endDate,
+    status,
+    search
+  } = req.query;
+
+  const query = req.isSuperAdmin ? {} : { tenant: req.tenantId };
+
+  if (action) query.action = action;
+  if (userId) query.user = userId;
+  if (status) query.status = status;
+
+  if (startDate || endDate) {
+    query.createdAt = {};
+    if (startDate) query.createdAt.$gte = new Date(startDate);
+    if (endDate) query.createdAt.$lte = new Date(endDate);
+  }
+
+  if (search) {
+    const regex = new RegExp(search, 'i');
+    query.$or = [
+      { description: regex },
+      { userName: regex },
+      { userEmail: regex }
+    ];
+  }
+
+  return query;
+};
+
+router.get('/', requireRole(auditRoles), async (req, res) => {
   try {
-    const {
-      page = 1,
-      limit = 20,
-      action,
-      userId,
-      startDate,
-      endDate,
-      status,
-      search
-    } = req.query;
-
-    // Superadmin sees all tenants; admin sees their tenant only
-    const query = req.isSuperAdmin ? {} : { tenant: req.tenantId };
-
-    if (action) query.action = action;
-    if (userId) query.user = userId;
-    if (status) query.status = status;
-
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
-    }
-
-    // Free-text search across description, userName, userEmail
-    if (search) {
-      const regex = new RegExp(search, 'i');
-      query.$or = [
-        { description: regex },
-        { userName: regex },
-        { userEmail: regex }
-      ];
-    }
-
+    const { page = 1, limit = 20 } = req.query;
+    const query = buildAuditQuery(req);
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const [logs, total] = await Promise.all([
@@ -84,32 +86,10 @@ router.get('/', requireRole(['admin', 'superadmin']), async (req, res) => {
   }
 });
 
-// ─── GET single audit log entry ───────────────────────────────────────────────
-router.get('/:id', requireRole(['admin', 'superadmin']), async (req, res) => {
-  try {
-    const query = req.isSuperAdmin
-      ? { _id: req.params.id }
-      : { _id: req.params.id, tenant: req.tenantId };
-
-    const log = await AuditLog.findOne(query).lean();
-
-    if (!log) {
-      return res.status(404).json({ message: 'Audit log entry not found' });
-    }
-
-    res.json(log);
-  } catch (error) {
-    console.error('Error fetching audit log entry:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// ─── GET audit log stats summary ─────────────────────────────────────────────
-router.get('/stats/summary', requireRole(['admin', 'superadmin']), async (req, res) => {
+const getAuditStats = async (req, res) => {
   try {
     const query = req.isSuperAdmin ? {} : { tenant: req.tenantId };
 
-    // Last 30 days
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const recentQuery = { ...query, createdAt: { $gte: thirtyDaysAgo } };
 
@@ -130,6 +110,29 @@ router.get('/stats/summary', requireRole(['admin', 'superadmin']), async (req, r
 
     res.json({ total, recent, byAction, byStatus });
   } catch (error) {
+    console.error('Error fetching audit log stats:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+router.get('/stats', requireRole(auditRoles), getAuditStats);
+router.get('/stats/summary', requireRole(auditRoles), getAuditStats);
+
+router.get('/:id', requireRole(auditRoles), async (req, res) => {
+  try {
+    const query = req.isSuperAdmin
+      ? { _id: req.params.id }
+      : { _id: req.params.id, tenant: req.tenantId };
+
+    const log = await AuditLog.findOne(query).lean();
+
+    if (!log) {
+      return res.status(404).json({ message: 'Audit log entry not found' });
+    }
+
+    res.json(log);
+  } catch (error) {
+    console.error('Error fetching audit log entry:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

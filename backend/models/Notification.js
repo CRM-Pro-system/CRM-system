@@ -19,7 +19,8 @@ const notificationSchema = new mongoose.Schema({
       'meeting_created', 'meeting_completed', 'meeting_response',
       'meeting_reminder', 'meeting_scheduled',
       'sale_created', 'document_uploaded',
-      'task_due', 'task_overdue'
+      'task_due', 'task_overdue',
+      'announcement'
     ],
     required: true
   },
@@ -42,7 +43,7 @@ const notificationSchema = new mongoose.Schema({
   },
   entityType: {
     type: String,
-    enum: ['deal', 'Deal', 'client', 'Client', 'meeting', 'sale', 'Sale', 'document', 'Schedule', 'User', 'task'],
+    enum: ['deal', 'Deal', 'client', 'Client', 'meeting', 'sale', 'Sale', 'document', 'Schedule', 'User', 'task', 'Tenant', 'System'],
     required: true
   },
   entityId: {

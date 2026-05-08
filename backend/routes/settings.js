@@ -46,7 +46,7 @@ router.get('/', async (req, res) => {
 // Update settings (Admin only)
 router.put('/', async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+    if (req.user.role !== 'admin' && req.user.role !== 'manager' && req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'Access denied. Admin role required.' });
     }
 

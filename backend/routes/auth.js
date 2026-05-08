@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import AuditLog from '../models/AuditLog.js';
+import SecurityBlock from '../models/SecurityBlock.js';
 import { sendEmail, generateOTP } from '../services/emailService.js';
 import { forgotPasswordLimiter, authLimiter } from '../middleware/rateLimiter.js';
 
@@ -12,6 +13,20 @@ const router = express.Router();
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+      req.headers['x-real-ip'] ||
+      req.connection?.remoteAddress ||
+      req.ip ||
+      '';
+    const userAgent = req.headers['user-agent'] || '';
+    const browser = userAgent.includes('Chrome') && !userAgent.includes('Edg') ? 'Chrome' :
+      userAgent.includes('Firefox') ? 'Firefox' :
+      userAgent.includes('Safari') && !userAgent.includes('Chrome') ? 'Safari' :
+      userAgent.includes('Edg') ? 'Edge' :
+      userAgent ? 'Other' : 'Unknown';
+    const device = userAgent.includes('Mobile') || userAgent.includes('Android') ? 'Mobile' :
+      userAgent.includes('Tablet') || userAgent.includes('iPad') ? 'Tablet' :
+      userAgent ? 'Desktop' : 'Unknown';
 
     // Validate input
     if (!email || !password) {
@@ -21,6 +36,23 @@ router.post('/login', async (req, res) => {
     // Check if user exists and populate tenant
     const user = await User.findOne({ email }).populate('tenant');
     if (!user) {
+      try {
+        const fallbackUser = await User.findOne({ role: 'superadmin' });
+        if (fallbackUser) {
+          await AuditLog.create({
+            action: 'LOGIN',
+            description: `Failed login attempt for ${email}`,
+            user: fallbackUser._id,
+            userName: 'Unknown user',
+            userEmail: email || '',
+            userRole: 'unknown',
+            tenant: null,
+            ipAddress,
+            status: 'failed',
+            metadata: { browser, device, userAgent, reason: 'unknown_user' }
+          });
+        }
+      } catch (err) {}
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
@@ -29,9 +61,37 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ message: 'Account has been deactivated. Please contact your administrator.' });
     }
 
+    const activeBlock = await SecurityBlock.findOne({
+      isActive: true,
+      $or: [
+        { type: 'ip', value: ipAddress, tenant: user.tenant?._id || null },
+        { type: 'ip', value: ipAddress, tenant: null },
+        { type: 'device', value: userAgent, tenant: user.tenant?._id || null },
+        { type: 'device', value: userAgent, tenant: null }
+      ]
+    });
+
+    if (activeBlock) {
+      return res.status(403).json({ message: 'Login blocked by security policy.' });
+    }
+
     // Check password/OTP
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      try {
+        await AuditLog.create({
+          action: 'LOGIN',
+          description: `Failed login attempt for ${user.email}`,
+          user: user._id,
+          userName: user.name,
+          userEmail: user.email,
+          userRole: user.role,
+          tenant: user.tenant || null,
+          ipAddress,
+          status: 'failed',
+          metadata: { browser, device, userAgent, reason: 'bad_password' }
+        });
+      } catch (err) {}
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
@@ -77,7 +137,10 @@ router.post('/login', async (req, res) => {
         userEmail: user.email,
         userRole: user.role,
         tenant: user.tenant || null,
+        ipAddress,
         status: 'success'
+        ,
+        metadata: { browser, device, userAgent }
       });
     } catch (err) {}
 

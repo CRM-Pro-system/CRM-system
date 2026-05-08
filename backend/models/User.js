@@ -21,6 +21,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+
    role: {
      type: String,
      enum: ['superadmin', 'admin', 'manager', 'agent'],
@@ -40,6 +41,7 @@ const userSchema = new mongoose.Schema({
      type: Number,
      default: 0
    },
+
   nin: {
     type: String,
     trim: true,

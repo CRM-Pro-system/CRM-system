@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const performanceSchema = new mongoose.Schema({
   agent: {
@@ -30,4 +30,4 @@ const performanceSchema = new mongoose.Schema({
   }
 });
 
-module.exports = mongoose.model('Performance', performanceSchema);
+export default mongoose.model('Performance', performanceSchema);

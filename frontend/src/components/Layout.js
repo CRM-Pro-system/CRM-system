@@ -36,7 +36,7 @@ const Layout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'manager';
   const isSuperAdmin = user?.role === 'superadmin';
 
   // Load unread notifications count for admin with periodic polling
