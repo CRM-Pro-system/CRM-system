@@ -49,7 +49,7 @@ router.get('/agent/:agentId', async (req, res) => {
 // Get overall performance stats (admin)
 router.get('/overall', async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+    if (req.user.role !== 'admin' && req.user.role !== 'manager' && req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'Access denied. Admin only.' });
     }
     const agents = await User.find({ role: 'agent', ...req.tenantQuery });
@@ -96,7 +96,7 @@ router.get('/overall', async (req, res) => {
 // Get agent rankings
 router.get('/rankings', async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+    if (req.user.role !== 'admin' && req.user.role !== 'manager' && req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'Access denied. Admin only.' });
     }
 

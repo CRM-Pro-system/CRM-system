@@ -7,7 +7,7 @@ const router = express.Router();
 router.use(tenantAuth);
 
 // GET audit logs (admin and superadmin only)
-router.get('/', requireRole(['admin', 'superadmin']), async (req, res) => {
+router.get('/', requireRole(['admin', 'manager', 'superadmin']), async (req, res) => {
   try {
     const { page = 1, limit = 20, action, userId, startDate, endDate } = req.query;
 
@@ -49,7 +49,7 @@ router.get('/', requireRole(['admin', 'superadmin']), async (req, res) => {
 });
 
 // GET audit log stats summary
-router.get('/stats', requireRole(['admin', 'superadmin']), async (req, res) => {
+router.get('/stats', requireRole(['admin', 'manager', 'superadmin']), async (req, res) => {
   try {
     const query = req.isSuperAdmin ? {} : { tenant: req.tenantId };
 

@@ -13,7 +13,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['deal_created', 'deal_updated', 'deal_won', 'deal_lost', 'client_created', 'client_updated', 'meeting_created', 'meeting_completed', 'meeting_response', 'meeting_reminder', 'sale_created', 'document_uploaded', 'meeting_scheduled'],
+    enum: ['deal_created', 'deal_updated', 'deal_won', 'deal_lost', 'client_created', 'client_updated', 'meeting_created', 'meeting_completed', 'meeting_response', 'meeting_reminder', 'sale_created', 'document_uploaded', 'meeting_scheduled', 'announcement'],
     required: true
   },
   recipient: {
@@ -35,7 +35,7 @@ const notificationSchema = new mongoose.Schema({
   },
   entityType: {
     type: String,
-    enum: ['deal', 'Deal', 'client', 'Client', 'meeting', 'sale', 'Sale', 'document', 'Schedule'],
+    enum: ['deal', 'Deal', 'client', 'Client', 'meeting', 'sale', 'Sale', 'document', 'Schedule', 'Tenant', 'System'],
     required: true
   },
   entityId: {

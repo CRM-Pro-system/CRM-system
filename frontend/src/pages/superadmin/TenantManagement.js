@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Building2, Plus, Search, CheckCircle, XCircle, Clock, Edit, Eye, X, Trash2, Users } from 'lucide-react';
-import { tenantsAPI, usersAPI } from '../../services/api';
+import { tenantsAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import logo from '../../assets/logo.png';
 
@@ -182,25 +182,22 @@ const CreateTenantModal = ({ onClose, onCreated }) => {
 
 const ViewDetailsModal = ({ tenant, onClose }) => {
   const [users, setUsers] = useState([]);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadUsers = async () => {
+    const loadProfile = async () => {
       try {
-        const res = await usersAPI.getAll();
-        const allUsers = Array.isArray(res.data) ? res.data : [];
-        // Filter users belonging to this tenant
-        const tenantUsers = allUsers.filter(u => 
-          u.tenant?._id === tenant._id || u.tenant === tenant._id
-        );
-        setUsers(tenantUsers);
+        const res = await tenantsAPI.getProfile(tenant._id);
+        setProfile(res.data);
+        setUsers(res.data?.users || []);
       } catch (error) {
-        toast.error('Failed to load users');
+        toast.error('Failed to load organization profile');
       } finally {
         setLoading(false);
       }
     };
-    loadUsers();
+    loadProfile();
   }, [tenant._id]);
 
   return (
@@ -249,7 +246,11 @@ const ViewDetailsModal = ({ tenant, onClose }) => {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 uppercase mb-1">User Count</label>
-                <p className="text-2xl font-bold text-orange-600">{tenant.userCount || 0}</p>
+                <p className="text-2xl font-bold text-orange-600">{profile?.impact?.users ?? tenant.userCount ?? 0}</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Security Score</label>
+                <p className="text-2xl font-bold text-blue-600">{profile?.securityScore ?? '...'}%</p>
               </div>
             </div>
           </div>
@@ -257,7 +258,7 @@ const ViewDetailsModal = ({ tenant, onClose }) => {
           {/* Usage Stats */}
           <div className="mb-6">
             <h3 className="text-sm font-bold text-gray-900 uppercase mb-3">Usage Statistics</h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-blue-50 rounded-xl p-4 text-center">
                 <p className="text-2xl font-bold text-blue-600">{tenant.usage?.totalUsers || 0}</p>
                 <p className="text-xs text-blue-600">Users</p>
@@ -273,6 +274,30 @@ const ViewDetailsModal = ({ tenant, onClose }) => {
                 <p className="text-xs text-purple-600">Deals</p>
                 <p className="text-xs text-gray-500 mt-1">/{tenant.settings?.features?.maxDeals || 500} max</p>
               </div>
+              <div className="bg-gray-50 rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-gray-700">{tenant.usage?.storageUsed || 0} MB</p>
+                <p className="text-xs text-gray-600">Storage</p>
+                <p className="text-xs text-gray-500 mt-1">Recorded usage</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-sm font-bold text-gray-900 uppercase mb-3">Activity Timeline</h3>
+            <div className="space-y-2 max-h-56 overflow-y-auto">
+              {(profile?.timeline || []).length === 0 ? (
+                <div className="bg-gray-50 rounded-xl p-6 text-center text-gray-500">No activity recorded for this organization yet</div>
+              ) : (
+                profile.timeline.slice(0, 10).map((item) => (
+                  <div key={item._id} className="bg-gray-50 rounded-xl p-3">
+                    <div className="flex justify-between gap-3">
+                      <p className="text-sm font-medium text-gray-900">{item.description}</p>
+                      <span className="text-xs text-gray-500 whitespace-nowrap">{new Date(item.createdAt).toLocaleString()}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{item.action} · {item.status}</p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -545,11 +570,39 @@ const TenantManagement = () => {
   const handleStatusToggle = async (tenantId, currentStatus, tenantName) => {
     const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
     try {
-      await tenantsAPI.updateStatus(tenantId, newStatus);
+      await tenantsAPI.control(tenantId, { action: newStatus === 'active' ? 'reactivate' : 'suspend' });
       toast.success(`${tenantName} has been ${newStatus}`);
       loadTenants();
     } catch (error) {
       toast.error('Failed to update status');
+    }
+  };
+
+  const handleLockdown = async (tenantId, tenantName) => {
+    const confirmed = window.confirm(`Emergency lockdown will immediately suspend ${tenantName}. Continue?`);
+    if (!confirmed) return;
+    try {
+      await tenantsAPI.control(tenantId, { action: 'lockdown', reason: 'Emergency lockdown from Tenant Management' });
+      toast.success(`${tenantName} is now in emergency lockdown`);
+      loadTenants();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to apply lockdown');
+    }
+  };
+
+  const handleScheduleDeactivation = async (tenantId, tenantName) => {
+    const scheduledAt = window.prompt(`Enter deactivation date/time for ${tenantName} (YYYY-MM-DDTHH:mm)`);
+    if (!scheduledAt) return;
+    try {
+      await tenantsAPI.control(tenantId, {
+        action: 'schedule_deactivation',
+        scheduledAt,
+        reason: 'Scheduled from Tenant Management'
+      });
+      toast.success(`Deactivation scheduled for ${tenantName}`);
+      loadTenants();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to schedule deactivation');
     }
   };
 
@@ -735,6 +788,20 @@ const TenantManagement = () => {
                           ) : (
                             <CheckCircle className="w-4 h-4" />
                           )}
+                        </button>
+                        <button
+                          onClick={() => handleLockdown(tenant._id, tenant.name)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Emergency Lockdown"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleScheduleDeactivation(tenant._id, tenant.name)}
+                          className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
+                          title="Schedule Deactivation"
+                        >
+                          <Clock className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => {

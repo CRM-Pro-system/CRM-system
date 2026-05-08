@@ -57,8 +57,8 @@ export const tenantAuth = async (req, res, next) => {
       });
     }
 
-    // Handle Super Admin (no tenant restrictions)
-    if (user.role === 'superadmin') {
+    // Handle platform roles without tenant restrictions
+    if (user.role === 'superadmin' || user.role === 'manager') {
       req.user = {
         userId: user._id,
         email: user.email,
@@ -67,7 +67,8 @@ export const tenantAuth = async (req, res, next) => {
         name: user.name
       };
       req.tenant = null;
-      req.isSuperAdmin = true;
+      req.isSuperAdmin = user.role === 'superadmin';
+      req.isPlatformManager = user.role === 'manager';
       req.tenantQuery = {}; // Super admin sees all data
       req.canAddUsers = () => true;
       req.canAddClients = () => true;
@@ -89,6 +90,13 @@ export const tenantAuth = async (req, res, next) => {
       return res.status(403).json({ 
         message: 'Organization account is suspended. Please contact your administrator.',
         code: 'TENANT_SUSPENDED'
+      });
+    }
+
+    if (user.tenant.metadata?.lockdownMode) {
+      return res.status(403).json({
+        message: 'Organization is in emergency lockdown mode. Please contact your administrator.',
+        code: 'TENANT_LOCKDOWN'
       });
     }
 
@@ -333,8 +341,8 @@ export const checkUsageLimit = (resourceType) => {
  * Adds tenant filter to MongoDB queries automatically
  */
 export const addTenantFilter = (req, baseQuery = {}) => {
-  // Super admin can see all data (no tenant filter)
-  if (req.isSuperAdmin) {
+  // Platform roles can see all data (no tenant filter)
+  if (req.isSuperAdmin || req.isPlatformManager) {
     return baseQuery;
   }
 

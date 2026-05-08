@@ -17,7 +17,7 @@ const SalesManagement = lazy(() => import('./pages/agent/SalesManagement'));
 const UserManagement = lazy(() => import('./pages/admin/UserManagement'));
 const Reports = lazy(() => import('./pages/admin/Reports'));
 const Settings = lazy(() => import('./pages/admin/Settings'));
-const SuperAdminDashboard = lazy(() => import('./pages/superadmin/Dashboard'));
+const SuperAdminDashboardFull = lazy(() => import('./pages/superadmin/SuperAdminDashboard'));
 const TenantManagement = lazy(() => import('./pages/superadmin/TenantManagement'));
 const BulkOperations = lazy(() => import('./pages/admin/BulkOperations'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword'));
@@ -44,7 +44,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   if (cachedUser.role === 'superadmin') return <Layout>{children}</Layout>;
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(cachedUser.role)) {
-    const redirectPath = cachedUser.role === 'admin' ? '/admin' : '/agent';
+    const redirectPath = cachedUser.role === 'admin' || cachedUser.role === 'manager' ? '/admin' : '/agent';
     return <Navigate to={redirectPath} replace />;
   }
 
@@ -60,7 +60,7 @@ const PublicRoute = ({ children }) => {
 
   if (cachedUser) {
     if (cachedUser.role === 'superadmin') return <Navigate to="/superadmin" replace />;
-    const redirectPath = cachedUser.role === 'admin' ? '/admin' : '/agent';
+    const redirectPath = cachedUser.role === 'admin' || cachedUser.role === 'manager' ? '/admin' : '/agent';
     return <Navigate to={redirectPath} replace />;
   }
 
@@ -94,7 +94,7 @@ function App() {
                 {/* Super Admin Routes */}
                 <Route path="/superadmin" element={
                   <ProtectedRoute allowedRoles={['superadmin']}>
-                    <SuperAdminDashboard />
+                    <SuperAdminDashboardFull />
                   </ProtectedRoute>
                 } />
                 <Route path="/superadmin/tenants" element={
@@ -105,27 +105,27 @@ function App() {
 
                 {/* Admin Routes */}
                 <Route path="/admin" element={
-                  <ProtectedRoute allowedRoles={['admin']}>
+                  <ProtectedRoute allowedRoles={['admin', 'manager']}>
                     <AdminDashboard />
                   </ProtectedRoute>
                 } />
                 <Route path="/admin/users" element={
-                  <ProtectedRoute allowedRoles={['admin']}>
+                  <ProtectedRoute allowedRoles={['admin', 'manager']}>
                     <UserManagement />
                   </ProtectedRoute>
                 } />
                 <Route path="/admin/reports" element={
-                  <ProtectedRoute allowedRoles={['admin']}>
+                  <ProtectedRoute allowedRoles={['admin', 'manager']}>
                     <Reports />
                   </ProtectedRoute>
                 } />
                 <Route path="/admin/settings" element={
-                  <ProtectedRoute allowedRoles={['admin']}>
+                  <ProtectedRoute allowedRoles={['admin', 'manager']}>
                     <Settings />
                   </ProtectedRoute>
                 } />
                 <Route path="/admin/bulk-operations" element={
-                  <ProtectedRoute allowedRoles={['admin', 'superadmin']}>
+                  <ProtectedRoute allowedRoles={['admin', 'manager', 'superadmin']}>
                     <BulkOperations />
                   </ProtectedRoute>
                 } />

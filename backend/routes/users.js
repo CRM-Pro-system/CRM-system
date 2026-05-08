@@ -1,6 +1,16 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Tenant from '../models/Tenant.js';
+import Client from '../models/Client.js';
+import Deal from '../models/Deal.js';
+import Sale from '../models/Sale.js';
+import Meeting from '../models/Meeting.js';
+import Schedule from '../models/Schedule.js';
+import Notification from '../models/Notification.js';
+import AuditLog from '../models/AuditLog.js';
+import SecurityBlock from '../models/SecurityBlock.js';
+import Performance from '../models/Performance.js';
 import { sendEmail, generateOTP } from '../services/emailService.js';
 import { tenantAuth, requireRole, requireSuperAdmin, addTenantFilter, addTenantData, checkUsageLimit } from '../middleware/tenantAuth.js';
 import { logAction } from '../utils/auditLog.js';
@@ -8,7 +18,7 @@ import { logAction } from '../utils/auditLog.js';
 const router = express.Router();
 
 // Get all users (admin only, tenant-scoped)
-router.get('/', tenantAuth, requireRole(['admin', 'superadmin']), async (req, res) => {
+router.get('/', tenantAuth, requireRole(['admin', 'manager', 'superadmin']), async (req, res) => {
   try {
     // Build query with tenant filtering
     const query = addTenantFilter(req, {});
@@ -28,9 +38,21 @@ router.get('/', tenantAuth, requireRole(['admin', 'superadmin']), async (req, re
 });
 
 // Create new agent with OTP (admin only, with usage limits)
-router.post('/', tenantAuth, requireRole(['admin', 'superadmin']), checkUsageLimit('users'), async (req, res) => {
+router.post('/', tenantAuth, requireRole(['admin', 'manager', 'superadmin']), checkUsageLimit('users'), async (req, res) => {
   try {
-    const { name, email, phone, role = 'agent', nin = null } = req.body;
+    const { name, email, phone, role = 'agent', nin = null, tenantId = null } = req.body;
+
+    if (req.isPlatformManager) {
+      return res.status(403).json({ message: 'Managers cannot create users' });
+    }
+
+    const allowedRoles = req.isSuperAdmin
+      ? ['superadmin', 'manager', 'admin', 'agent']
+      : ['agent'];
+
+    if (!allowedRoles.includes(role)) {
+      return res.status(403).json({ message: 'You are not allowed to create this role' });
+    }
     
     // Check if user already exists (tenant-scoped for regular admins)
     const existingUserQuery = req.isSuperAdmin 
@@ -58,16 +80,18 @@ router.post('/', tenantAuth, requireRole(['admin', 'superadmin']), checkUsageLim
       otpExpires: new Date(Date.now() + 12 * 60 * 60 * 1000) // OTP expires in 12 hours
     };
 
-    // Add tenant data (super admin must specify tenant manually if needed)
-    const userDataWithTenant = addTenantData(req, userData);
+    const userDataWithTenant = req.isSuperAdmin
+      ? { ...userData, tenant: tenantId || null }
+      : addTenantData(req, userData);
     
     // Create user
     const user = new User(userDataWithTenant);
     await user.save();
 
     // Update tenant usage statistics
-    if (req.tenantId) {
-      await Tenant.findByIdAndUpdate(req.tenantId, {
+    const usageTenantId = req.tenantId || tenantId;
+    if (usageTenantId) {
+      await Tenant.findByIdAndUpdate(usageTenantId, {
         $inc: { 'usage.totalUsers': 1 },
         'usage.lastActivity': new Date()
       });
@@ -113,7 +137,7 @@ router.post('/', tenantAuth, requireRole(['admin', 'superadmin']), checkUsageLim
 });
 
 // Resend OTP (admin only, tenant-scoped)
-router.post('/:id/resend-otp', tenantAuth, requireRole(['admin', 'superadmin']), async (req, res) => {
+router.post('/:id/resend-otp', tenantAuth, requireRole(['admin', 'manager', 'superadmin']), async (req, res) => {
   try {
     // Find user with tenant filtering
     const query = addTenantFilter(req, { _id: req.params.id });
@@ -153,7 +177,7 @@ router.post('/:id/resend-otp', tenantAuth, requireRole(['admin', 'superadmin']),
 });
 
 // Update user profile (admin only, tenant-scoped)
-router.put('/:id', tenantAuth, requireRole(['admin', 'superadmin']), async (req, res) => {
+router.put('/:id', tenantAuth, requireRole(['admin', 'manager', 'superadmin']), async (req, res) => {
   try {
     const { name, phone, profileImage, nin, isActive, status } = req.body;
 
@@ -189,27 +213,148 @@ router.put('/:id', tenantAuth, requireRole(['admin', 'superadmin']), async (req,
 });
 
 // Delete user (admin only, tenant-scoped)
-router.delete('/:id', tenantAuth, requireRole(['admin', 'superadmin']), async (req, res) => {
+router.delete('/:id', tenantAuth, requireRole(['admin', 'manager', 'superadmin']), async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
   try {
     // Find and delete user with tenant filtering
     const query = addTenantFilter(req, { _id: req.params.id });
-    const user = await User.findOneAndDelete(query);
+    const user = await User.findOneAndDelete(query).session(session);
     
     if (!user) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Update tenant usage statistics
+    const tenantId = req.tenantId;
+    
+    // Clean up all user's related data within the tenant
+    
+    // 1. Remove user from client assignedAgents arrays and reassign agent field if needed
+    const clientsHandledByUser = await Client.find({ 
+      tenant: tenantId,
+      $or: [
+        { agent: user._id },
+        { assignedAgents: user._id }
+      ]
+    }).session(session);
+    
+    for (const client of clientsHandledByUser) {
+      const updates = {};
+      if (client.agent.equals(user._id)) {
+        // Reassign primary agent to another active user from same tenant
+        const alternativeAgent = await User.findOne({ 
+          tenant: tenantId, 
+          role: 'agent', 
+          isActive: true, 
+          _id: { $ne: user._id } 
+        }).session(session);
+        updates.agent = alternativeAgent ? alternativeAgent._id : null;
+      }
+      if (client.assignedAgents.includes(user._id)) {
+        updates.$pull = { assignedAgents: user._id };
+      }
+      if (Object.keys(updates).length > 0) {
+        await Client.findByIdAndUpdate(client._id, updates).session(session);
+      }
+    }
+    
+    // 2. Reassign user's deals to another agent
+    const alternativeAgent = await User.findOne({ 
+      tenant: tenantId, 
+      role: 'agent', 
+      isActive: true, 
+      _id: { $ne: user._id } 
+    }).session(session);
+    
+    const userDeals = await Deal.find({ agent: user._id, tenant: tenantId }).session(session);
+    if (userDeals.length > 0 && alternativeAgent) {
+      await Deal.updateMany(
+        { agent: user._id, tenant: tenantId },
+        { 
+          $set: { agent: alternativeAgent._id },
+          $push: { 
+            notes: {
+              content: `Deal reassigned from deleted user (${user.name}) to ${alternativeAgent.name}`,
+              createdBy: null,
+              createdAt: new Date()
+            }
+          }
+        }
+      ).session(session);
+    } else if (userDeals.length > 0 && !alternativeAgent) {
+      // No other agent available, delete the deals
+      await Deal.deleteMany({ agent: user._id, tenant: tenantId }).session(session);
+    }
+    
+    // 3. Reassign user's sales to another agent
+    if (userDeals.length > 0 && alternativeAgent) {
+      await Sale.updateMany(
+        { agent: user._id, tenant: tenantId },
+        { $set: { agent: alternativeAgent._id } }
+      ).session(session);
+    } else if (userDeals.length > 0 && !alternativeAgent) {
+      await Sale.deleteMany({ agent: user._id, tenant: tenantId }).session(session);
+    }
+    
+    // 4. Delete user's meetings
+    await Meeting.deleteMany({ agent: user._id, tenant: tenantId }).session(session);
+    
+    // 5. Delete user's schedules
+    await Schedule.deleteMany({ agent: user._id, tenant: tenantId }).session(session);
+    
+    // 6. Delete user's notifications
+    await Notification.deleteMany({
+      $or: [{ recipient: user._id }, { actor: user._id }],
+      tenant: tenantId
+    }).session(session);
+    
+    // 7. Remove user from audit logs (set user fields to null while keeping the log)
+    await AuditLog.updateMany(
+      { user: user._id, tenant: tenantId },
+      {
+        $set: {
+          user: null,
+          userName: `${user.name} (deleted)`,
+          userEmail: user.email,
+          userRole: user.role
+        }
+      }
+    ).session(session);
+    
+    // 8. Deactivate user's security blocks
+    await SecurityBlock.updateMany(
+      { createdBy: user._id, tenant: tenantId },
+      { $set: { isActive: false } }
+    ).session(session);
+    
+    // 9. Delete user's performance records
+    await Performance.deleteMany({ agent: user._id, tenant: tenantId }).session(session);
+    
+    // 10. Update tenant usage
     if (req.tenantId) {
       await Tenant.findByIdAndUpdate(req.tenantId, {
         $inc: { 'usage.totalUsers': -1 },
         'usage.lastActivity': new Date()
-      });
+      }).session(session);
     }
 
-    await logAction(req, 'DELETE_USER', `Deleted user ${user.email}`, { entityType: 'User', entityId: user._id });
+    await logAction(req, 'DELETE_USER', `Deleted user ${user.email}`, { 
+      entityType: 'User', 
+      entityId: user._id,
+      reassignedDeals: userDeals.length,
+      reassignedTo: alternativeAgent ? alternativeAgent.email : null
+    });
+    
+    await session.commitTransaction();
+    session.endSession();
+    
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
     console.error('Error deleting user:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }

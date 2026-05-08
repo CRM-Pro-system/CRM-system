@@ -141,7 +141,7 @@ router.get('/stats', async (req, res) => {
     }
 
     // Only filter by agent if not admin
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'admin' && req.user.role !== 'manager' && req.user.role !== 'superadmin') {
       query.agent = req.user.userId;
     }
 
