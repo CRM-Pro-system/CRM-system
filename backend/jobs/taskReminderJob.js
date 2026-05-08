@@ -181,12 +181,10 @@ export const runTaskReminderJob = async () => {
 
 // ─── Schedule ─────────────────────────────────────────────────────────────────
 
-/**
- * Start the task reminder cron job.
- * Runs at the top of every hour: "0 * * * *"
- * In development you can set TASK_REMINDER_CRON env var to a faster schedule,
- * e.g. "*/5 * * * *" for every 5 minutes.
- */
+// Start the task reminder cron job.
+// Runs at the top of every hour: "0 * * * *"
+// In development set TASK_REMINDER_CRON env var to a faster schedule,
+// e.g. every 5 minutes: "0-59/5 * * * *"
 export const startTaskReminderJob = () => {
   const schedule = process.env.TASK_REMINDER_CRON || '0 * * * *';
 
