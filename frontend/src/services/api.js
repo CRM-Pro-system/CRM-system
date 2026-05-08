@@ -55,15 +55,13 @@ export const usersAPI = {
   registerAgent: (data) => api.post('/users', data),
   resendOTP: (id) => api.post(`/users/${id}/resend-otp`),
   update: (id, data) => api.put(`/users/${id}`, data),
-  delete: (id) => api.delete(`/users/:id`),
+  delete: (id) => api.delete(`/users/${id}`),
+  getProfile: () => api.get('/auth/me'),
+  updateProfile: (id, data) => api.put(`/users/${id}`, data),
   setTargets: (userId, targets) => api.put(`/users/${userId}/targets`, targets),
 };
 
-// Dashboard API
-export const dashboardAPI = {
-  getStats: () => api.get('/dashboard/stats'),
-  getRecentActivities: () => api.get('/dashboard/activities'),
-};
+
 
 // Clients API
 export const clientsAPI = {
@@ -188,12 +186,12 @@ export const stockAPI = {
   create: (data) => api.post('/stock', data),
   update: (id, data) => api.put(`/stock/${id}`, data),
   delete: (id) => api.delete(`/stock/${id}`),
-  getLowStock: () => api.get('/stock/low-stock'),
+  getLowStock: () => api.get('/stock/alerts'),
 };
 
 // OTP API
 export const otpAPI = {
-  generate: (data) => api.post('/otp/generate', data),
+  generate: (data) => api.post('/otp/send', data),
   verify: (data) => api.post('/otp/verify', data),
 };
 
@@ -212,7 +210,6 @@ export const uploadAPI = {
       },
     });
   },
-  deleteFile: (filename) => api.delete(`/upload/${filename}`),
 };
 
 // Default export

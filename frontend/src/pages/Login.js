@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { Mail, Lock, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import logo from '../assets/logo.png';
 
 const Login = () => {
@@ -80,7 +80,7 @@ const Login = () => {
                 <img src={logo} alt="Logo" className="w-8 h-8 object-contain" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">CRM Pro</h1>
+                <h1 className="text-2xl font-bold text-gray-900">xtreative CRM</h1>
                 <p className="text-sm text-orange-600 font-medium">Sales Excellence</p>
               </div>
             </div>
@@ -173,10 +173,7 @@ const Login = () => {
                   <span>Signing in...</span>
                 </div>
               ) : (
-                <div className="flex items-center justify-center space-x-2">
-                  <span>Sign in</span>
-                  <Sparkles className="w-4 h-4" />
-                </div>
+                <span>Sign in</span>
               )}
             </motion.button>
           </form>
@@ -185,9 +182,9 @@ const Login = () => {
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-600">
               Need help?{' '}
-              <button className="text-orange-600 hover:text-orange-500 font-medium">
+              <a href="mailto:florencenamukisa08@gmail.com" className="text-orange-600 hover:text-orange-500 font-medium">
                 Contact support
-              </button>
+              </a>
             </p>
           </div>
         </motion.div>
@@ -204,29 +201,29 @@ const Login = () => {
           >
             <div className="mb-8">
               <img src={logo} alt="Logo" className="w-24 h-24 mx-auto mb-6 opacity-90 object-contain" />
-              <h3 className="text-4xl font-bold mb-4">CRM Pro System</h3>
+              <h3 className="text-4xl font-bold mb-4">xtreative CRM</h3>
               <p className="text-orange-100 text-lg max-w-md mx-auto">
                 Streamline your sales process, manage clients efficiently, and boost your team's performance with our powerful CRM solution.
               </p>
             </div>
 
             {/* Features List */}
-            <div className="space-y-4 mt-12">
-              <div className="flex items-center justify-center space-x-3 text-orange-100">
-                <div className="w-2 h-2 bg-orange-200 rounded-full"></div>
-                <span>Client Management</span>
+            <div className="space-y-4 mt-12 max-w-xs mx-auto">
+              <div className="flex items-center justify-start space-x-4 bg-white bg-opacity-15 backdrop-blur-sm rounded-xl p-4">
+                <div className="w-3 h-3 bg-white rounded-full"></div>
+                <span className="text-white font-semibold text-lg">Client Management</span>
               </div>
-              <div className="flex items-center justify-center space-x-3 text-orange-100">
-                <div className="w-2 h-2 bg-orange-200 rounded-full"></div>
-                <span>Deal Tracking</span>
+              <div className="flex items-center justify-start space-x-4 bg-white bg-opacity-15 backdrop-blur-sm rounded-xl p-4">
+                <div className="w-3 h-3 bg-white rounded-full"></div>
+                <span className="text-white font-semibold text-lg">Deal Tracking</span>
               </div>
-              <div className="flex items-center justify-center space-x-3 text-orange-100">
-                <div className="w-2 h-2 bg-orange-200 rounded-full"></div>
-                <span>Team Collaboration</span>
+              <div className="flex items-center justify-start space-x-4 bg-white bg-opacity-15 backdrop-blur-sm rounded-xl p-4">
+                <div className="w-3 h-3 bg-white rounded-full"></div>
+                <span className="text-white font-semibold text-lg">Team Collaboration</span>
               </div>
-              <div className="flex items-center justify-center space-x-3 text-orange-100">
-                <div className="w-2 h-2 bg-orange-200 rounded-full"></div>
-                <span>Performance Analytics</span>
+              <div className="flex items-center justify-start space-x-4 bg-white bg-opacity-15 backdrop-blur-sm rounded-xl p-4">
+                <div className="w-3 h-3 bg-white rounded-full"></div>
+                <span className="text-white font-semibold text-lg">Performance Analytics</span>
               </div>
             </div>
           </motion.div>
