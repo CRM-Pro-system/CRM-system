@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Modal, Form, Alert, Spinner } from 'react-bootstrap';
-import { FaPlus, FaEdit, FaTrash, FaChartLine, FaUsers, FaDollarSign, FaBullseye } from 'react-icons/fa';
+import { Plus, Edit, Trash2, BarChart3, Users, DollarSign, Target } from 'lucide-react';
 import { dashboardsAPI } from '../../services/api';
-import { toast } from 'react-toastify';
+import toast from 'react-hot-toast';
 
 const Dashboard = () => {
   const [dashboards, setDashboards] = useState([]);
@@ -17,6 +16,12 @@ const Dashboard = () => {
     isDefault: false
   });
   const [saving, setSaving] = useState(false);
+
+  // Modal states
+  const [targetForm, setTargetForm] = useState({ monthlyTargetDeals: 0, monthlyTargetAmount: 0, monthlyTargetClients: 0 });
+  const [targetErrors, setTargetErrors] = useState({});
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [exportsLoading, setExportsLoading] = useState(false);
 
   useEffect(() => {
     loadDashboards();
@@ -149,11 +154,9 @@ const Dashboard = () => {
 
     if (!data) {
       return (
-        <Card className="h-100">
-          <Card.Body className="d-flex align-items-center justify-content-center">
-            <Spinner animation="border" />
-          </Card.Body>
-        </Card>
+        <div className="bg-white rounded-lg shadow-sm p-6 h-full flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+        </div>
       );
     }
 
@@ -175,227 +178,281 @@ const Dashboard = () => {
       switch (metric) {
         case 'total_clients':
         case 'monthly_clients':
-          return <FaUsers className="text-primary" size={24} />;
+          return <Users className="text-blue-500" size={24} />;
         case 'monthly_sales':
         case 'total_sales':
-          return <FaDollarSign className="text-success" size={24} />;
+          return <DollarSign className="text-green-500" size={24} />;
         case 'conversion_rate':
-          return <FaBullseye className="text-warning" size={24} />;
+          return <Target className="text-yellow-500" size={24} />;
         default:
-          return <FaChartLine className="text-info" size={24} />;
+          return <BarChart3 className="text-purple-500" size={24} />;
       }
     };
 
     return (
-      <Card className="h-100 shadow-sm">
-        <Card.Body className="d-flex align-items-center">
-          <div className="me-3">
+      <div className="bg-white rounded-lg shadow-sm p-6 h-full">
+        <div className="flex items-center">
+          <div className="mr-4">
             {getIcon(widget.config?.metric)}
           </div>
-          <div className="flex-grow-1">
-            <h4 className="mb-1">{formatValue(data.value, data.format)}</h4>
-            <small className="text-muted">{data.label}</small>
+          <div className="flex-grow">
+            <h4 className="text-2xl font-bold mb-1">{formatValue(data.value, data.format)}</h4>
+            <small className="text-gray-500">{data.label}</small>
           </div>
-        </Card.Body>
-      </Card>
+        </div>
+      </div>
     );
   };
 
   if (loading) {
     return (
-      <Container className="py-4">
+      <div className="py-4">
         <div className="text-center">
-          <Spinner animation="border" />
-          <p className="mt-2">Loading dashboards...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading dashboards...</p>
         </div>
-      </Container>
+      </div>
     );
   }
 
   return (
-    <Container fluid className="py-4">
-      <Row className="mb-4">
-        <Col>
-          <div className="d-flex justify-content-between align-items-center">
-            <div>
-              <h2 className="mb-1">Dashboard</h2>
-              <p className="text-muted mb-0">Monitor your business performance with custom KPIs</p>
-            </div>
-            <div className="d-flex gap-2">
-              <Button
-                variant="outline-primary"
-                onClick={() => setShowCreateModal(true)}
-              >
-                <FaPlus className="me-2" />
-                New Dashboard
-              </Button>
-              {currentDashboard && (
-                <Button
-                  variant="outline-secondary"
-                  onClick={() => {
-                    setFormData({
-                      name: currentDashboard.name,
-                      description: currentDashboard.description || '',
-                      isDefault: currentDashboard.isDefault
-                    });
-                    setShowEditModal(true);
-                  }}
-                >
-                  <FaEdit className="me-2" />
-                  Edit
-                </Button>
-              )}
-            </div>
+    <div className="py-4">
+      <div className="mb-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-2xl font-bold mb-1">Dashboard</h2>
+            <p className="text-gray-600 mb-0">Monitor your business performance with custom KPIs</p>
           </div>
-        </Col>
-      </Row>
+          <div className="flex gap-2">
+            <button
+              className="bg-white border border-orange-500 text-orange-500 px-4 py-2 rounded-lg hover:bg-orange-50 flex items-center"
+              onClick={() => setShowCreateModal(true)}
+            >
+              <Plus className="mr-2" size={16} />
+              New Dashboard
+            </button>
+            {currentDashboard && (
+              <button
+                className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center"
+                onClick={() => {
+                  setFormData({
+                    name: currentDashboard.name,
+                    description: currentDashboard.description || '',
+                    isDefault: currentDashboard.isDefault
+                  });
+                  setShowEditModal(true);
+                }}
+              >
+                <Edit className="mr-2" size={16} />
+                Edit
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Dashboard Selector */}
       {dashboards.length > 1 && (
-        <Row className="mb-4">
-          <Col>
-            <Card>
-              <Card.Body>
-                <div className="d-flex gap-2 flex-wrap">
-                  {dashboards.map(dashboard => (
-                    <Button
-                      key={dashboard._id}
-                      variant={currentDashboard?._id === dashboard._id ? 'primary' : 'outline-primary'}
-                      size="sm"
-                      onClick={() => setCurrentDashboard(dashboard)}
-                    >
-                      {dashboard.name}
-                      {dashboard.isDefault && ' (Default)'}
-                    </Button>
-                  ))}
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
+        <div className="mb-6">
+          <div className="bg-white rounded-lg shadow-sm p-4">
+            <div className="flex gap-2 flex-wrap">
+              {dashboards.map(dashboard => (
+                <button
+                  key={dashboard._id}
+                  className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    currentDashboard?._id === dashboard._id
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  onClick={() => setCurrentDashboard(dashboard)}
+                >
+                  {dashboard.name}
+                  {dashboard.isDefault && ' (Default)'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Dashboard Widgets */}
       {currentDashboard ? (
-        <Row>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {currentDashboard.widgets
             .filter(widget => widget.isActive)
             .map(widget => (
-              <Col key={widget.id} lg={3} md={6} className="mb-4">
+              <div key={widget.id}>
                 {renderKPIWidget(widget)}
-              </Col>
+              </div>
             ))}
-        </Row>
+        </div>
       ) : (
-        <Row>
-          <Col>
-            <Card className="text-center py-5">
-              <Card.Body>
-                <FaChartLine size={48} className="text-muted mb-3" />
-                <h4>No Dashboards Found</h4>
-                <p className="text-muted">Create your first dashboard to start monitoring your business metrics.</p>
-                <Button variant="primary" onClick={() => setShowCreateModal(true)}>
-                  <FaPlus className="me-2" />
-                  Create Dashboard
-                </Button>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
+        <div className="text-center py-12">
+          <div className="bg-white rounded-lg shadow-sm p-8 max-w-md mx-auto">
+            <BarChart3 size={48} className="text-gray-400 mb-4 mx-auto" />
+            <h4 className="text-lg font-semibold mb-2">No Dashboards Found</h4>
+            <p className="text-gray-600 mb-4">Create your first dashboard to start monitoring your business metrics.</p>
+            <button
+              className="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600 flex items-center mx-auto"
+              onClick={() => setShowCreateModal(true)}
+            >
+              <Plus className="mr-2" size={16} />
+              Create Dashboard
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Create Dashboard Modal */}
-      <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Create New Dashboard</Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={handleCreateDashboard}>
-          <Modal.Body>
-            <Form.Group className="mb-3">
-              <Form.Label>Dashboard Name</Form.Label>
-              <Form.Control
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                required
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Description</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-              />
-            </Form.Group>
-            <Form.Check
-              type="checkbox"
-              label="Set as default dashboard"
-              checked={formData.isDefault}
-              onChange={(e) => setFormData({...formData, isDefault: e.target.checked})}
-            />
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowCreateModal(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit" disabled={saving}>
-              {saving ? <Spinner animation="border" size="sm" /> : null}
-              Create Dashboard
-            </Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Create New Dashboard</h3>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <Trash2 size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateDashboard}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Dashboard Name
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                />
+              </div>
+              <div className="mb-4">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    className="mr-2"
+                    checked={formData.isDefault}
+                    onChange={(e) => setFormData({...formData, isDefault: e.target.checked})}
+                  />
+                  <span className="text-sm text-gray-700">Set as default dashboard</span>
+                </label>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 flex items-center"
+                >
+                  {saving && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>}
+                  Create Dashboard
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Edit Dashboard Modal */}
-      <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Edit Dashboard</Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={handleUpdateDashboard}>
-          <Modal.Body>
-            <Form.Group className="mb-3">
-              <Form.Label>Dashboard Name</Form.Label>
-              <Form.Control
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                required
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Description</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-              />
-            </Form.Group>
-            <Form.Check
-              type="checkbox"
-              label="Set as default dashboard"
-              checked={formData.isDefault}
-              onChange={(e) => setFormData({...formData, isDefault: e.target.checked})}
-            />
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowEditModal(false)}>
-              Cancel
-            </Button>
-            <Button variant="danger" variant="outline-danger" className="me-auto" onClick={() => handleDeleteDashboard(currentDashboard)}>
-              <FaTrash className="me-2" />
-              Delete
-            </Button>
-            <Button variant="primary" type="submit" disabled={saving}>
-              {saving ? <Spinner animation="border" size="sm" /> : null}
-              Update Dashboard
-            </Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
-    </Container>
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Edit Dashboard</h3>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <Trash2 size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateDashboard}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Dashboard Name
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                />
+              </div>
+              <div className="mb-4">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    className="mr-2"
+                    checked={formData.isDefault}
+                    onChange={(e) => setFormData({...formData, isDefault: e.target.checked})}
+                  />
+                  <span className="text-sm text-gray-700">Set as default dashboard</span>
+                </label>
+              </div>
+              <div className="flex justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDeleteDashboard(currentDashboard)}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center"
+                >
+                  <Trash2 className="mr-2" size={16} />
+                  Delete
+                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 flex items-center"
+                  >
+                    {saving && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>}
+                    Update Dashboard
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
