@@ -262,9 +262,183 @@ async function calculateKPI(config, tenantQuery, dateFilter, agentFilter) {
 async function calculateChartData(config, tenantQuery, dateFilter, agentFilter) {
   const { chartType, metric, groupBy } = config;
 
-  // Implementation for chart data aggregation
-  // This would return data points for charts
-  return { data: [], labels: [] };
+  switch (metric) {
+    case 'sales_trend':
+      return await getSalesTrendData(tenantQuery, dateFilter, agentFilter);
+    case 'deal_status':
+      return await getDealStatusData(tenantQuery, dateFilter, agentFilter);
+    case 'client_growth':
+      return await getClientGrowthData(tenantQuery, dateFilter, agentFilter);
+    case 'performance_trend':
+      return await getPerformanceTrendData(tenantQuery, dateFilter, agentFilter);
+    default:
+      return { data: [], labels: [] };
+  }
+}
+
+// Helper functions for chart data
+async function getSalesTrendData(tenantQuery, dateFilter, agentFilter) {
+  const salesData = await Sale.aggregate([
+    {
+      $match: {
+        ...tenantQuery,
+        ...agentFilter,
+        status: 'completed',
+        ...(Object.keys(dateFilter).length > 0 && { saleDate: dateFilter })
+      }
+    },
+    {
+      $group: {
+        _id: {
+          year: { $year: '$saleDate' },
+          month: { $month: '$saleDate' }
+        },
+        total: { $sum: '$finalAmount' },
+        count: { $sum: 1 }
+      }
+    },
+    {
+      $sort: { '_id.year': 1, '_id.month': 1 }
+    },
+    {
+      $project: {
+        name: {
+          $concat: [
+            { $toString: '$_id.month' },
+            '/',
+            { $toString: { $mod: ['$_id.year', 100] } }
+          ]
+        },
+        value: '$total',
+        count: 1
+      }
+    }
+  ]);
+
+  return { data: salesData };
+}
+
+async function getDealStatusData(tenantQuery, dateFilter, agentFilter) {
+  const dealData = await Deal.aggregate([
+    {
+      $match: {
+        ...tenantQuery,
+        ...agentFilter,
+        ...(Object.keys(dateFilter).length > 0 && { createdAt: dateFilter })
+      }
+    },
+    {
+      $group: {
+        _id: '$stage',
+        count: { $sum: 1 }
+      }
+    },
+    {
+      $project: {
+        name: {
+          $switch: {
+            branches: [
+              { case: { $eq: ['$_id', 'prospect'] }, then: 'Prospect' },
+              { case: { $eq: ['$_id', 'proposal'] }, then: 'Proposal' },
+              { case: { $eq: ['$_id', 'negotiation'] }, then: 'Negotiation' },
+              { case: { $eq: ['$_id', 'review'] }, then: 'Review' },
+              { case: { $eq: ['$_id', 'won'] }, then: 'Won' },
+              { case: { $eq: ['$_id', 'lost'] }, then: 'Lost' }
+            ],
+            default: 'Unknown'
+          }
+        },
+        value: '$count'
+      }
+    }
+  ]);
+
+  return { data: dealData };
+}
+
+async function getClientGrowthData(tenantQuery, dateFilter, agentFilter) {
+  const clientData = await Client.aggregate([
+    {
+      $match: {
+        ...tenantQuery,
+        ...agentFilter,
+        ...(Object.keys(dateFilter).length > 0 && { createdAt: dateFilter })
+      }
+    },
+    {
+      $group: {
+        _id: {
+          year: { $year: '$createdAt' },
+          month: { $month: '$createdAt' }
+        },
+        count: { $sum: 1 }
+      }
+    },
+    {
+      $sort: { '_id.year': 1, '_id.month': 1 }
+    },
+    {
+      $project: {
+        name: {
+          $concat: [
+            { $toString: '$_id.month' },
+            '/',
+            { $toString: { $mod: ['$_id.year', 100] } }
+          ]
+        },
+        value: '$count'
+      }
+    }
+  ]);
+
+  return { data: clientData };
+}
+
+async function getPerformanceTrendData(tenantQuery, dateFilter, agentFilter) {
+  // Performance trend data - could be based on deal closures or sales targets
+  const performanceData = await Deal.aggregate([
+    {
+      $match: {
+        ...tenantQuery,
+        ...agentFilter,
+        ...(Object.keys(dateFilter).length > 0 && { updatedAt: dateFilter })
+      }
+    },
+    {
+      $group: {
+        _id: {
+          year: { $year: '$updatedAt' },
+          month: { $month: '$updatedAt' }
+        },
+        won: {
+          $sum: { $cond: [{ $eq: ['$stage', 'won'] }, 1, 0] }
+        },
+        total: { $sum: 1 }
+      }
+    },
+    {
+      $sort: { '_id.year': 1, '_id.month': 1 }
+    },
+    {
+      $project: {
+        name: {
+          $concat: [
+            { $toString: '$_id.month' },
+            '/',
+            { $toString: { $mod: ['$_id.year', 100] } }
+          ]
+        },
+        value: {
+          $multiply: [
+            { $divide: ['$won', { $max: ['$total', 1] }] },
+            100
+          ]
+        }
+      }
+    }
+  ]);
+
+  return { data: performanceData };
 }
 
 async function calculateMetric(config, tenantQuery, dateFilter, agentFilter) {

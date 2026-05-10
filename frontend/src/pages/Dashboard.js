@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, BarChart3, Users, DollarSign, Target } from 'lucide-react';
+import { Plus, Edit, Trash2, BarChart3, Users, DollarSign, Target, PieChart, TrendingUp, Activity } from 'lucide-react';
+import { BarChart, Bar, LineChart, Line, PieChart as RechartsPieChart, Cell, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { dashboardsAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -69,7 +70,7 @@ const Dashboard = () => {
     setSaving(true);
 
     try {
-      // Create dashboard with default KPI widgets
+      // Create dashboard with default KPI and chart widgets
       const dashboardData = {
         ...formData,
         widgets: [
@@ -103,6 +104,22 @@ const Dashboard = () => {
             title: 'Conversion Rate',
             config: { metric: 'conversion_rate' },
             position: { x: 9, y: 0, w: 3, h: 2 },
+            isActive: true
+          },
+          {
+            id: 'sales-trend',
+            type: 'chart',
+            title: 'Sales Trend',
+            config: { chartType: 'line', metric: 'sales_trend' },
+            position: { x: 0, y: 2, w: 6, h: 4 },
+            isActive: true
+          },
+          {
+            id: 'deal-status',
+            type: 'chart',
+            title: 'Deal Status Distribution',
+            config: { chartType: 'pie', metric: 'deal_status' },
+            position: { x: 6, y: 2, w: 6, h: 4 },
             isActive: true
           }
         ]
@@ -149,7 +166,7 @@ const Dashboard = () => {
     }
   };
 
-  const renderKPIWidget = (widget) => {
+  const renderWidget = (widget) => {
     const data = kpiData[widget.id];
 
     if (!data) {
@@ -189,16 +206,118 @@ const Dashboard = () => {
       }
     };
 
+    // KPI Card Widget
+    if (widget.type === 'kpi') {
+      return (
+        <div className="bg-white rounded-lg shadow-sm p-6 h-full">
+          <div className="flex items-center">
+            <div className="mr-4">
+              {getIcon(widget.config?.metric)}
+            </div>
+            <div className="flex-grow">
+              <h4 className="text-2xl font-bold mb-1">{formatValue(data.value, data.format)}</h4>
+              <small className="text-gray-500">{data.label}</small>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Chart Widgets
+    if (widget.type === 'chart') {
+      return renderChartWidget(widget, data);
+    }
+
+    // Fallback
     return (
       <div className="bg-white rounded-lg shadow-sm p-6 h-full">
         <div className="flex items-center">
           <div className="mr-4">
-            {getIcon(widget.config?.metric)}
+            <Activity className="text-gray-500" size={24} />
           </div>
           <div className="flex-grow">
-            <h4 className="text-2xl font-bold mb-1">{formatValue(data.value, data.format)}</h4>
-            <small className="text-gray-500">{data.label}</small>
+            <h4 className="text-2xl font-bold mb-1">Unknown Widget</h4>
+            <small className="text-gray-500">Widget type not supported</small>
           </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderChartWidget = (widget, data) => {
+    const chartType = widget.config?.chartType || 'bar';
+    const chartData = data.data || [];
+
+    const COLORS = ['#f97316', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
+
+    if (chartType === 'bar') {
+      return (
+        <div className="bg-white rounded-lg shadow-sm p-4 h-full">
+          <h5 className="text-lg font-semibold mb-4">{widget.title}</h5>
+          <ResponsiveContainer width="100%" height="85%">
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="value" fill="#f97316" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      );
+    }
+
+    if (chartType === 'line') {
+      return (
+        <div className="bg-white rounded-lg shadow-sm p-4 h-full">
+          <h5 className="text-lg font-semibold mb-4">{widget.title}</h5>
+          <ResponsiveContainer width="100%" height="85%">
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="value" stroke="#f97316" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      );
+    }
+
+    if (chartType === 'pie') {
+      return (
+        <div className="bg-white rounded-lg shadow-sm p-4 h-full">
+          <h5 className="text-lg font-semibold mb-4">{widget.title}</h5>
+          <ResponsiveContainer width="100%" height="85%">
+            <RechartsPieChart>
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </RechartsPieChart>
+          </ResponsiveContainer>
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-6 h-full flex items-center justify-center">
+        <div className="text-center">
+          <PieChart className="text-gray-400 mb-2 mx-auto" size={32} />
+          <p className="text-gray-500">Chart type not supported</p>
         </div>
       </div>
     );
@@ -282,7 +401,7 @@ const Dashboard = () => {
             .filter(widget => widget.isActive)
             .map(widget => (
               <div key={widget.id}>
-                {renderKPIWidget(widget)}
+                {renderWidget(widget)}
               </div>
             ))}
         </div>
