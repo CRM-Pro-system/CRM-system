@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Alert, Spinner, Badge, ProgressBar } from 'react-bootstrap';
 import { TrendingUp, Users, Target, AlertTriangle, BarChart3, PieChart, Activity, Zap } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, PieChart as RechartsPieChart, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, BarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 // import { predictiveAnalyticsAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -171,14 +170,7 @@ const PredictiveAnalytics = () => {
     }
   };
 
-  const getRiskBadgeColor = (level) => {
-    switch (level) {
-      case 'high': return 'danger';
-      case 'medium': return 'warning';
-      case 'low': return 'success';
-      default: return 'secondary';
-    }
-  };
+
 
   if (loading) {
     return (
@@ -265,7 +257,7 @@ const PredictiveAnalytics = () => {
                 <Activity className="text-purple-500 mr-3" size={24} />
                 <div>
                   <h4 className="text-lg font-semibold">
-                    {salesForecast.forecast.reduce((sum, item) => sum + item.predictedRevenue, 0).toLocaleString()}
+                    ${salesForecast.forecast.reduce((sum, item) => sum + item.predictedRevenue, 0).toLocaleString()}
                   </h4>
                   <p className="text-gray-600 text-sm">6-Month Projection</p>
                 </div>
@@ -328,12 +320,12 @@ const PredictiveAnalytics = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-                            lead.leadScore >= 80 ? 'bg-green-500' :
-                            lead.leadScore >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            lead.leadScore >= 80 ? 'bg-green-100 text-green-800' :
+                            lead.leadScore >= 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
                           }`}>
                             {lead.leadScore}
-                          </div>
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -400,9 +392,13 @@ const PredictiveAnalytics = () => {
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <h4 className="font-semibold">{prediction.clientName}</h4>
-                      <Badge bg={getRiskBadgeColor(prediction.riskLevel)} className="mt-1">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${
+                        prediction.riskLevel === 'high' ? 'bg-red-100 text-red-800' :
+                        prediction.riskLevel === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
                         {prediction.riskLevel.toUpperCase()} RISK
-                      </Badge>
+                      </span>
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-red-600">{prediction.churnRisk}%</div>
@@ -451,12 +447,13 @@ const PredictiveAnalytics = () => {
                 </div>
               </div>
               <div className="mt-2">
-                <Badge bg={
-                  performancePrediction.prediction.trend === 'improving' ? 'success' :
-                  performancePrediction.prediction.trend === 'declining' ? 'danger' : 'warning'
-                }>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  performancePrediction.prediction.trend === 'improving' ? 'bg-green-100 text-green-800' :
+                  performancePrediction.prediction.trend === 'declining' ? 'bg-red-100 text-red-800' :
+                  'bg-yellow-100 text-yellow-800'
+                }`}>
                   {performancePrediction.prediction.trend.toUpperCase()}
-                </Badge>
+                </span>
               </div>
             </div>
             <div className="bg-white rounded-lg shadow-sm p-6">
