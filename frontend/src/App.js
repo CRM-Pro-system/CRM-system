@@ -20,6 +20,7 @@ const Settings = lazy(() => import('./pages/admin/Settings'));
 const SuperAdminDashboardFull = lazy(() => import('./pages/superadmin/SuperAdminDashboard'));
 const TenantManagement = lazy(() => import('./pages/superadmin/TenantManagement'));
 const BulkOperations = lazy(() => import('./pages/admin/BulkOperations'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
@@ -159,6 +160,13 @@ function App() {
                 <Route path="/agent/sales" element={
                   <ProtectedRoute allowedRoles={['agent']}>
                     <SalesManagement />
+                  </ProtectedRoute>
+                } />
+
+                {/* Dashboard Route - Available to all authenticated users */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <Dashboard />
                   </ProtectedRoute>
                 } />
 

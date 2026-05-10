@@ -256,5 +256,15 @@ export const scheduledExportsAPI = {
   delete: (id) => api.delete(`/scheduled-exports/${id}`),
 };
 
+// Dashboards API
+export const dashboardsAPI = {
+  getAll: () => api.get('/dashboards'),
+  getById: (id) => api.get(`/dashboards/${id}`),
+  create: (data) => api.post('/dashboards', data),
+  update: (id, data) => api.put(`/dashboards/${id}`, data),
+  delete: (id) => api.delete(`/dashboards/${id}`),
+  getKPIs: (id) => api.get(`/dashboards/${id}/kpis`),
+};
+
 // Default export
 export default api;

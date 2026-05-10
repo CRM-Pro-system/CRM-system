@@ -60,6 +60,7 @@ const Layout = ({ children }) => {
   };
 
   const superAdminNavItems = [
+    { path: '/dashboard', icon: PieChart, label: 'Dashboard' },
     { path: '/superadmin', icon: ShieldCheck, label: 'Super Admin' },
     { path: '/superadmin/tenants', icon: Building2, label: 'Tenant Management' },
     { path: '/admin', icon: Home, label: 'Admin View' },
@@ -69,7 +70,7 @@ const Layout = ({ children }) => {
   ];
 
   const adminNavItems = [
-    { path: '/admin', icon: Home, label: 'Dashboard' },
+    { path: '/dashboard', icon: PieChart, label: 'Dashboard' },
     { path: '/admin/users', icon: UserPlus, label: 'User Management' },
     { path: '/admin/reports', icon: PieChart, label: 'Reports' },
     { path: '/admin/bulk-operations', icon: ArrowLeftRight, label: 'Bulk Operations' },
@@ -78,34 +79,29 @@ const Layout = ({ children }) => {
 
   const agentNavItems = [
     {
-      path: '/agent',
-      icon: Home,
+      path: '/dashboard',
+      icon: PieChart,
       label: 'Dashboard',
-
     },
     {
       path: '/agent/clients',
       icon: Users,
       label: 'Clients',
-
     },
     {
       path: '/agent/deals',
       icon: Target,
       label: 'Deals',
-
     },
     {
       path: '/agent/sales',
       icon: TrendingUp,
       label: 'Sales',
-
     },
     {
       path: '/agent/schedules',
       icon: Calendar,
       label: 'Schedules',
-
     },
   ];
 
