@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, BarChart3, Users, DollarSign, Target, PieChart, TrendingUp, Activity } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, PieChart as RechartsPieChart, Cell, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { dashboardsAPI } from '../../services/api';
+// import { dashboardsAPI } from '../../services/api.js';
+
+// Temporary mock for testing
+const dashboardsAPI = {
+  getAll: () => Promise.resolve({ data: { dashboards: [] } }),
+  getKPIs: () => Promise.resolve({ data: { kpis: {} } }),
+  create: () => Promise.resolve({ data: {} }),
+  update: () => Promise.resolve({ data: {} }),
+  delete: () => Promise.resolve({ data: {} })
+};
 import toast from 'react-hot-toast';
 
 const Dashboard = () => {
