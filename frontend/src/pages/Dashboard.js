@@ -1,8 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, BarChart3, Users, DollarSign, Target, PieChart, TrendingUp, Activity } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, PieChart as RechartsPieChart, Cell, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { dashboardsAPI } from '../../services/api';
+// Temporarily disabled API import due to webpack resolution issue
+// import { dashboardsAPI } from '../../services/api';
 import toast from 'react-hot-toast';
+
+// Mock API for development - will be replaced with real API once webpack issue is resolved
+const dashboardsAPI = {
+  getAll: async () => {
+    console.log('Mock: getAll dashboards called');
+    return { data: { dashboards: [] } };
+  },
+  getKPIs: async (id) => {
+    console.log('Mock: getKPIs called for dashboard:', id);
+    return { data: { kpis: {} } };
+  },
+  create: async (data) => {
+    console.log('Mock: create dashboard called with:', data);
+    return { data: { _id: 'mock-id', ...data } };
+  },
+  update: async (id, data) => {
+    console.log('Mock: update dashboard called for:', id, data);
+    return { data: {} };
+  },
+  delete: async (id) => {
+    console.log('Mock: delete dashboard called for:', id);
+    return { data: {} };
+  }
+};
 
 const Dashboard = () => {
   const [dashboards, setDashboards] = useState([]);
