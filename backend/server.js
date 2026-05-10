@@ -26,6 +26,7 @@ import { emailTemplateRoutes } from './routes/emailTemplates.js';
 import { scheduledExportRoutes } from './routes/scheduledExports.js';
 import { roleRoutes } from './routes/roles.js';
 import { dashboardRoutes } from './routes/dashboards.js';
+import { predictiveAnalyticsRoutes } from './routes/predictiveAnalytics.js';
 import { testEmailConfig } from './services/emailService.js';
 import { startTaskReminderJob } from './jobs/taskReminderJob.js';
 import { startScheduledExportJob } from './jobs/scheduledExportJob.js';
@@ -121,6 +122,7 @@ app.use('/api/email-templates', emailTemplateRoutes);
 app.use('/api/scheduled-exports', scheduledExportRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/dashboards', dashboardRoutes);
+app.use('/api/predictive-analytics', predictiveAnalyticsRoutes);
 
 // Lightweight health/version endpoints for deployed debugging
 app.get('/api/health', (req, res) => {

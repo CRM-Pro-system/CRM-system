@@ -256,6 +256,14 @@ export const scheduledExportsAPI = {
   delete: (id) => api.delete(`/scheduled-exports/${id}`),
 };
 
+// Predictive Analytics API
+export const predictiveAnalyticsAPI = {
+  getSalesForecast: (params) => api.get('/predictive-analytics/sales-forecast', { params }),
+  getLeadScoring: () => api.get('/predictive-analytics/lead-scoring'),
+  getPerformancePrediction: (agentId) => api.get(`/predictive-analytics/performance-prediction/${agentId}`),
+  getChurnPrediction: () => api.get('/predictive-analytics/churn-prediction'),
+};
+
 // Dashboards API
 export const dashboardsAPI = {
   getAll: () => api.get('/dashboards'),

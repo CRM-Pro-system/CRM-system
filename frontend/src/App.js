@@ -21,6 +21,7 @@ const SuperAdminDashboardFull = lazy(() => import('./pages/superadmin/SuperAdmin
 const TenantManagement = lazy(() => import('./pages/superadmin/TenantManagement'));
 const BulkOperations = lazy(() => import('./pages/admin/BulkOperations'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const PredictiveAnalytics = lazy(() => import('./pages/PredictiveAnalytics'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
@@ -167,6 +168,13 @@ function App() {
                 <Route path="/dashboard" element={
                   <ProtectedRoute>
                     <Dashboard />
+                  </ProtectedRoute>
+                } />
+
+                {/* Predictive Analytics Route - Available to admin and manager */}
+                <Route path="/predictive-analytics" element={
+                  <ProtectedRoute allowedRoles={['admin', 'manager']}>
+                    <PredictiveAnalytics />
                   </ProtectedRoute>
                 } />
 
