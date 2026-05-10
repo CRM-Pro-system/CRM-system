@@ -40,6 +40,7 @@ export const tenantAuth = async (req, res, next) => {
     // Load user with tenant information
     const user = await User.findById(decoded.userId)
       .populate('tenant')
+      .populate('customRole')
       .select('-password -otp');
 
     if (!user) {
@@ -113,6 +114,7 @@ export const tenantAuth = async (req, res, next) => {
       userId: user._id,
       email: user.email,
       role: user.role,
+      customRole: user.customRole,
       tenantId: user.tenant._id,
       name: user.name
     };
@@ -370,3 +372,35 @@ export const addTenantData = (req, data = {}) => {
     tenant: req.tenantId
   };
 };
+
+/**
+ * Granular Permission Middleware
+ * 
+ * Ensures user has a specific permission string (e.g., 'clients:write')
+ * Admins automatically have all permissions.
+ */
+export const requirePermission = (requiredPermission) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required.' });
+    }
+
+    // Super admin and tenant admins have full access
+    if (req.isSuperAdmin || req.user.role === 'admin') {
+      return next();
+    }
+
+    // If user has a custom role, check its permissions array
+    if (req.user.customRole && Array.isArray(req.user.customRole.permissions)) {
+      if (req.user.customRole.permissions.includes(requiredPermission) || req.user.customRole.permissions.includes('*')) {
+        return next();
+      }
+    }
+
+    return res.status(403).json({ 
+      message: `Access denied. Missing permission: ${requiredPermission}`,
+      code: 'INSUFFICIENT_PERMISSION'
+    });
+  };
+};
+

@@ -6,7 +6,7 @@ import {
   Filter, Download, CheckCircle, XCircle,
   Clock, AlertCircle, ChevronDown, Users
 } from 'lucide-react';
-import { usersAPI } from '../../services/api';
+import { usersAPI, rolesAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -14,6 +14,7 @@ const UserManagement = () => {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'superadmin';
   const [users, setUsers] = useState([]);
+  const [customRoles, setCustomRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,6 +32,7 @@ const UserManagement = () => {
     email: '',
     phone: '',
     role: 'agent',
+    customRole: '',
     nin: ''
   });
 
@@ -54,7 +56,17 @@ const UserManagement = () => {
 
   useEffect(() => {
     loadUsers();
+    if (!isSuperAdmin) loadCustomRoles();
   }, []);
+
+  const loadCustomRoles = async () => {
+    try {
+      const res = await rolesAPI.getAll();
+      setCustomRoles(res.data.roles || []);
+    } catch (error) {
+      console.error('Failed to load custom roles');
+    }
+  };
 
   const handleExportCSV = () => {
     try {
@@ -170,7 +182,7 @@ const UserManagement = () => {
       setShowSuccessModal(true);
 
       setShowAddModal(false);
-      setNewUser({ name: '', email: '', phone: '', role: isSuperAdmin ? 'manager' : 'agent', nin: '' });
+      setNewUser({ name: '', email: '', phone: '', role: isSuperAdmin ? 'manager' : 'agent', customRole: '', nin: '' });
       setFormErrors({});
       loadUsers();
     } catch (error) {
@@ -288,7 +300,8 @@ const UserManagement = () => {
         phone: editUser.phone,
         nin: editUser.nin,
         isActive: editUser.isActive,
-        status: editUser.status
+        status: editUser.status,
+        customRole: editUser.customRole || null
       };
       await usersAPI.update(editUser._id, payload);
       toast.success('User updated successfully');
@@ -1185,14 +1198,12 @@ const UserManagement = () => {
                 
                  <div>
                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                     Role
+                     Base Role
                    </label>
                    <select
                      value={newUser.role}
                      onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                     className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${
-                       formErrors.role ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                     }"
+                     className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all border-gray-200"
                    >
                      <option value="admin">Administrator</option>
                      <option value="manager">Manager</option>
@@ -1205,6 +1216,24 @@ const UserManagement = () => {
                      </p>
                    )}
                  </div>
+
+                 {!isSuperAdmin && (
+                   <div>
+                     <label className="block text-sm font-medium text-gray-700 mb-2">
+                       Custom Role (Permissions)
+                     </label>
+                     <select
+                       value={newUser.customRole || ''}
+                       onChange={(e) => setNewUser({ ...newUser, customRole: e.target.value })}
+                       className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all border-gray-200"
+                     >
+                       <option value="">Default Permissions</option>
+                       {customRoles.map(role => (
+                         <option key={role._id} value={role._id}>{role.name}</option>
+                       ))}
+                     </select>
+                   </div>
+                 )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1355,7 +1384,7 @@ const UserManagement = () => {
                  
                  <div>
                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                     Role
+                     Base Role
                    </label>
                    <select
                      value={editUser.role}
@@ -1367,6 +1396,24 @@ const UserManagement = () => {
                      <option value="agent">Sales Agent</option>
                    </select>
                  </div>
+
+                 {!isSuperAdmin && (
+                   <div>
+                     <label className="block text-sm font-medium text-gray-700 mb-2">
+                       Custom Role (Permissions)
+                     </label>
+                     <select
+                       value={editUser.customRole || ''}
+                       onChange={(e) => setEditUser({ ...editUser, customRole: e.target.value })}
+                       className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                     >
+                       <option value="">Default Permissions</option>
+                       {customRoles.map(role => (
+                         <option key={role._id} value={role._id}>{role.name}</option>
+                       ))}
+                     </select>
+                   </div>
+                 )}
                 
                 <div className="grid grid-cols-2 gap-4">
                   <label className="flex items-center space-x-2 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer">

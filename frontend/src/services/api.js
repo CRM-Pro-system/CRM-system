@@ -231,5 +231,30 @@ export const uploadAPI = {
   },
 };
 
+// Roles API
+export const rolesAPI = {
+  getAll: () => api.get('/roles'),
+  create: (data) => api.post('/roles', data),
+  update: (id, data) => api.put(`/roles/${id}`, data),
+  delete: (id) => api.delete(`/roles/${id}`),
+};
+
+// Email Templates API
+export const emailTemplatesAPI = {
+  getAll: () => api.get('/email-templates'),
+  create: (data) => api.post('/email-templates', data),
+  update: (id, data) => api.put(`/email-templates/${id}`, data),
+  delete: (id) => api.delete(`/email-templates/${id}`),
+};
+
+// Scheduled Exports API
+export const scheduledExportsAPI = {
+  getAll: () => api.get('/scheduled-exports'),
+  create: (data) => api.post('/scheduled-exports', data),
+  update: (id, data) => api.patch(`/scheduled-exports/${id}`, data),
+  runNow: (id) => api.post(`/scheduled-exports/${id}/run-now`),
+  delete: (id) => api.delete(`/scheduled-exports/${id}`),
+};
+
 // Default export
 export default api;

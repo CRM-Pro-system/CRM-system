@@ -22,9 +22,12 @@ import { meetingRoutes } from './routes/meetings.js';
 import { settingsRoutes } from './routes/settings.js';
 import { tenantRoutes } from './routes/tenants.js';
 import { auditLogRoutes } from './routes/auditLogs.js';
+import { emailTemplateRoutes } from './routes/emailTemplates.js';
+import { scheduledExportRoutes } from './routes/scheduledExports.js';
+import { roleRoutes } from './routes/roles.js';
 import { testEmailConfig } from './services/emailService.js';
 import { startTaskReminderJob } from './jobs/taskReminderJob.js';
-
+import { startScheduledExportJob } from './jobs/scheduledExportJob.js';
 
 dotenv.config();
 
@@ -113,6 +116,9 @@ app.use('/api/meetings', meetingRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/tenants', tenantRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/email-templates', emailTemplateRoutes);
+app.use('/api/scheduled-exports', scheduledExportRoutes);
+app.use('/api/roles', roleRoutes);
 
 // Lightweight health/version endpoints for deployed debugging
 app.get('/api/health', (req, res) => {
@@ -276,4 +282,5 @@ app.listen(PORT, async () => {
 
   // Start task reminder cron job (runs every hour)
   startTaskReminderJob();
+  startScheduledExportJob();
 });

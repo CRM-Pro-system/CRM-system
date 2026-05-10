@@ -12,6 +12,14 @@ const dealSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  currency: {
+    type: String,
+    default: 'USD'
+  },
+  exchangeRate: {
+    type: Number,
+    default: 1
+  },
   client: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Client',

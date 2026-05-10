@@ -27,6 +27,11 @@ const userSchema = new mongoose.Schema({
      enum: ['superadmin', 'admin', 'manager', 'agent'],
      default: 'agent'
    },
+   customRole: {
+     type: mongoose.Schema.Types.ObjectId,
+     ref: 'Role',
+     default: null
+   },
 
    // Target fields for performance tracking
    monthlyTargetDeals: {

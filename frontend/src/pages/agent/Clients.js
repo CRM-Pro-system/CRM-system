@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronUp, X, Globe, Briefcase, AlertCircle, CheckCircle,
   Clock, Award, MessageSquare, Send
 } from 'lucide-react';
-import { clientsAPI } from '../../services/api';
+import { clientsAPI, emailTemplatesAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext'; 
 import toast from 'react-hot-toast';
 import ClientRegistrationForm from './ClientRegistrationForm';
@@ -1177,7 +1177,42 @@ const Clients = () => {
 
 const SendEmailModal = ({ client, onClose, onSent }) => {
   const [form, setForm] = useState({ subject: '', message: '' });
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
   const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const res = await emailTemplatesAPI.getAll();
+        setTemplates((res.data.templates || []).filter(t => t.isActive !== false && t.category === 'client'));
+      } catch {
+        setTemplates([]);
+      }
+    };
+    loadTemplates();
+  }, []);
+
+  const renderTemplateText = (text = '') => {
+    const replacements = {
+      clientName: client.name || '',
+      clientEmail: client.email || '',
+      clientCompany: client.company || '',
+      agentName: 'your CRM team',
+      companyName: 'our company'
+    };
+    return text.replace(/\{\{(\w+)\}\}/g, (_, key) => replacements[key] || '');
+  };
+
+  const handleTemplateChange = (templateId) => {
+    setSelectedTemplate(templateId);
+    const template = templates.find(item => String(item._id) === String(templateId));
+    if (!template) return;
+    setForm({
+      subject: renderTemplateText(template.subject),
+      message: renderTemplateText(template.body)
+    });
+  };
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -1214,6 +1249,23 @@ const SendEmailModal = ({ client, onClose, onSent }) => {
           </button>
         </div>
         <form onSubmit={handleSend} className="p-6 space-y-4">
+          {templates.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Template</label>
+              <select
+                value={selectedTemplate}
+                onChange={e => handleTemplateChange(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="">Write manually</option>
+                {templates.map(template => (
+                  <option key={template._id} value={template._id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Subject *</label>
             <input

@@ -18,7 +18,7 @@ import { logAction } from '../utils/auditLog.js';
 const router = express.Router();
 
 // Get all users (admin only, tenant-scoped)
-router.get('/', tenantAuth, requireRole(['admin', 'superadmin']), async (req, res) => {
+router.get('/', tenantAuth, requireRole(['admin', 'manager', 'superadmin']), async (req, res) => {
   try {
     // Build query with tenant filtering
     const query = addTenantFilter(req, {});
@@ -37,7 +37,7 @@ router.get('/', tenantAuth, requireRole(['admin', 'superadmin']), async (req, re
 });
 
 // Create new user with OTP (admin/superadmin only, with usage limits)
-router.post('/', tenantAuth, requireRole(['admin', 'superadmin']), checkUsageLimit('users'), async (req, res) => {
+router.post('/', tenantAuth, requireRole(['admin', 'manager', 'superadmin']), checkUsageLimit('users'), async (req, res) => {
   try {
     const { name, email, phone, role = 'agent', nin = null } = req.body;
 
@@ -127,7 +127,7 @@ router.post('/', tenantAuth, requireRole(['admin', 'superadmin']), checkUsageLim
   });
 
 // Resend OTP (admin only, tenant-scoped)
-router.post('/:id/resend-otp', tenantAuth, requireRole(['admin', 'superadmin']), async (req, res) => {
+router.post('/:id/resend-otp', tenantAuth, requireRole(['admin', 'manager', 'superadmin']), async (req, res) => {
   try {
     // Find user with tenant filtering
     const query = addTenantFilter(req, { _id: req.params.id });
@@ -166,7 +166,7 @@ router.post('/:id/resend-otp', tenantAuth, requireRole(['admin', 'superadmin']),
 });
 
 // Update user profile (admin only, tenant-scoped)
-router.put('/:id', tenantAuth, requireRole(['admin', 'superadmin']), async (req, res) => {
+router.put('/:id', tenantAuth, requireRole(['admin', 'manager', 'superadmin']), async (req, res) => {
   try {
     const { name, phone, profileImage, nin, isActive, status } = req.body;
 
@@ -233,7 +233,7 @@ router.delete('/:id', tenantAuth, requireRole(['admin', 'manager', 'superadmin']
         return res.status(403).json({ message: 'Superadmin accounts cannot be deleted' });
       }
       // Superadmin can delete admins, managers, agents freely
-    } else if (req.role === 'admin') {
+    } else if (req.user.role === 'admin') {
       // Regular admins can only delete agents within their tenant
       if (user.role !== 'agent') {
         await session.abortTransaction();
@@ -246,7 +246,7 @@ router.delete('/:id', tenantAuth, requireRole(['admin', 'manager', 'superadmin']
         session.endSession();
         return res.status(403).json({ message: 'Cannot delete users from other organizations' });
       }
-    } else if (req.role === 'manager') {
+    } else if (req.user.role === 'manager') {
       // Managers (platform-wide) can delete agents only for safety
       if (user.role !== 'agent') {
         await session.abortTransaction();
@@ -449,7 +449,7 @@ router.put('/:userId/targets', tenantAuth, requireRole(['admin', 'superadmin', '
      }
 
      // Prevent managers from setting targets for other managers or admins
-     if (req.role === 'manager' && ['admin', 'manager'].includes(user.role)) {
+     if (req.user.role === 'manager' && ['admin', 'manager'].includes(user.role)) {
        return res.status(403).json({
          message: 'Managers can only set targets for sales agents'
        });

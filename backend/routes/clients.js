@@ -67,7 +67,7 @@ router.get('/', async (req, res) => {
 });
 
 // Get client by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id([0-9a-fA-F]{24})', async (req, res) => {
   try {
     const client = await Client.findOne({ _id: req.params.id, ...req.tenantQuery })
       .populate('agent', 'name email')

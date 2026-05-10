@@ -1,10 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  Save, User, Bell, Shield, FileText, Eye, EyeOff, Clock, XCircle, Mail, Palette, Upload
+  Save, User, Bell, Shield, FileText, Eye, EyeOff, Clock, XCircle, Mail, Palette, Upload,
+  Plus, Trash2, Play, FileClock
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { usersAPI, authAPI, auditLogsAPI, tenantsAPI, uploadAPI } from "../../services/api";
+import {
+  usersAPI,
+  authAPI,
+  auditLogsAPI,
+  tenantsAPI,
+  uploadAPI,
+  emailTemplatesAPI,
+  scheduledExportsAPI,
+  rolesAPI
+} from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
 const Settings = () => {
@@ -44,18 +54,64 @@ const Settings = () => {
 
   const [auditLogs, setAuditLogs] = useState([]);
   const [auditLoading, setAuditLoading] = useState(false);
+  const [emailTemplates, setEmailTemplates] = useState([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templateForm, setTemplateForm] = useState({
+    name: "",
+    category: "client",
+    subject: "",
+    body: ""
+  });
+  const [scheduledExports, setScheduledExports] = useState([]);
+  const [exportsLoading, setExportsLoading] = useState(false);
+  const [exportForm, setExportForm] = useState({
+    name: "",
+    exportType: "clients",
+    format: "csv",
+    frequency: "weekly",
+    recipients: user?.email || "",
+    status: ""
+  });
+
+  // Roles
+  const [roles, setRoles] = useState([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
+  const [roleForm, setRoleForm] = useState({
+    name: "",
+    description: "",
+    permissions: []
+  });
+
+  const availablePermissions = [
+    { id: 'clients:read', label: 'View Clients' },
+    { id: 'clients:write', label: 'Manage Clients' },
+    { id: 'clients:delete', label: 'Delete Clients' },
+    { id: 'deals:read', label: 'View Deals' },
+    { id: 'deals:write', label: 'Manage Deals' },
+    { id: 'deals:delete', label: 'Delete Deals' },
+    { id: 'sales:read', label: 'View Sales' },
+    { id: 'sales:write', label: 'Manage Sales' },
+    { id: 'sales:delete', label: 'Delete Sales' },
+    { id: 'reports:read', label: 'View Reports' },
+    { id: 'reports:export', label: 'Export Data' },
+    { id: 'settings:write', label: 'Manage Settings' }
+  ];
 
   // Branding
   const [branding, setBranding] = useState({
     logo: user?.tenant?.logo || '',
     primaryColor: '#f97316',
-    secondaryColor: '#1f2937'
+    secondaryColor: '#1f2937',
+    currency: user?.tenant?.settings?.currency || 'USD'
   });
   const [logoPreview, setLogoPreview] = useState(user?.tenant?.logo || '');
   const [brandingLoading, setBrandingLoading] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'security') loadAuditLogs();
+    if (activeTab === 'emailTemplates') loadEmailTemplates();
+    if (activeTab === 'exports') loadScheduledExports();
+    if (activeTab === 'roles') loadRoles();
   }, [activeTab]);
 
   const loadAuditLogs = async () => {
@@ -80,6 +136,9 @@ const Settings = () => {
     { id: "profile", label: "Profile", icon: User },
     { id: "branding", label: "Branding", icon: Palette },
     { id: "notifications", label: "Notifications", icon: Bell },
+    { id: "emailTemplates", label: "Email Templates", icon: Mail },
+    { id: "exports", label: "Scheduled Exports", icon: FileClock },
+    { id: "roles", label: "Roles & Permissions", icon: Shield },
     { id: "security", label: "Security", icon: Shield },
     { id: "compliance", label: "Legal & Compliance", icon: FileText },
   ];
@@ -254,6 +313,166 @@ const Settings = () => {
       toast.error("Failed to save compliance settings");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const loadEmailTemplates = async () => {
+    try {
+      setTemplatesLoading(true);
+      const res = await emailTemplatesAPI.getAll();
+      setEmailTemplates(res.data.templates || []);
+    } catch (error) {
+      toast.error("Failed to load email templates");
+    } finally {
+      setTemplatesLoading(false);
+    }
+  };
+
+  const handleCreateTemplate = async () => {
+    if (!templateForm.name.trim() || !templateForm.subject.trim() || !templateForm.body.trim()) {
+      toast.error("Template name, subject and body are required");
+      return;
+    }
+    try {
+      setTemplatesLoading(true);
+      await emailTemplatesAPI.create(templateForm);
+      setTemplateForm({ name: "", category: "client", subject: "", body: "" });
+      await loadEmailTemplates();
+      toast.success("Email template saved");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to save template");
+    } finally {
+      setTemplatesLoading(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (template) => {
+    if (template.isDefault) {
+      toast.error("Default templates cannot be deleted");
+      return;
+    }
+    if (!window.confirm(`Delete template "${template.name}"?`)) return;
+    try {
+      await emailTemplatesAPI.delete(template._id);
+      await loadEmailTemplates();
+      toast.success("Template deleted");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to delete template");
+    }
+  };
+
+  const loadScheduledExports = async () => {
+    try {
+      setExportsLoading(true);
+      const res = await scheduledExportsAPI.getAll();
+      setScheduledExports(res.data.exports || []);
+    } catch (error) {
+      toast.error("Failed to load scheduled exports");
+    } finally {
+      setExportsLoading(false);
+    }
+  };
+
+  const handleCreateScheduledExport = async () => {
+    if (!exportForm.name.trim() || !exportForm.recipients.trim()) {
+      toast.error("Export name and recipients are required");
+      return;
+    }
+    try {
+      setExportsLoading(true);
+      const filters = exportForm.status ? { status: exportForm.status } : {};
+      await scheduledExportsAPI.create({ ...exportForm, filters });
+      setExportForm(prev => ({ ...prev, name: "", status: "" }));
+      await loadScheduledExports();
+      toast.success("Scheduled export created");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to create scheduled export");
+    } finally {
+      setExportsLoading(false);
+    }
+  };
+
+  const handleRunScheduledExport = async (id) => {
+    try {
+      setExportsLoading(true);
+      await scheduledExportsAPI.runNow(id);
+      await loadScheduledExports();
+      toast.success("Export sent");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to run export");
+    } finally {
+      setExportsLoading(false);
+    }
+  };
+
+  const handleToggleScheduledExport = async (scheduledExport) => {
+    try {
+      setExportsLoading(true);
+      await scheduledExportsAPI.update(scheduledExport._id, {
+        isActive: !scheduledExport.isActive
+      });
+      await loadScheduledExports();
+      toast.success(scheduledExport.isActive ? "Scheduled export paused" : "Scheduled export resumed");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to update export");
+    } finally {
+      setExportsLoading(false);
+    }
+  };
+
+  const handleDeleteScheduledExport = async (scheduledExport) => {
+    if (!window.confirm(`Delete scheduled export "${scheduledExport.name}"?`)) return;
+    try {
+      await scheduledExportsAPI.delete(scheduledExport._id);
+      await loadScheduledExports();
+      toast.success("Scheduled export deleted");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to delete export");
+    }
+  };
+
+  const loadRoles = async () => {
+    try {
+      setRolesLoading(true);
+      const res = await rolesAPI.getAll();
+      setRoles(res.data.roles || []);
+    } catch (error) {
+      toast.error("Failed to load roles");
+    } finally {
+      setRolesLoading(false);
+    }
+  };
+
+  const handleCreateRole = async () => {
+    if (!roleForm.name.trim()) {
+      toast.error("Role name is required");
+      return;
+    }
+    try {
+      setRolesLoading(true);
+      await rolesAPI.create(roleForm);
+      setRoleForm({ name: "", description: "", permissions: [] });
+      await loadRoles();
+      toast.success("Role created successfully");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to create role");
+    } finally {
+      setRolesLoading(false);
+    }
+  };
+
+  const handleDeleteRole = async (role) => {
+    if (role.isSystem) {
+      toast.error("System roles cannot be deleted");
+      return;
+    }
+    if (!window.confirm(`Delete role "${role.name}"?`)) return;
+    try {
+      await rolesAPI.delete(role._id);
+      await loadRoles();
+      toast.success("Role deleted");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to delete role");
     }
   };
 
@@ -553,6 +772,28 @@ const Settings = () => {
                   </div>
                 </div>
 
+                {/* Base Currency */}
+                <div className="mt-8 border-t border-gray-200 pt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Base Currency</label>
+                  <p className="text-xs text-gray-500 mb-3">This is the default currency used for all Deals and Sales reports.</p>
+                  <select
+                    value={branding.currency}
+                    onChange={e => setBranding(prev => ({ ...prev, currency: e.target.value }))}
+                    className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  >
+                    <option value="UGX">UGX (USh) - Ugandan Shilling</option>
+                    <option value="USD">USD ($) - US Dollar</option>
+                    <option value="EUR">EUR (€) - Euro</option>
+                    <option value="GBP">GBP (£) - British Pound</option>
+                    <option value="KES">KES (KSh) - Kenyan Shilling</option>
+                    <option value="NGN">NGN (₦) - Nigerian Naira</option>
+                    <option value="ZAR">ZAR (R) - South African Rand</option>
+                    <option value="INR">INR (₹) - Indian Rupee</option>
+                    <option value="AUD">AUD (A$) - Australian Dollar</option>
+                    <option value="CAD">CAD (C$) - Canadian Dollar</option>
+                  </select>
+                </div>
+
                 {/* Preview */}
                 <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
                   <p className="text-sm font-medium text-gray-700 mb-3">Preview</p>
@@ -620,6 +861,149 @@ const Settings = () => {
                   <Save className="w-5 h-5" />
                   <span>{isSaving ? "Saving..." : "Save Settings"}</span>
                 </button>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === "emailTemplates" && (
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Email Templates</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <input type="text" value={templateForm.name} onChange={e => setTemplateForm(prev => ({ ...prev, name: e.target.value }))} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500" placeholder="Template name" />
+                    <select value={templateForm.category} onChange={e => setTemplateForm(prev => ({ ...prev, category: e.target.value }))} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                      <option value="client">Client</option>
+                      <option value="task">Task</option>
+                      <option value="meeting">Meeting</option>
+                      <option value="welcome">Welcome</option>
+                      <option value="general">General</option>
+                    </select>
+                    <input type="text" value={templateForm.subject} onChange={e => setTemplateForm(prev => ({ ...prev, subject: e.target.value }))} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500" placeholder="Subject" />
+                    <textarea rows={8} value={templateForm.body} onChange={e => setTemplateForm(prev => ({ ...prev, body: e.target.value }))} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500" placeholder="Body. Use {{clientName}}, {{agentName}}, {{companyName}} placeholders." />
+                    <button onClick={handleCreateTemplate} disabled={templatesLoading} className="bg-orange-500 text-white px-5 py-2 rounded-lg flex items-center space-x-2 hover:bg-orange-600 disabled:opacity-50">
+                      <Plus className="w-4 h-4" />
+                      <span>{templatesLoading ? "Saving..." : "Save Template"}</span>
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {templatesLoading && emailTemplates.length === 0 ? (
+                      <p className="text-sm text-gray-500">Loading templates...</p>
+                    ) : emailTemplates.length === 0 ? (
+                      <p className="text-sm text-gray-500">No templates yet.</p>
+                    ) : (
+                      emailTemplates.map(template => (
+                        <div key={template._id} className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold text-gray-900">{template.name}</h4>
+                                {template.isDefault && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Default</span>}
+                              </div>
+                              <p className="text-sm text-gray-600 mt-1">{template.subject}</p>
+                              <p className="text-xs text-gray-400 mt-2 capitalize">{template.category}</p>
+                            </div>
+                            {!template.isDefault && (
+                              <button onClick={() => handleDeleteTemplate(template)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Delete template">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === "exports" && (
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Scheduled Bulk Exports</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
+                  <input type="text" value={exportForm.name} onChange={e => setExportForm(prev => ({ ...prev, name: e.target.value }))} className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500" placeholder="Export name" />
+                  <select value={exportForm.exportType} onChange={e => setExportForm(prev => ({ ...prev, exportType: e.target.value, format: e.target.value === "clients" ? prev.format : "csv" }))} className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                    <option value="clients">Clients</option>
+                    <option value="deals">Deals</option>
+                    <option value="sales">Sales</option>
+                    <option value="auditLogs">Audit Logs</option>
+                  </select>
+                  <select value={exportForm.format} onChange={e => setExportForm(prev => ({ ...prev, format: e.target.value }))} className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                    <option value="csv">CSV</option>
+                    {exportForm.exportType === "clients" && <option value="pdf">PDF</option>}
+                  </select>
+                  <select value={exportForm.frequency} onChange={e => setExportForm(prev => ({ ...prev, frequency: e.target.value }))} className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                  <input type="text" value={exportForm.recipients} onChange={e => setExportForm(prev => ({ ...prev, recipients: e.target.value }))} className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500" placeholder="email@example.com" />
+                </div>
+                {exportForm.exportType === "clients" && (
+                  <div className="mb-6 max-w-xs">
+                    <select value={exportForm.status} onChange={e => setExportForm(prev => ({ ...prev, status: e.target.value }))} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                      <option value="">All client statuses</option>
+                      <option value="prospect">Prospect</option>
+                      <option value="active">Active</option>
+                      <option value="vip">VIP</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+                )}
+                <button onClick={handleCreateScheduledExport} disabled={exportsLoading} className="bg-orange-500 text-white px-5 py-2 rounded-lg flex items-center space-x-2 hover:bg-orange-600 disabled:opacity-50">
+                  <Plus className="w-4 h-4" />
+                  <span>{exportsLoading ? "Saving..." : "Schedule Export"}</span>
+                </button>
+              </div>
+
+              <div className="border-t border-gray-200 pt-6 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Name</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Type</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Frequency</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Next Run</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">State</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Last Status</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scheduledExports.length === 0 ? (
+                      <tr><td colSpan="7" className="px-4 py-8 text-center text-gray-500">No scheduled exports yet.</td></tr>
+                    ) : scheduledExports.map(item => (
+                      <tr key={item._id} className="border-b hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium text-gray-900">{item.name}</td>
+                        <td className="px-4 py-3 text-gray-600">{item.exportType} / {item.format}</td>
+                        <td className="px-4 py-3 text-gray-600 capitalize">{item.frequency}</td>
+                        <td className="px-4 py-3 text-gray-600">{item.nextRunAt ? new Date(item.nextRunAt).toLocaleString() : "Not scheduled"}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${item.isActive ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
+                            {item.isActive ? "Active" : "Paused"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${item.lastStatus === "failed" ? "bg-red-100 text-red-700" : item.lastStatus === "success" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
+                            {item.lastStatus}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => handleRunScheduledExport(item._id)} className="p-2 text-green-600 hover:bg-green-50 rounded-lg" title="Run now"><Play className="w-4 h-4" /></button>
+                            <button onClick={() => handleToggleScheduledExport(item)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title={item.isActive ? "Pause export" : "Resume export"}>
+                              {item.isActive ? <XCircle className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                            </button>
+                            <button onClick={() => handleDeleteScheduledExport(item)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Delete export"><Trash2 className="w-4 h-4" /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </motion.div>
           )}
@@ -750,6 +1134,100 @@ const Settings = () => {
                   <Save className="w-5 h-5" />
                   <span>{isSaving ? "Saving..." : "Save Security Settings"}</span>
                 </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Roles & Permissions Tab */}
+          {activeTab === "roles" && (
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Roles & Permissions</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Create Role Form */}
+                  <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
+                    <h4 className="text-md font-medium text-gray-900 mb-4">Create Custom Role</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Role Name</label>
+                        <input type="text" value={roleForm.name} onChange={e => setRoleForm({ ...roleForm, name: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500" placeholder="e.g. Junior Agent" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <input type="text" value={roleForm.description} onChange={e => setRoleForm({ ...roleForm, description: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500" placeholder="Role description" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">Permissions</label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-2 border border-gray-200 rounded-lg bg-white">
+                          {availablePermissions.map(perm => (
+                            <label key={perm.id} className="flex items-start space-x-3 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                className="mt-1 h-4 w-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500"
+                                checked={roleForm.permissions.includes(perm.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setRoleForm({ ...roleForm, permissions: [...roleForm.permissions, perm.id] });
+                                  } else {
+                                    setRoleForm({ ...roleForm, permissions: roleForm.permissions.filter(p => p !== perm.id) });
+                                  }
+                                }}
+                              />
+                              <span className="text-sm text-gray-700">{perm.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <button onClick={handleCreateRole} disabled={rolesLoading} className="w-full bg-orange-500 text-white px-4 py-2 rounded-lg flex items-center justify-center space-x-2 hover:bg-orange-600 disabled:opacity-50">
+                        <Plus className="w-4 h-4" />
+                        <span>{rolesLoading ? "Saving..." : "Create Role"}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Role List */}
+                  <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-4">Existing Roles</h4>
+                    {rolesLoading && roles.length === 0 ? (
+                      <p className="text-sm text-gray-500">Loading roles...</p>
+                    ) : roles.length === 0 ? (
+                      <p className="text-sm text-gray-500">No custom roles created yet.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {roles.map(role => (
+                          <div key={role._id} className="border border-gray-200 rounded-lg p-4 bg-white">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <h5 className="font-semibold text-gray-900 flex items-center gap-2">
+                                  {role.name}
+                                  {role.isSystem && <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">System</span>}
+                                </h5>
+                                <p className="text-sm text-gray-500 mt-1">{role.description}</p>
+                                <div className="mt-3 flex flex-wrap gap-1">
+                                  {role.permissions.slice(0, 4).map(p => (
+                                    <span key={p} className="bg-orange-50 text-orange-700 text-xs px-2 py-1 rounded-md border border-orange-100">
+                                      {availablePermissions.find(ap => ap.id === p)?.label || p}
+                                    </span>
+                                  ))}
+                                  {role.permissions.length > 4 && (
+                                    <span className="bg-gray-50 text-gray-600 text-xs px-2 py-1 rounded-md border border-gray-200">
+                                      +{role.permissions.length - 4} more
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {!role.isSystem && (
+                                <button onClick={() => handleDeleteRole(role)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Delete role">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
