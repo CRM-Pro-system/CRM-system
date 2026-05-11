@@ -6,25 +6,70 @@ import { BarChart, Bar, LineChart, Line, PieChart as RechartsPieChart, Cell, Pie
 import toast from 'react-hot-toast';
 
 // Mock API for development - will be replaced with real API once webpack issue is resolved
+// This version includes local storage to persist dashboards for demonstration
+let mockDashboards = JSON.parse(localStorage.getItem('mockDashboards') || '[]');
+
 const dashboardsAPI = {
   getAll: async () => {
     console.log('Mock: getAll dashboards called');
-    return { data: { dashboards: [] } };
+    return { data: { dashboards: mockDashboards } };
   },
   getKPIs: async (id) => {
     console.log('Mock: getKPIs called for dashboard:', id);
-    return { data: { kpis: {} } };
+    // Return mock KPI data based on dashboard ID
+    const mockKPIs = {
+      'total-clients': { value: 1250, label: 'Total Clients' },
+      'active-deals': { value: 45, label: 'Active Deals' },
+      'monthly-sales': { value: 58000, label: 'Monthly Sales', format: 'currency' },
+      'conversion-rate': { value: 24.5, label: 'Conversion Rate', format: 'percentage' },
+      'sales-trend': {
+        data: [
+          { name: 'Jan', value: 45000 },
+          { name: 'Feb', value: 52000 },
+          { name: 'Mar', value: 48000 },
+          { name: 'Apr', value: 61000 },
+          { name: 'May', value: 55000 },
+          { name: 'Jun', value: 58000 }
+        ]
+      },
+      'deal-status': {
+        data: [
+          { name: 'Prospect', value: 25 },
+          { name: 'Proposal', value: 15 },
+          { name: 'Negotiation', value: 8 },
+          { name: 'Review', value: 5 },
+          { name: 'Won', value: 12 },
+          { name: 'Lost', value: 3 }
+        ]
+      }
+    };
+    return { data: { kpis: mockKPIs } };
   },
   create: async (data) => {
     console.log('Mock: create dashboard called with:', data);
-    return { data: { _id: 'mock-id', ...data } };
+    const newDashboard = {
+      _id: 'mock-' + Date.now(),
+      ...data,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    mockDashboards.push(newDashboard);
+    localStorage.setItem('mockDashboards', JSON.stringify(mockDashboards));
+    return { data: newDashboard };
   },
   update: async (id, data) => {
     console.log('Mock: update dashboard called for:', id, data);
-    return { data: {} };
+    const index = mockDashboards.findIndex(d => d._id === id);
+    if (index !== -1) {
+      mockDashboards[index] = { ...mockDashboards[index], ...data, updatedAt: new Date().toISOString() };
+      localStorage.setItem('mockDashboards', JSON.stringify(mockDashboards));
+    }
+    return { data: mockDashboards[index] || {} };
   },
   delete: async (id) => {
     console.log('Mock: delete dashboard called for:', id);
+    mockDashboards = mockDashboards.filter(d => d._id !== id);
+    localStorage.setItem('mockDashboards', JSON.stringify(mockDashboards));
     return { data: {} };
   }
 };
