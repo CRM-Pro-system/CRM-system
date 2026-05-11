@@ -241,8 +241,11 @@ const Dashboard = () => {
 
     if (!data) {
       return (
-        <div className="bg-white rounded-lg shadow-sm p-6 h-full flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+        <div className="bg-white rounded-lg shadow-sm p-6 h-full flex flex-col">
+          <h5 className="text-lg font-semibold mb-4">{widget.title}</h5>
+          <div className="flex-1 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+          </div>
         </div>
       );
     }
@@ -279,14 +282,14 @@ const Dashboard = () => {
     // KPI Card Widget
     if (widget.type === 'kpi') {
       return (
-        <div className="bg-white rounded-lg shadow-sm p-6 h-full">
+        <div className="bg-white rounded-lg shadow-sm p-6 h-full flex flex-col justify-center">
           <div className="flex items-center">
-            <div className="mr-4">
+            <div className="mr-4 p-2 bg-gray-50 rounded-lg">
               {getIcon(widget.config?.metric)}
             </div>
             <div className="flex-grow">
-              <h4 className="text-2xl font-bold mb-1">{formatValue(data.value, data.format)}</h4>
-              <small className="text-gray-500">{data.label}</small>
+              <h4 className="text-2xl font-bold mb-1 text-gray-900">{formatValue(data.value, data.format)}</h4>
+              <small className="text-gray-500 font-medium">{data.label}</small>
             </div>
           </div>
         </div>
@@ -322,63 +325,71 @@ const Dashboard = () => {
 
     if (chartType === 'bar') {
       return (
-        <div className="bg-white rounded-lg shadow-sm p-4 h-full">
+        <div className="bg-white rounded-lg shadow-sm p-6 h-full flex flex-col">
           <h5 className="text-lg font-semibold mb-4">{widget.title}</h5>
-          <ResponsiveContainer width="100%" height="85%">
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="value" fill="#f97316" />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip formatter={(value) => [`$${value?.toLocaleString() || value}`, 'Value']} />
+                <Legend />
+                <Bar dataKey="value" fill="#f97316" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       );
     }
 
     if (chartType === 'line') {
       return (
-        <div className="bg-white rounded-lg shadow-sm p-4 h-full">
+        <div className="bg-white rounded-lg shadow-sm p-6 h-full flex flex-col">
           <h5 className="text-lg font-semibold mb-4">{widget.title}</h5>
-          <ResponsiveContainer width="100%" height="85%">
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="value" stroke="#f97316" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
+          <div className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip formatter={(value) => [`$${value?.toLocaleString() || value}`, 'Revenue']} />
+                <Legend />
+                <Line type="monotone" dataKey="value" stroke="#f97316" strokeWidth={3} dot={{ r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       );
     }
 
     if (chartType === 'pie') {
       return (
-        <div className="bg-white rounded-lg shadow-sm p-4 h-full">
+        <div className="bg-white rounded-lg shadow-sm p-6 h-full flex flex-col">
           <h5 className="text-lg font-semibold mb-4">{widget.title}</h5>
-          <ResponsiveContainer width="100%" height="85%">
-            <RechartsPieChart>
-              <Pie
-                data={chartData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </RechartsPieChart>
-          </ResponsiveContainer>
+          <div className="flex-1 min-h-0 flex items-center justify-center">
+            <ResponsiveContainer width="100%" height={280}>
+              <RechartsPieChart>
+                <Pie
+                  data={chartData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="value"
+                  stroke="#fff"
+                  strokeWidth={2}
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => [`${value}`, 'Count']} />
+              </RechartsPieChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       );
     }
@@ -466,14 +477,28 @@ const Dashboard = () => {
 
       {/* Dashboard Widgets */}
       {currentDashboard ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {currentDashboard.widgets
-            .filter(widget => widget.isActive)
-            .map(widget => (
-              <div key={widget.id}>
-                {renderWidget(widget)}
-              </div>
-            ))}
+        <div className="space-y-6">
+          {/* KPI Cards Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {currentDashboard.widgets
+              .filter(widget => widget.isActive && widget.type === 'kpi')
+              .map(widget => (
+                <div key={widget.id} className="h-32">
+                  {renderWidget(widget)}
+                </div>
+              ))}
+          </div>
+
+          {/* Chart Widgets */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {currentDashboard.widgets
+              .filter(widget => widget.isActive && widget.type === 'chart')
+              .map(widget => (
+                <div key={widget.id} className="h-96">
+                  {renderWidget(widget)}
+                </div>
+              ))}
+          </div>
         </div>
       ) : (
         <div className="text-center py-12">
