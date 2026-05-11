@@ -459,7 +459,6 @@ const Dashboard = () => {
           </div>
         </div>
         </div>
-      </div>
       
 
       {/* Dashboard Selector */}
