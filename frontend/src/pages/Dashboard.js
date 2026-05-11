@@ -432,36 +432,35 @@ const Dashboard = () => {
                 <BarChart3 className="mr-2" size={16} />
                 Refresh Data
               </button>
+              <button
+                className="bg-white border border-orange-500 text-orange-500 px-4 py-2 rounded-lg hover:bg-orange-50 flex items-center"
+                onClick={() => setShowCreateModal(true)}
+              >
+                <Plus className="mr-2" size={16} />
+                New Dashboard
+              </button>
+              {currentDashboard && (
+                <button
+                  className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center"
+                  onClick={() => {
+                    setFormData({
+                      name: currentDashboard.name,
+                      description: currentDashboard.description || '',
+                      isDefault: currentDashboard.isDefault
+                    });
+                    setShowEditModal(true);
+                  }}
+                >
+                  <Edit className="mr-2" size={16} />
+                  Edit
+                </button>
+              )}
             </div>
           </div>
         </div>
-          <div className="flex gap-2">
-            <button
-              className="bg-white border border-orange-500 text-orange-500 px-4 py-2 rounded-lg hover:bg-orange-50 flex items-center"
-              onClick={() => setShowCreateModal(true)}
-            >
-              <Plus className="mr-2" size={16} />
-              New Dashboard
-            </button>
-            {currentDashboard && (
-              <button
-                className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center"
-                onClick={() => {
-                  setFormData({
-                    name: currentDashboard.name,
-                    description: currentDashboard.description || '',
-                    isDefault: currentDashboard.isDefault
-                  });
-                  setShowEditModal(true);
-                }}
-              >
-                <Edit className="mr-2" size={16} />
-                Edit
-              </button>
-            )}
-          </div>
         </div>
       </div>
+      
 
       {/* Dashboard Selector */}
       {dashboards.length > 1 && (
