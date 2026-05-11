@@ -416,24 +416,25 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="dashboard-container">
-      <div className="dashboard-header">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold mb-1">Dashboard</h2>
-            <p className="text-gray-600 mb-0">Monitor your business performance with custom KPIs</p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={loadDashboards}
-              className="dashboard-btn dashboard-btn-primary flex items-center"
-            >
-              <BarChart3 className="mr-2" size={16} />
-              Refresh Data
-            </button>
+    <>
+      <div className="dashboard-container">
+        <div className="dashboard-header">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-bold mb-1">Dashboard</h2>
+              <p className="text-gray-600 mb-0">Monitor your business performance with custom KPIs</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={loadDashboards}
+                className="dashboard-btn dashboard-btn-primary flex items-center"
+              >
+                <BarChart3 className="mr-2" size={16} />
+                Refresh Data
+              </button>
+            </div>
           </div>
         </div>
-      </div>
           <div className="flex gap-2">
             <button
               className="bg-white border border-orange-500 text-orange-500 px-4 py-2 rounded-lg hover:bg-orange-50 flex items-center"
@@ -677,7 +678,7 @@ const Dashboard = () => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
