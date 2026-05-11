@@ -241,10 +241,10 @@ const Dashboard = () => {
 
     if (!data) {
       return (
-        <div className="bg-white rounded-lg shadow-sm p-6 h-full flex flex-col">
-          <h5 className="text-lg font-semibold mb-4">{widget.title}</h5>
+        <div className="h-full flex flex-col">
+          <h5 className="dashboard-text text-lg font-semibold mb-4">{widget.title}</h5>
           <div className="flex-1 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+            <div className="dashboard-spinner" style={{ width: '2rem', height: '2rem' }}></div>
           </div>
         </div>
       );
@@ -282,14 +282,14 @@ const Dashboard = () => {
     // KPI Card Widget
     if (widget.type === 'kpi') {
       return (
-        <div className="bg-white rounded-lg shadow-sm p-6 h-full flex flex-col justify-center">
+        <div className="h-full flex flex-col justify-center">
           <div className="flex items-center">
             <div className="mr-4 p-2 bg-gray-50 rounded-lg">
               {getIcon(widget.config?.metric)}
             </div>
             <div className="flex-grow">
-              <h4 className="text-2xl font-bold mb-1 text-gray-900">{formatValue(data.value, data.format)}</h4>
-              <small className="text-gray-500 font-medium">{data.label}</small>
+              <h4 className="dashboard-text text-2xl font-bold mb-1 text-gray-900">{formatValue(data.value, data.format)}</h4>
+              <small className="dashboard-text text-gray-500 font-medium">{data.label}</small>
             </div>
           </div>
         </div>
@@ -303,14 +303,14 @@ const Dashboard = () => {
 
     // Fallback
     return (
-      <div className="bg-white rounded-lg shadow-sm p-6 h-full">
+      <div className="h-full flex flex-col justify-center">
         <div className="flex items-center">
           <div className="mr-4">
             <Activity className="text-gray-500" size={24} />
           </div>
           <div className="flex-grow">
-            <h4 className="text-2xl font-bold mb-1">Unknown Widget</h4>
-            <small className="text-gray-500">Widget type not supported</small>
+            <h4 className="dashboard-text text-2xl font-bold mb-1">Unknown Widget</h4>
+            <small className="dashboard-text text-gray-500">Widget type not supported</small>
           </div>
         </div>
       </div>
@@ -325,8 +325,8 @@ const Dashboard = () => {
 
     if (chartType === 'bar') {
       return (
-        <div className="bg-white rounded-lg shadow-sm p-6 h-full flex flex-col">
-          <h5 className="text-lg font-semibold mb-4">{widget.title}</h5>
+        <div className="h-full flex flex-col">
+          <h5 className="dashboard-text text-lg font-semibold mb-4">{widget.title}</h5>
           <div className="flex-1 min-h-0">
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -345,8 +345,8 @@ const Dashboard = () => {
 
     if (chartType === 'line') {
       return (
-        <div className="bg-white rounded-lg shadow-sm p-6 h-full flex flex-col">
-          <h5 className="text-lg font-semibold mb-4">{widget.title}</h5>
+        <div className="h-full flex flex-col">
+          <h5 className="dashboard-text text-lg font-semibold mb-4">{widget.title}</h5>
           <div className="flex-1 min-h-0">
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -365,8 +365,8 @@ const Dashboard = () => {
 
     if (chartType === 'pie') {
       return (
-        <div className="bg-white rounded-lg shadow-sm p-6 h-full flex flex-col">
-          <h5 className="text-lg font-semibold mb-4">{widget.title}</h5>
+        <div className="h-full flex flex-col">
+          <h5 className="dashboard-text text-lg font-semibold mb-4">{widget.title}</h5>
           <div className="flex-1 min-h-0 flex items-center justify-center">
             <ResponsiveContainer width="100%" height={280}>
               <RechartsPieChart>
@@ -416,13 +416,24 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="py-4">
-      <div className="mb-6">
+    <div className="dashboard-container">
+      <div className="dashboard-header">
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-2xl font-bold mb-1">Dashboard</h2>
             <p className="text-gray-600 mb-0">Monitor your business performance with custom KPIs</p>
           </div>
+          <div className="flex gap-2">
+            <button
+              onClick={loadDashboards}
+              className="dashboard-btn dashboard-btn-primary flex items-center"
+            >
+              <BarChart3 className="mr-2" size={16} />
+              Refresh Data
+            </button>
+          </div>
+        </div>
+      </div>
           <div className="flex gap-2">
             <button
               className="bg-white border border-orange-500 text-orange-500 px-4 py-2 rounded-lg hover:bg-orange-50 flex items-center"
@@ -477,24 +488,24 @@ const Dashboard = () => {
 
       {/* Dashboard Widgets */}
       {currentDashboard ? (
-        <div className="space-y-6">
+        <div className="dashboard-grid space-y-6">
           {/* KPI Cards Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="dashboard-kpi-grid">
             {currentDashboard.widgets
               .filter(widget => widget.isActive && widget.type === 'kpi')
               .map(widget => (
-                <div key={widget.id} className="h-32">
+                <div key={widget.id} className="dashboard-card" style={{ minHeight: '128px' }}>
                   {renderWidget(widget)}
                 </div>
               ))}
           </div>
 
           {/* Chart Widgets */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="dashboard-chart-grid">
             {currentDashboard.widgets
               .filter(widget => widget.isActive && widget.type === 'chart')
               .map(widget => (
-                <div key={widget.id} className="h-96">
+                <div key={widget.id} className="dashboard-card" style={{ minHeight: '384px' }}>
                   {renderWidget(widget)}
                 </div>
               ))}
@@ -519,10 +530,10 @@ const Dashboard = () => {
 
       {/* Create Dashboard Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="dashboard-modal">
+          <div className="dashboard-modal-content">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Create New Dashboard</h3>
+              <h3 className="dashboard-text text-lg font-semibold">Create New Dashboard</h3>
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="text-gray-400 hover:text-gray-600"
@@ -531,30 +542,30 @@ const Dashboard = () => {
               </button>
             </div>
             <form onSubmit={handleCreateDashboard}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="dashboard-form-group">
+                <label className="dashboard-form-label">
                   Dashboard Name
                 </label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="dashboard-form-input"
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
                   required
                 />
               </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="dashboard-form-group">
+                <label className="dashboard-form-label">
                   Description
                 </label>
                 <textarea
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="dashboard-form-input"
                   value={formData.description}
                   onChange={(e) => setFormData({...formData, description: e.target.value})}
                 />
               </div>
-              <div className="mb-4">
+              <div className="dashboard-form-group">
                 <label className="flex items-center">
                   <input
                     type="checkbox"
@@ -569,16 +580,16 @@ const Dashboard = () => {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  className="dashboard-btn dashboard-btn-secondary"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 flex items-center"
+                  className="dashboard-btn dashboard-btn-primary flex items-center"
                 >
-                  {saving && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>}
+                  {saving && <div className="dashboard-spinner mr-2"></div>}
                   Create Dashboard
                 </button>
               </div>
