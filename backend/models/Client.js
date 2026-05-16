@@ -145,10 +145,14 @@ const clientSchema = new mongoose.Schema({
     type: [
       {
         title: String,
+        subject: { type: String, default: 'Call', enum: ['Call', 'Support', 'Follow-up', 'Meeting', 'Review', 'Other'] },
         description: { type: String, default: '' },
         dueDate: Date,
         dueTime: String,
+        status: { type: String, default: 'pending', enum: ['pending', 'in_progress', 'completed', 'waiting', 'deferred'] },
+        priority: { type: String, default: 'Medium', enum: ['Low', 'Medium', 'Critical'] },
         completed: { type: Boolean, default: false },
+        contactPerson: { type: String, default: '' },
         assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         createdAt: { type: Date, default: Date.now },
         // Reminder tracking — prevents duplicate reminder emails/notifications
