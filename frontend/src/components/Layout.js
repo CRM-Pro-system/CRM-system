@@ -75,7 +75,7 @@ const Layout = ({ children }) => {
   ];
 
   const adminNavItems = [
-    { path: '/dashboard', icon: PieChart, label: 'Dashboard' },
+    { path: '/admin', icon: PieChart, label: 'Dashboard' },
     { path: '/predictive-analytics', icon: Zap, label: 'Predictive Analytics' },
     { path: '/admin/users', icon: UserPlus, label: 'User Management' },
     { path: '/admin/reports', icon: PieChart, label: 'Reports' },
