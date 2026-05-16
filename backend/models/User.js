@@ -143,6 +143,16 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Tenant',
     default: null // null for superadmin users
+  },
+
+  // Department & Region (configurable per company)
+  department: {
+    type: String,
+    default: ''
+  },
+  region: {
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true

@@ -33,7 +33,9 @@ const UserManagement = () => {
     phone: '',
     role: 'agent',
     customRole: '',
-    nin: ''
+    nin: '',
+    department: '',
+    region: ''
   });
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -182,7 +184,7 @@ const UserManagement = () => {
       setShowSuccessModal(true);
 
       setShowAddModal(false);
-      setNewUser({ name: '', email: '', phone: '', role: isSuperAdmin ? 'manager' : 'agent', customRole: '', nin: '' });
+      setNewUser({ name: '', email: '', phone: '', role: isSuperAdmin ? 'manager' : 'agent', customRole: '', nin: '', department: '', region: '' });
       setFormErrors({});
       loadUsers();
     } catch (error) {
@@ -301,7 +303,9 @@ const UserManagement = () => {
         nin: editUser.nin,
         isActive: editUser.isActive,
         status: editUser.status,
-        customRole: editUser.customRole || null
+        customRole: editUser.customRole || null,
+        department: editUser.department || '',
+        region: editUser.region || ''
       };
       await usersAPI.update(editUser._id, payload);
       toast.success('User updated successfully');
@@ -1000,6 +1004,18 @@ const UserManagement = () => {
                             {getRoleMeta(detailsUser.role).label}
                           </span>
                         </div>
+                        {detailsUser.department && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Department</p>
+                            <p className="text-sm text-gray-900">{detailsUser.department}</p>
+                          </div>
+                        )}
+                        {detailsUser.region && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Region</p>
+                            <p className="text-sm text-gray-900">{detailsUser.region}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1256,6 +1272,38 @@ const UserManagement = () => {
                   )}
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                    placeholder="e.g. Sales, Finance, Operations"
+                    value={newUser.department}
+                    onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Region</label>
+                  <select
+                    value={newUser.region}
+                    onChange={(e) => setNewUser({ ...newUser, region: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                  >
+                    <option value="">Select Region</option>
+                    <option value="Central">Central</option>
+                    <option value="East">East</option>
+                    <option value="West">West</option>
+                    <option value="North">North</option>
+                    <option value="South">South</option>
+                    <option value="North East">North East</option>
+                    <option value="North West">North West</option>
+                    <option value="South East">South East</option>
+                    <option value="South West">South West</option>
+                    <option value="International">International</option>
+                  </select>
+                </div>
+
                 <div className="flex space-x-3 pt-4">
                   <button
                     type="button"
@@ -1380,6 +1428,38 @@ const UserManagement = () => {
                      onChange={(e) => setEditUser({ ...editUser, nin: e.target.value })}
                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                    />
+                 </div>
+
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                   <input
+                     type="text"
+                     value={editUser.department || ''}
+                     onChange={(e) => setEditUser({ ...editUser, department: e.target.value })}
+                     placeholder="e.g. Sales, Finance, Operations"
+                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                   />
+                 </div>
+
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-2">Region</label>
+                   <select
+                     value={editUser.region || ''}
+                     onChange={(e) => setEditUser({ ...editUser, region: e.target.value })}
+                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                   >
+                     <option value="">Select Region</option>
+                     <option value="Central">Central</option>
+                     <option value="East">East</option>
+                     <option value="West">West</option>
+                     <option value="North">North</option>
+                     <option value="South">South</option>
+                     <option value="North East">North East</option>
+                     <option value="North West">North West</option>
+                     <option value="South East">South East</option>
+                     <option value="South West">South West</option>
+                     <option value="International">International</option>
+                   </select>
                  </div>
                  
                  <div>
