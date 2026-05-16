@@ -2,19 +2,11 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Search,
-  Plus,
-  Mail,
-  Phone,
-  MessageCircle,
-  LayoutGrid,
-  Table as TableIcon,
-  ArrowRightLeft,
-  Calendar,
-  StickyNote,
+  Search, Plus, Mail, Phone, MessageCircle,
+  LayoutGrid, Table as TableIcon, ArrowRightLeft,
+  Calendar, StickyNote, X, Send, Users,
 } from "lucide-react";
-
-import { clientsAPI } from "../../services/api";
+import { clientsAPI, usersAPI } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 
@@ -29,7 +21,7 @@ const LEAD_STATUSES = [
 const LEAD_RATINGS = ["Cold", "Warm", "Hot"];
 
 const statusColors = {
-  New: "bg-blue-100 text-blue-700",
+  New: "bg-orange-100 text-orange-700",
   Contacted: "bg-yellow-100 text-yellow-700",
   Unqualified: "bg-red-100 text-red-700",
   Qualified: "bg-green-100 text-green-700",
@@ -144,6 +136,121 @@ export default function Leads() {
     }
   };
 
+  // ── Action handlers ────────────────────────────────────────────────────────
+
+  // Phone — opens dialler
+  const handleCall = (lead) => {
+    const number = lead.telephone || lead.phone;
+    if (!number) return toast.error('No phone number on this lead');
+    window.open(`tel:${number}`);
+  };
+
+  // Email — opens compose modal pre-filled
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailLead, setEmailLead] = useState(null);
+  const [emailForm, setEmailForm] = useState({ subject: '', message: '' });
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  const handleOpenEmail = (lead) => {
+    if (!lead.email) return toast.error('No email address on this lead');
+    setEmailLead(lead);
+    setEmailForm({ subject: '', message: '' });
+    setShowEmailModal(true);
+  };
+
+  const handleSendEmail = async (e) => {
+    e.preventDefault();
+    if (!emailForm.subject.trim() || !emailForm.message.trim())
+      return toast.error('Subject and message are required');
+    setSendingEmail(true);
+    try {
+      await clientsAPI.sendEmail(emailLead._id, emailForm);
+      toast.success(`Email sent to ${emailLead.contactName || emailLead.name}`);
+      setShowEmailModal(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send email');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  // WhatsApp — opens wa.me link
+  const handleWhatsApp = (lead) => {
+    const number = (lead.telephone || lead.phone || '').replace(/\D/g, '');
+    if (!number) return toast.error('No phone number on this lead');
+    const name = lead.contactName || lead.name || '';
+    window.open(`https://wa.me/${number}?text=Hello ${name}, I wanted to follow up with you.`, '_blank');
+  };
+
+  // Notes — inline note modal
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [noteLead, setNoteLead] = useState(null);
+  const [noteText, setNoteText] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+
+  const handleOpenNote = (lead) => {
+    setNoteLead(lead);
+    setNoteText('');
+    setShowNoteModal(true);
+  };
+
+  const handleSaveNote = async (e) => {
+    e.preventDefault();
+    if (!noteText.trim()) return toast.error('Note cannot be empty');
+    setSavingNote(true);
+    try {
+      await clientsAPI.addInteraction(noteLead._id, { type: 'other', notes: noteText });
+      toast.success('Note saved');
+      setShowNoteModal(false);
+    } catch (err) {
+      toast.error('Failed to save note');
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  // Event/Calendar — opens schedule page with lead pre-selected via URL param
+  const handleEvent = (lead) => {
+    window.location.href = `/agent/schedules?leadId=${lead._id}&leadName=${encodeURIComponent(lead.contactName || lead.name || '')}`;
+  };
+
+  // Forward — reassign lead to another agent
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [forwardLead, setForwardLead] = useState(null);
+  const [agents, setAgents] = useState([]);
+  const [selectedAgent, setSelectedAgent] = useState('');
+  const [forwarding, setForwarding] = useState(false);
+
+  const handleOpenForward = async (lead) => {
+    setForwardLead(lead);
+    setSelectedAgent('');
+    setShowForwardModal(true);
+    try {
+      const res = await usersAPI.getAll();
+      const all = Array.isArray(res.data) ? res.data : (res.data?.users || []);
+      setAgents(all.filter(u => u.role === 'agent' && u._id !== (user?._id || user?.id)));
+    } catch {
+      toast.error('Failed to load agents');
+    }
+  };
+
+  const handleForward = async (e) => {
+    e.preventDefault();
+    if (!selectedAgent) return toast.error('Please select an agent');
+    setForwarding(true);
+    try {
+      await clientsAPI.update(forwardLead._id, { agent: selectedAgent });
+      toast.success(`Lead forwarded successfully`);
+      setShowForwardModal(false);
+      // remove from current agent's list
+      setLeads(prev => prev.filter(l => l._id !== forwardLead._id));
+    } catch (err) {
+      toast.error('Failed to forward lead');
+    } finally {
+      setForwarding(false);
+    }
+  };
+
   const handleStatusChange = async (leadId, newStatus) => {
     // optimistic update
     setLeads((prev) =>
@@ -186,7 +293,7 @@ export default function Leads() {
 
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-xl transition-all"
+          className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-5 py-3 rounded-xl transition-all"
         >
           <Plus size={18} />
           Create Lead
@@ -401,29 +508,48 @@ export default function Leads() {
                     </td>
 
                     <td className="px-6 py-5">
-                      <div className="flex items-center gap-3">
-                        <button className="text-slate-500 hover:text-indigo-600">
-                          <Phone size={18} />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleCall(lead)}
+                          title="Call"
+                          className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Phone size={16} />
                         </button>
-
-                        <button className="text-slate-500 hover:text-indigo-600">
-                          <Mail size={18} />
+                        <button
+                          onClick={() => handleOpenEmail(lead)}
+                          title="Email"
+                          className="p-1.5 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                        >
+                          <Mail size={16} />
                         </button>
-
-                        <button className="text-slate-500 hover:text-green-600">
-                          <MessageCircle size={18} />
+                        <button
+                          onClick={() => handleWhatsApp(lead)}
+                          title="WhatsApp"
+                          className="p-1.5 text-slate-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        >
+                          <MessageCircle size={16} />
                         </button>
-
-                        <button className="text-slate-500 hover:text-orange-600">
-                          <StickyNote size={18} />
+                        <button
+                          onClick={() => handleOpenNote(lead)}
+                          title="Add Note"
+                          className="p-1.5 text-slate-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
+                        >
+                          <StickyNote size={16} />
                         </button>
-
-                        <button className="text-slate-500 hover:text-blue-600">
-                          <Calendar size={18} />
+                        <button
+                          onClick={() => handleEvent(lead)}
+                          title="Schedule Event"
+                          className="p-1.5 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                        >
+                          <Calendar size={16} />
                         </button>
-
-                        <button className="text-slate-500 hover:text-purple-600">
-                          <ArrowRightLeft size={18} />
+                        <button
+                          onClick={() => handleOpenForward(lead)}
+                          title="Forward to Agent"
+                          className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        >
+                          <ArrowRightLeft size={16} />
                         </button>
                       </div>
                     </td>
@@ -497,17 +623,34 @@ export default function Leads() {
                         </span>
                       </div>
 
-                      <div className="mt-4 flex gap-3">
-                        <button className="text-slate-500 hover:text-indigo-600">
-                          <Phone size={16} />
+                      <div className="mt-4 flex gap-2">
+                        <button
+                          onClick={() => handleCall(lead)}
+                          title="Call"
+                          className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Phone size={15} />
                         </button>
-
-                        <button className="text-slate-500 hover:text-indigo-600">
-                          <Mail size={16} />
+                        <button
+                          onClick={() => handleOpenEmail(lead)}
+                          title="Email"
+                          className="p-1.5 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                        >
+                          <Mail size={15} />
                         </button>
-
-                        <button className="text-slate-500 hover:text-green-600">
-                          <MessageCircle size={16} />
+                        <button
+                          onClick={() => handleWhatsApp(lead)}
+                          title="WhatsApp"
+                          className="p-1.5 text-slate-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        >
+                          <MessageCircle size={15} />
+                        </button>
+                        <button
+                          onClick={() => handleOpenForward(lead)}
+                          title="Forward"
+                          className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        >
+                          <ArrowRightLeft size={15} />
                         </button>
                       </div>
                     </div>
@@ -515,6 +658,139 @@ export default function Leads() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── EMAIL MODAL ── */}
+      {showEmailModal && emailLead && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-lg font-bold">Send Email</h2>
+                <p className="text-sm text-slate-500">To: {emailLead.contactName || emailLead.name} ({emailLead.email})</p>
+              </div>
+              <button onClick={() => setShowEmailModal(false)} className="p-2 hover:bg-slate-100 rounded-lg">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleSendEmail} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Subject *</label>
+                <input
+                  type="text"
+                  value={emailForm.subject}
+                  onChange={e => setEmailForm(p => ({ ...p, subject: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="e.g. Follow-up on our conversation"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Message *</label>
+                <textarea
+                  rows={5}
+                  value={emailForm.message}
+                  onChange={e => setEmailForm(p => ({ ...p, message: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                  placeholder={`Dear ${emailLead.contactName || emailLead.name},\n\n`}
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setShowEmailModal(false)}
+                  className="px-5 py-2.5 border border-slate-300 rounded-xl text-sm">
+                  Cancel
+                </button>
+                <button type="submit" disabled={sendingEmail}
+                  className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm flex items-center gap-2 disabled:opacity-50">
+                  <Send size={15} />
+                  {sendingEmail ? 'Sending...' : 'Send Email'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── NOTE MODAL ── */}
+      {showNoteModal && noteLead && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-lg font-bold">Add Note</h2>
+                <p className="text-sm text-slate-500">{noteLead.contactName || noteLead.name}</p>
+              </div>
+              <button onClick={() => setShowNoteModal(false)} className="p-2 hover:bg-slate-100 rounded-lg">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveNote} className="space-y-4">
+              <textarea
+                rows={5}
+                value={noteText}
+                onChange={e => setNoteText(e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                placeholder="Write your note here..."
+                autoFocus
+              />
+              <div className="flex justify-end gap-3">
+                <button type="button" onClick={() => setShowNoteModal(false)}
+                  className="px-5 py-2.5 border border-slate-300 rounded-xl text-sm">
+                  Cancel
+                </button>
+                <button type="submit" disabled={savingNote}
+                  className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm disabled:opacity-50">
+                  {savingNote ? 'Saving...' : 'Save Note'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── FORWARD MODAL ── */}
+      {showForwardModal && forwardLead && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-lg font-bold">Forward Lead</h2>
+                <p className="text-sm text-slate-500">Reassign {forwardLead.contactName || forwardLead.name} to another agent</p>
+              </div>
+              <button onClick={() => setShowForwardModal(false)} className="p-2 hover:bg-slate-100 rounded-lg">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleForward} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Select Agent *</label>
+                <select
+                  value={selectedAgent}
+                  onChange={e => setSelectedAgent(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="">-- Choose an agent --</option>
+                  {agents.map(a => (
+                    <option key={a._id} value={a._id}>{a.name} ({a.email})</option>
+                  ))}
+                </select>
+                {agents.length === 0 && (
+                  <p className="text-xs text-slate-400 mt-1">No other agents found in your organisation.</p>
+                )}
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setShowForwardModal(false)}
+                  className="px-5 py-2.5 border border-slate-300 rounded-xl text-sm">
+                  Cancel
+                </button>
+                <button type="submit" disabled={forwarding || !selectedAgent}
+                  className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm flex items-center gap-2 disabled:opacity-50">
+                  <Users size={15} />
+                  {forwarding ? 'Forwarding...' : 'Forward Lead'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -690,7 +966,7 @@ export default function Leads() {
 
                 <button
                   type="submit"
-                  className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white"
+                  className="px-6 py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white"
                 >
                   Create Lead
                 </button>
