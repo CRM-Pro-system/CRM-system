@@ -19,7 +19,9 @@ import {
   ArrowLeftRight,
   Zap,
   UserCheck,
-  BookUser
+  BookUser,
+  ListTodo,
+  AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { notificationsAPI } from '../services/api';
@@ -86,6 +88,8 @@ const Layout = ({ children }) => {
     { path: '/agent/leads',      icon: UserCheck,  label: 'Leads'      },
     { path: '/agent/clients',    icon: Users,      label: 'Clients'    },
     { path: '/agent/contacts',   icon: BookUser,   label: 'Contacts'   },
+    { path: '/agent/tasks',      icon: ListTodo,   label: 'Tasks'      },
+    { path: '/agent/issues',     icon: AlertTriangle, label: 'Issues'   },
     { path: '/agent/deals',      icon: Target,     label: 'Deals'      },
     { path: '/agent/sales',      icon: TrendingUp, label: 'Sales'      },
     { path: '/agent/schedules',  icon: Calendar,   label: 'Schedules'  },

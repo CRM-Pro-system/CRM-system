@@ -14,6 +14,8 @@ const Leads = lazy(() => import('./pages/agent/Leads'));
 const Contacts = lazy(() => import('./pages/agent/Contacts'));
 const Deals = lazy(() => import('./pages/agent/Deals'));
 const Schedules = lazy(() => import('./pages/agent/Schedules'));
+const Tasks = lazy(() => import('./pages/agent/Tasks'));
+const Issues = lazy(() => import('./pages/agent/Issues'));
 const Sales = lazy(() => import('./pages/agent/Sales'));
 const SalesManagement = lazy(() => import('./pages/agent/SalesManagement'));
 const UserManagement = lazy(() => import('./pages/admin/UserManagement'));
@@ -173,6 +175,16 @@ function App() {
                 <Route path="/agent/sales" element={
                   <ProtectedRoute allowedRoles={['agent']}>
                     <SalesManagement />
+                  </ProtectedRoute>
+                } />
+                <Route path="/agent/tasks" element={
+                  <ProtectedRoute allowedRoles={['agent']}>
+                    <Tasks />
+                  </ProtectedRoute>
+                } />
+                <Route path="/agent/issues" element={
+                  <ProtectedRoute allowedRoles={['agent']}>
+                    <Issues />
                   </ProtectedRoute>
                 } />
 

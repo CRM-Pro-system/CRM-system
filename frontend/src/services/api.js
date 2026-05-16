@@ -274,5 +274,15 @@ export const dashboardsAPI = {
   getKPIs: (id) => api.get(`/dashboards/${id}/kpis`),
 };
 
+// Issues API
+export const issuesAPI = {
+  getAll: (params) => api.get('/issues', { params }),
+  getById: (id) => api.get(`/issues/${id}`),
+  create: (data) => api.post('/issues', data),
+  update: (id, data) => api.patch(`/issues/${id}`, data),
+  updateStatus: (id, data) => api.patch(`/issues/${id}/status`, data),
+  delete: (id) => api.delete(`/issues/${id}`),
+};
+
 // Default export
 export default api;
