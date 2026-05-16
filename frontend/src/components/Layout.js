@@ -18,7 +18,8 @@ import {
   ShieldCheck,
   ArrowLeftRight,
   Zap,
-  UserCheck
+  UserCheck,
+  BookUser
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { notificationsAPI } from '../services/api';
@@ -81,36 +82,13 @@ const Layout = ({ children }) => {
   ];
 
   const agentNavItems = [
-    {
-      path: '/agent',
-      icon: PieChart,
-      label: 'Dashboard',
-    },
-    {
-      path: '/agent/leads',
-      icon: UserCheck,
-      label: 'Leads',
-    },
-    {
-      path: '/agent/clients',
-      icon: Users,
-      label: 'Clients',
-    },
-    {
-      path: '/agent/deals',
-      icon: Target,
-      label: 'Deals',
-    },
-    {
-      path: '/agent/sales',
-      icon: TrendingUp,
-      label: 'Sales',
-    },
-    {
-      path: '/agent/schedules',
-      icon: Calendar,
-      label: 'Schedules',
-    },
+    { path: '/agent',            icon: PieChart,   label: 'Dashboard'  },
+    { path: '/agent/leads',      icon: UserCheck,  label: 'Leads'      },
+    { path: '/agent/clients',    icon: Users,      label: 'Clients'    },
+    { path: '/agent/contacts',   icon: BookUser,   label: 'Contacts'   },
+    { path: '/agent/deals',      icon: Target,     label: 'Deals'      },
+    { path: '/agent/sales',      icon: TrendingUp, label: 'Sales'      },
+    { path: '/agent/schedules',  icon: Calendar,   label: 'Schedules'  },
   ];
 
   const navItems = isSuperAdmin ? superAdminNavItems : isAdmin ? adminNavItems : agentNavItems;

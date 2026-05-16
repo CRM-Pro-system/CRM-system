@@ -11,6 +11,7 @@ const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AgentDashboard = lazy(() => import('./pages/agent/Dashboard'));
 const Clients = lazy(() => import('./pages/agent/Clients'));
 const Leads = lazy(() => import('./pages/agent/Leads'));
+const Contacts = lazy(() => import('./pages/agent/Contacts'));
 const Deals = lazy(() => import('./pages/agent/Deals'));
 const Schedules = lazy(() => import('./pages/agent/Schedules'));
 const Sales = lazy(() => import('./pages/agent/Sales'));
@@ -152,6 +153,11 @@ function App() {
                 <Route path="/agent/leads" element={
                   <ProtectedRoute allowedRoles={['agent']}>
                     <Leads />
+                  </ProtectedRoute>
+                } />
+                <Route path="/agent/contacts" element={
+                  <ProtectedRoute allowedRoles={['agent']}>
+                    <Contacts />
                   </ProtectedRoute>
                 } />
                 <Route path="/agent/deals" element={

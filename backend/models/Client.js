@@ -190,22 +190,12 @@ const clientSchema = new mongoose.Schema({
   contacts: {
     type: [{
       name: String,
-      position: {
-        type: String,
-        default: ''
-      },
-      email: {
-        type: String,
-        default: ''
-      },
-      phone: {
-        type: String,
-        default: ''
-      },
-      isPrimary: {
-        type: Boolean,
-        default: false
-      }
+      position: { type: String, default: '' },
+      email:    { type: String, default: '' },
+      phone:    { type: String, default: '' },
+      birthday: { type: Date,   default: null },
+      reportingLine: { type: String, default: '' },
+      isPrimary: { type: Boolean, default: false }
     }],
     default: []
   },
