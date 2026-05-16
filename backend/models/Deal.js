@@ -46,6 +46,11 @@ const dealSchema = new mongoose.Schema({
     enum: ['lead', 'qualification', 'proposal', 'negotiation', 'won', 'lost'],
     default: 'lead'
   },
+  dealType: {
+    type: String,
+    enum: ['new', 'existing'],
+    default: 'new'
+  },
   probability: {
     type: Number,
     min: 0,
