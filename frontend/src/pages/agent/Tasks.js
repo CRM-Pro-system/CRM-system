@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ListTodo, Plus, Search, Filter, Calendar, Phone, Mail, MessageSquare,
+  ListTodo, Plus, Search, Calendar, Phone, Mail, MessageSquare,
   Clock, CheckSquare, Square, AlertCircle, UserX, MoreHorizontal,
   AlertTriangle, ChevronDown, ChevronRight, X, Users, Briefcase,
 } from 'lucide-react';
-import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import clientsAPI from '../../services/api';
@@ -234,7 +233,7 @@ export default function Tasks() {
                       </div>
                       <p className="text-sm text-slate-500 mt-1">
                         {task.clientName}{task.contactPerson ? ` · ${task.contactPerson}` : ''}
-                        {task.dueDate ? ` · Due ${format(new Date(task.dueDate), 'MMM d, yyyy')}` : ''}
+                        {task.dueDate ? ` · Due ${(() => { const d = new Date(task.dueDate); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); })()}` : ''}
                       </p>
                     </div>
                   </div>
@@ -276,7 +275,7 @@ export default function Tasks() {
                       <div>
                         <p className="text-xs font-medium text-slate-500 uppercase mb-1">Due Date</p>
                         <p className={`text-sm flex items-center gap-1 ${overdue && !task.completed ? 'text-red-600 font-medium' : 'text-slate-700'}`}>
-                          <Calendar size={13} /> {task.dueDate ? format(new Date(task.dueDate), 'MMM d, yyyy') : 'No date set'}
+                          <Calendar size={13} />                         {task.dueDate ? (() => { const d = new Date(task.dueDate); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); })() : 'No date set'}
                         </p>
                       </div>
                       <div>
@@ -462,7 +461,7 @@ export default function Tasks() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs font-medium text-slate-400 uppercase">Due Date</p>
-                  <p className="text-slate-700">{detailTask.dueDate ? format(new Date(detailTask.dueDate), 'MMM d, yyyy') : 'Not set'}</p>
+                  <p className="text-slate-700">{detailTask.dueDate ? (() => { const d = new Date(detailTask.dueDate); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); })() : 'Not set'}</p>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-slate-400 uppercase">Type</p>
