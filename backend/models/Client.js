@@ -208,6 +208,22 @@ const clientSchema = new mongoose.Schema({
       }
     }],
     default: []
+  },
+
+  // Lead-specific fields (used when status = prospect)
+  contactName: { type: String, default: '' },
+  telephone:   { type: String, default: '' },
+  companyName: { type: String, default: '' },
+  companyEmail:{ type: String, default: '' },
+  leadStatus: {
+    type: String,
+    enum: ['New', 'Contacted', 'Unqualified', 'Qualified', 'Converted', ''],
+    default: 'New'
+  },
+  rating: {
+    type: String,
+    enum: ['Cold', 'Warm', 'Hot', ''],
+    default: 'Cold'
   }
 }, {
   timestamps: true

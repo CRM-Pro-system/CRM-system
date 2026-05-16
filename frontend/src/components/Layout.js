@@ -17,7 +17,8 @@ import {
   Building2,
   ShieldCheck,
   ArrowLeftRight,
-  Zap
+  Zap,
+  UserCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { notificationsAPI } from '../services/api';
@@ -81,9 +82,14 @@ const Layout = ({ children }) => {
 
   const agentNavItems = [
     {
-      path: '/dashboard',
+      path: '/agent',
       icon: PieChart,
       label: 'Dashboard',
+    },
+    {
+      path: '/agent/leads',
+      icon: UserCheck,
+      label: 'Leads',
     },
     {
       path: '/agent/clients',
