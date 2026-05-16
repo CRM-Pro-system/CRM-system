@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Building2, Plus, Search, CheckCircle, XCircle, Clock, Edit, Eye, X, Trash2, Users } from 'lucide-react';
+import { Building2, Plus, Search, CheckCircle, XCircle, Clock, Edit, Eye, X, Trash2, Users, MapPin } from 'lucide-react';
 import { tenantsAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import logo from '../../assets/logo.png';
@@ -19,18 +19,37 @@ const StatusBadge = ({ status }) => {
 };
 
 const CreateTenantModal = ({ onClose, onCreated }) => {
-  const [form, setForm] = useState({ name: '', email: '', phone: '', adminName: '', subscriptionPlan: 'starter' });
+  const [form, setForm] = useState({
+    name: '', email: '', phone: '', sector: '',
+    addressStreet: '', addressCity: '', addressState: '', addressCountry: '',
+    adminName: '', adminPhone: '', adminEmail: '',
+    subscriptionPlan: 'starter',
+  });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.email) return toast.error('Name and email are required');
+    const payload = {
+      name: form.name,
+      email: form.email,
+      phone: form.phone || '',
+      address: {
+        street: form.addressStreet || '',
+        city: form.addressCity || '',
+        state: form.addressState || '',
+        country: form.addressCountry || '',
+      },
+      adminName: form.adminName || form.name,
+      subscriptionPlan: form.subscriptionPlan,
+      metadata: { industry: form.sector || '' },
+    };
     try {
       setLoading(true);
-      const res = await tenantsAPI.create(form);
+      const res = await tenantsAPI.create(payload);
       setSuccess(res.data);
-      onCreated(); // refresh the list in background
+      onCreated();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to create organization');
     } finally {
@@ -117,13 +136,35 @@ const CreateTenantModal = ({ onClose, onCreated }) => {
             />
           </div>
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Sector / Industry</label>
+            <select
+              value={form.sector}
+              onChange={e => setForm({ ...form, sector: e.target.value })}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+            >
+              <option value="">Select sector…</option>
+              <option value="IT">IT / Technology</option>
+              <option value="Agriculture">Agriculture</option>
+              <option value="Finance">Finance / Banking</option>
+              <option value="Healthcare">Healthcare</option>
+              <option value="Real Estate">Real Estate</option>
+              <option value="Manufacturing">Manufacturing</option>
+              <option value="Education">Education</option>
+              <option value="Retail">Retail</option>
+              <option value="Logistics">Logistics / Transport</option>
+              <option value="Construction">Construction</option>
+              <option value="Media">Media / Entertainment</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Admin Name</label>
             <input
               type="text"
               value={form.adminName}
               onChange={e => setForm({ ...form, adminName: e.target.value })}
               className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              placeholder="e.g. John Doe (optional)"
+              placeholder="e.g. John Doe"
             />
           </div>
           <div>
@@ -137,14 +178,60 @@ const CreateTenantModal = ({ onClose, onCreated }) => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Admin Telephone</label>
+            <input
+              type="text"
+              value={form.adminPhone}
+              onChange={e => setForm({ ...form, adminPhone: e.target.value })}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              placeholder="+256 700 000 000"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Organization Phone</label>
             <input
               type="text"
               value={form.phone}
               onChange={e => setForm({ ...form, phone: e.target.value })}
               className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              placeholder="+256 700 000 000"
+              placeholder="+256 200 000 000"
             />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              <MapPin className="inline w-4 h-4 mr-1" />
+              Organization Address
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input
+                type="text"
+                value={form.addressStreet}
+                onChange={e => setForm({ ...form, addressStreet: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                placeholder="Street address"
+              />
+              <input
+                type="text"
+                value={form.addressCity}
+                onChange={e => setForm({ ...form, addressCity: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                placeholder="City"
+              />
+              <input
+                type="text"
+                value={form.addressState}
+                onChange={e => setForm({ ...form, addressState: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                placeholder="State / Region"
+              />
+              <input
+                type="text"
+                value={form.addressCountry}
+                onChange={e => setForm({ ...form, addressCountry: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                placeholder="Country"
+              />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Subscription Plan</label>
@@ -227,8 +314,34 @@ const ViewDetailsModal = ({ tenant, onClose }) => {
                 <p className="text-gray-700">{tenant.email}</p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Phone</label>
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Sector / Industry</label>
+                <p className="text-gray-700">{tenant.metadata?.industry || <span className="text-gray-400 italic">Not set</span>}</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Organization Phone</label>
                 <p className="text-gray-700">{tenant.phone || 'N/A'}</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Admin Contact</label>
+                <p className="text-gray-700">{profile?.impact?.adminName || tenant.ownerName || 'N/A'}</p>
+                <p className="text-sm text-gray-500">{profile?.impact?.adminEmail || ''}</p>
+                <p className="text-sm text-gray-500">{profile?.impact?.adminPhone || ''}</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Address</label>
+                <p className="text-gray-700">
+                  {tenant.address?.street
+                    ? [tenant.address.street, tenant.address.city, tenant.address.state, tenant.address.country].filter(Boolean).join(', ')
+                    : <span className="text-gray-400 italic">Not set</span>}
+                </p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Custom Domain</label>
+                <p className="text-gray-700 font-mono text-sm">
+                  {tenant.settings?.customDomain
+                    ? <a href={`https://${tenant.settings.customDomain}`} target="_blank" rel="noreferrer" className="text-orange-600 hover:underline">{tenant.settings.customDomain}</a>
+                    : <span className="text-gray-400 italic">Not configured</span>}
+                </p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Status</label>
