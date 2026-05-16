@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Users, TrendingUp, DollarSign, Target } from 'lucide-react';
+import { Users, TrendingUp, DollarSign, Target, Download, FileText } from 'lucide-react';
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from 'recharts';
 import { useAuth } from '../../context/AuthContext';
 import { dealsAPI, salesAPI, clientsAPI, usersAPI, tenantsAPI } from '../../services/api';
@@ -50,6 +50,8 @@ const AdminDashboard = () => {
   const [pendingDeals, setPendingDeals] = useState(0);
   const [clientsCount, setClientsCount] = useState(0);
   const [totalDealsClosed, setTotalDealsClosed] = useState(0);
+  const [allUsers, setAllUsers] = useState([]);
+  const [totalUsersAllTime, setTotalUsersAllTime] = useState(0);
 
   // charts data
   const [dealsWonLostData, setDealsWonLostData] = useState([]);
@@ -227,12 +229,15 @@ const AdminDashboard = () => {
       // Clients
       setClientsCount(clientsInRange.length);
 
-      // Agents
+      // Agents + all users
       const users = usersRes?.data || [];
-      const agents = Array.isArray(users) ? users.filter(u => u.role === 'agent') : [];
+      const usersArr = Array.isArray(users) ? users : (users.users || []);
+      const agents = usersArr.filter(u => u.role === 'agent');
       const agentsForCharts = agents.map(agent => ({ _id: String(agent._id), name: agent.name || 'Unnamed Agent' }));
       setAgentsList(agentsForCharts);
       setAgentsCount(agentsForCharts.length || 0);
+      setAllUsers(usersArr);
+      setTotalUsersAllTime(usersArr.length);
 
       // Deal Stages by Value (for selected period)
       const stageOrder = ['lead', 'qualification', 'proposal', 'negotiation', 'won', 'lost'];
@@ -375,15 +380,15 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* Stats Cards - Single Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatCard icon={DollarSign} title="Revenue" value={`UGX ${Number(totalRevenue || 0).toLocaleString('en-UG')}`} />
-        <StatCard icon={Users} title="Agents" value={agentsCount} />
-        <StatCard icon={Users} title="Clients" value={clientsCount} />
-        <StatCard icon={Target} title="Total Deals" value={dealsCount} />
-        <StatCard icon={TrendingUp} title="Pending" value={pendingDeals} />
-        <StatCard icon={Target} title="Closed Won" value={totalDealsClosed} />
+      {/* Stats Cards — spec: Sales (Monthly), Users (All time), Deals */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard icon={DollarSign} title="Sales (This Month)" value={`UGX ${Number(totalRevenue || 0).toLocaleString('en-UG')}`} />
+        <StatCard icon={Users} title="Users (All Time)" value={totalUsersAllTime} />
+        <StatCard icon={Target} title="Deals" value={dealsCount} />
       </div>
+
+      {/* User Table with Export */}
+      <UserTable users={allUsers} />
 
       {/* Deals Won vs Lost */}
       <div className="bg-white rounded-xl shadow-sm p-6">
@@ -533,6 +538,171 @@ const AdminDashboard = () => {
       </div>
     </div>
     </>
+  );
+};
+
+// ── User Table with PDF + Excel export ──────────────────────────────────────
+const UserTable = ({ users }) => {
+  const [search, setSearch] = useState('');
+
+  const filtered = users.filter(u =>
+    (u.name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (u.email || '').toLowerCase().includes(search.toLowerCase()) ||
+    (u.role || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  const getRoleBadge = (role) => {
+    const styles = {
+      admin:   'bg-purple-100 text-purple-700',
+      manager: 'bg-blue-100 text-blue-700',
+      agent:   'bg-orange-100 text-orange-700',
+    };
+    return styles[role] || 'bg-gray-100 text-gray-700';
+  };
+
+  // Export to Excel (CSV)
+  const exportExcel = () => {
+    const headers = ['Name', 'Email', 'Role', 'Status', 'Total Deals', 'Total Sales Amount', 'Joined'];
+    const rows = filtered.map(u => [
+      u.name || '',
+      u.email || '',
+      u.role || '',
+      u.isActive === false ? 'Inactive' : u.isFirstLogin ? 'Pending' : 'Active',
+      u.totalDeals || 0,
+      u.totalSalesAmount || 0,
+      u.createdAt ? new Date(u.createdAt).toLocaleDateString() : ''
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `users-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${filtered.length} users to Excel`);
+  };
+
+  // Export to PDF — uses browser print with a styled table
+  const exportPDF = () => {
+    const rows = filtered.map(u => `
+      <tr>
+        <td>${u.name || ''}</td>
+        <td>${u.email || ''}</td>
+        <td>${u.role || ''}</td>
+        <td>${u.isActive === false ? 'Inactive' : u.isFirstLogin ? 'Pending' : 'Active'}</td>
+        <td>${u.totalDeals || 0}</td>
+        <td>UGX ${Number(u.totalSalesAmount || 0).toLocaleString()}</td>
+        <td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : ''}</td>
+      </tr>`).join('');
+
+    const html = `
+      <html><head><title>Users Report</title>
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; }
+        h2 { color: #f97316; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th { background: #1f2937; color: white; padding: 8px; text-align: left; font-size: 11px; }
+        td { padding: 7px 8px; border-bottom: 1px solid #e5e7eb; }
+        tr:nth-child(even) td { background: #f9fafb; }
+      </style></head>
+      <body>
+        <h2>Users Report</h2>
+        <p>Generated: ${new Date().toLocaleString()} &nbsp;|&nbsp; Total: ${filtered.length} users</p>
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Deals</th><th>Sales Amount</th><th>Joined</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </body></html>`;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+    win.print();
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-5 border-b border-gray-100">
+        <h3 className="text-lg font-semibold text-gray-900">Users</h3>
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            placeholder="Search users..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 w-48"
+          />
+          <button
+            onClick={exportExcel}
+            className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Download className="w-4 h-4" /> Excel
+          </button>
+          <button
+            onClick={exportPDF}
+            className="flex items-center gap-1.5 px-3 py-2 border border-blue-300 rounded-lg text-sm text-blue-700 hover:bg-blue-50 transition-colors"
+          >
+            <FileText className="w-4 h-4" /> PDF
+          </button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b border-gray-100">
+            <tr>
+              <th className="px-5 py-3 text-left font-medium text-gray-500 uppercase text-xs tracking-wider">Name</th>
+              <th className="px-5 py-3 text-left font-medium text-gray-500 uppercase text-xs tracking-wider">Email</th>
+              <th className="px-5 py-3 text-left font-medium text-gray-500 uppercase text-xs tracking-wider">Role</th>
+              <th className="px-5 py-3 text-left font-medium text-gray-500 uppercase text-xs tracking-wider">Status</th>
+              <th className="px-5 py-3 text-left font-medium text-gray-500 uppercase text-xs tracking-wider">Deals</th>
+              <th className="px-5 py-3 text-left font-medium text-gray-500 uppercase text-xs tracking-wider">Sales Amount</th>
+              <th className="px-5 py-3 text-left font-medium text-gray-500 uppercase text-xs tracking-wider">Joined</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {filtered.length === 0 ? (
+              <tr><td colSpan="7" className="px-5 py-10 text-center text-gray-500">No users found</td></tr>
+            ) : (
+              filtered.map(u => {
+                const status = u.isActive === false ? 'Inactive' : u.isFirstLogin ? 'Pending' : 'Active';
+                const statusStyle = status === 'Active' ? 'bg-green-100 text-green-700' : status === 'Pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700';
+                return (
+                  <tr key={u._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-orange-600 font-semibold text-xs">{(u.name || '?').charAt(0).toUpperCase()}</span>
+                        </div>
+                        <span className="font-medium text-gray-900">{u.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3 text-gray-600">{u.email}</td>
+                    <td className="px-5 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getRoleBadge(u.role)}`}>
+                        {u.role?.charAt(0).toUpperCase() + u.role?.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusStyle}`}>{status}</span>
+                    </td>
+                    <td className="px-5 py-3 text-gray-700">{u.totalDeals || 0}</td>
+                    <td className="px-5 py-3 text-gray-700">UGX {Number(u.totalSalesAmount || 0).toLocaleString()}</td>
+                    <td className="px-5 py-3 text-gray-500 text-xs">{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}</td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+      {filtered.length > 0 && (
+        <div className="px-5 py-3 border-t border-gray-100 text-sm text-gray-500">
+          Showing {filtered.length} of {users.length} users
+        </div>
+      )}
+    </div>
   );
 };
 
