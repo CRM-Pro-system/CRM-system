@@ -640,11 +640,13 @@ router.patch('/branding/logo', async (req, res) => {
     if (req.isSuperAdmin) {
       return res.status(400).json({ message: 'Super admin does not have a tenant to update' });
     }
-    const { logo, primaryColor, secondaryColor } = req.body;
+    const { logo, primaryColor, secondaryColor, customDomain, currency } = req.body;
     const update = {};
     if (logo) update['settings.logo'] = logo;
     if (primaryColor) update['settings.primaryColor'] = primaryColor;
     if (secondaryColor) update['settings.secondaryColor'] = secondaryColor;
+    if (customDomain !== undefined) update['settings.customDomain'] = customDomain.trim().toLowerCase();
+    if (currency) update['settings.currency'] = currency;
 
     const tenant = await Tenant.findByIdAndUpdate(req.tenantId, update, { new: true });
     if (!tenant) return res.status(404).json({ message: 'Tenant not found' });

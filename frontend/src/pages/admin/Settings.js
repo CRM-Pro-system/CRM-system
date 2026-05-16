@@ -99,10 +99,11 @@ const Settings = () => {
 
   // Branding
   const [branding, setBranding] = useState({
-    logo: user?.tenant?.logo || '',
-    primaryColor: '#f97316',
-    secondaryColor: '#1f2937',
-    currency: user?.tenant?.settings?.currency || 'USD'
+    logo: user?.tenant?.settings?.logo || '',
+    primaryColor: user?.tenant?.settings?.primaryColor || '#f97316',
+    secondaryColor: user?.tenant?.settings?.secondaryColor || '#1f2937',
+    currency: user?.tenant?.settings?.currency || 'USD',
+    customDomain: user?.tenant?.settings?.customDomain || ''
   });
   const [logoPreview, setLogoPreview] = useState(user?.tenant?.logo || '');
   const [brandingLoading, setBrandingLoading] = useState(false);
@@ -264,6 +265,10 @@ const Settings = () => {
   };
 
   const handleSaveBranding = async () => {
+    if (branding.customDomain && !/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/.test(branding.customDomain)) {
+      toast.error('Custom domain must be a valid domain (e.g. xtreative.crm.com)');
+      return;
+    }
     try {
       setBrandingLoading(true);
       await tenantsAPI.updateBranding(branding);
@@ -770,6 +775,24 @@ const Settings = () => {
                     </div>
                     <p className="text-xs text-gray-500 mt-1">Used for sidebar and secondary elements</p>
                   </div>
+                </div>
+
+                {/* Custom Domain */}
+                <div className="mt-8 border-t border-gray-200 pt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Custom Subdomain</label>
+                  <p className="text-xs text-gray-500 mb-3">Set your company's custom subdomain (e.g. <span className="font-mono text-orange-600">xtreative.crm.com</span>). Contact your platform provider to activate DNS routing after saving.</p>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="text"
+                      value={branding.customDomain}
+                      onChange={e => setBranding(prev => ({ ...prev, customDomain: e.target.value.toLowerCase().trim() }))}
+                      className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-mono"
+                      placeholder="yourcompany.crm.com"
+                    />
+                  </div>
+                  {branding.customDomain && (
+                    <p className="text-xs text-green-600 mt-2">✓ Will be saved as: <span className="font-mono font-semibold">{branding.customDomain}</span></p>
+                  )}
                 </div>
 
                 {/* Base Currency */}

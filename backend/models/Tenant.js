@@ -61,6 +61,7 @@ const tenantSchema = new mongoose.Schema({
     logo: { type: String, default: null },
     primaryColor: { type: String, default: '#f97316' }, // Orange default
     secondaryColor: { type: String, default: '#1f2937' }, // Gray default
+    customDomain: { type: String, default: '' }, // e.g. xtreative.crm.com
     
     // Localization
     timezone: { type: String, default: 'UTC' },
