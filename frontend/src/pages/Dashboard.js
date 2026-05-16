@@ -322,7 +322,7 @@ const Dashboard = () => {
                   </Pie>
                   <Tooltip />
                   <Legend />
-                </RechartsPieChart>
+                </RPie>
               </ResponsiveContainer>
             </div>
 
@@ -409,7 +409,7 @@ const Dashboard = () => {
                   </Pie>
                   <Tooltip />
                   <Legend />
-                </RechartsPieChart>
+                </RPie>
               </ResponsiveContainer>
             </div>
           </div>
@@ -455,7 +455,7 @@ const Dashboard = () => {
                     <Cell fill="#3b82f6" />
                   </Pie>
                   <Tooltip formatter={v => formatUGX(v)} />
-                </RechartsPieChart>
+                </RPie>
               </ResponsiveContainer>
             </div>
 
@@ -481,3 +481,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
