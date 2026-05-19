@@ -9,12 +9,11 @@ import {
 import {
   BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, AreaChart, Area, Pie, Cell
+  ResponsiveContainer, AreaChart, Area
 } from 'recharts';
+import DonutChart, { DealStatusChart, PaymentMethodChart, TaskStatusChart, TopAgentsChart } from '../components/charts/DonutChart';
 import { useAuth } from '../context/AuthContext';
 import { performanceAPI, dealsAPI, clientsAPI, salesAPI, usersAPI } from '../services/api';
-
-const COLORS = ['#f97316', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
 
 // ─── thin wrapper so both roles share the same KPI card style ────────────────
 const KPICard = ({ icon: Icon, title, value, subtitle, trend, color = 'orange' }) => {
@@ -310,21 +309,7 @@ const Dashboard = () => {
               </ResponsiveContainer>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Deal Status</h3>
-              <ResponsiveContainer width="100%" height={280}>
-                <RPie>
-                  <Pie data={dealStatusData} dataKey="value" nameKey="name"
-                    cx="50%" cy="50%" outerRadius={90}
-                    label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}
-                  >
-                    {dealStatusData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </RPie>
-              </ResponsiveContainer>
-            </div>
+            <DealStatusChart data={dealStatusData} height={280} />
 
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Deal Stages by Value</h3>
@@ -334,29 +319,16 @@ const Dashboard = () => {
                   <XAxis dataKey="stage" stroke="#999" />
                   <YAxis stroke="#999" />
                   <Tooltip formatter={v => formatUGX(v)} />
-                  <Bar dataKey="value" fill="#3b82f6" radius={[4,4,0,0]} name="Pipeline Value" />
+                  <Bar dataKey="value" fill="#f97316" radius={[4,4,0,0]} name="Pipeline Value" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Agents by Won Deals</h3>
-              {topAgentsData.length === 0 ? (
-                <div className="h-[280px] flex items-center justify-center text-gray-400">
-                  <Activity size={48} className="mr-2" /> No won-deal data yet
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={topAgentsData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis type="number" stroke="#999" />
-                    <YAxis dataKey="name" type="category" width={120} stroke="#999" />
-                    <Tooltip formatter={v => formatUSD(v)} />
-                    <Bar dataKey="value" fill="#10b981" radius={[0,4,4,0]} name="Won Amount" />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
+            <TopAgentsChart 
+              data={topAgentsData} 
+              formatCurrency={formatUSD}
+              height={280}
+            />
           </div>
         </>
       )}
@@ -397,21 +369,7 @@ const Dashboard = () => {
               </ResponsiveContainer>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Deal Status</h3>
-              <ResponsiveContainer width="100%" height={260}>
-                <RPie>
-                  <Pie data={dealStatusData} dataKey="value" nameKey="name"
-                    cx="50%" cy="50%" outerRadius={90}
-                    label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}
-                  >
-                    {dealStatusData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </RPie>
-              </ResponsiveContainer>
-            </div>
+            <DealStatusChart data={dealStatusData} height={260} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -436,43 +394,25 @@ const Dashboard = () => {
                   <XAxis dataKey="stage" stroke="#999" />
                   <YAxis stroke="#999" />
                   <Tooltip formatter={v => formatUGX(v)} />
-                  <Bar dataKey="value" fill="#3b82f6" radius={[4,4,0,0]} name="Pipeline Value" />
+                  <Bar dataKey="value" fill="#f97316" radius={[4,4,0,0]} name="Pipeline Value" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Cash vs Credit (This Month)</h3>
-              <ResponsiveContainer width="100%" height={260}>
-                <RPie>
-                  <Pie data={cashVsCreditData} dataKey="value" nameKey="name"
-                    cx="50%" cy="50%" outerRadius={90}
-                    label={({ name, value }) => `${name}: ${formatUGX(value)}`}
-                  >
-                    <Cell fill="#f97316" />
-                    <Cell fill="#3b82f6" />
-                  </Pie>
-                  <Tooltip formatter={v => formatUGX(v)} />
-                </RPie>
-              </ResponsiveContainer>
-            </div>
+            <PaymentMethodChart 
+              data={cashVsCreditData} 
+              formatCurrency={formatUGX}
+              height={260}
+              title="Cash vs Credit (This Month)"
+            />
 
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Follow-up Task Status</h3>
-              <ResponsiveContainer width="100%" height={260}>
-                <RPie>
-                  <Pie data={followUpData} dataKey="value" nameKey="name"
-                    cx="50%" cy="50%" outerRadius={90}
-                    label={({ name, value }) => `${name}: ${value}`}
-                  >
-                    {followUpData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                  </Pie>
-                  <Tooltip />
-                </RPie>
-              </ResponsiveContainer>
-            </div>
+            <TaskStatusChart 
+              data={followUpData} 
+              height={260}
+              title="Follow-up Task Status"
+            />
           </div>
         </>
       )}
