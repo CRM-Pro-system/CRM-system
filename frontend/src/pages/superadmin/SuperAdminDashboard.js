@@ -51,6 +51,7 @@ const SuperAdminDashboard = () => {
   const [tenants, setTenants] = useState([]);
   const [platformUsers, setPlatformUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userSearch, setUserSearch] = useState('');
   const [stats, setStats] = useState({
     total: 0, active: 0, trial: 0, suspended: 0,
     totalUsers: 0, totalClients: 0, totalDeals: 0,
@@ -143,15 +144,6 @@ const SuperAdminDashboard = () => {
     setTimeout(() => { document.title = 'Super Admin Dashboard'; }, 5000);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-      </div>
-    );
-  }
-
-  const [userSearch, setUserSearch] = useState('');
   const filteredPlatformUsers = useMemo(() => {
     if (!userSearch.trim()) return platformUsers;
     const q = userSearch.toLowerCase();
@@ -162,6 +154,14 @@ const SuperAdminDashboard = () => {
         (u.role || '').toLowerCase().includes(q)
     );
   }, [platformUsers, userSearch]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
