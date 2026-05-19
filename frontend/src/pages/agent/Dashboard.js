@@ -6,11 +6,12 @@ import {
   ChevronDown, ChevronUp, Star, Clock, CheckCircle, AlertCircle, Award
 } from 'lucide-react';
 import {
-  LineChart, Line, PieChart, Pie, Cell,
+  LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Legend,
   AreaChart, Area, ComposedChart
 } from 'recharts';
+import DonutChart, { DealStatusChart, PaymentMethodChart, TaskStatusChart } from '../../components/charts/DonutChart';
 import { performanceAPI, dealsAPI, clientsAPI, salesAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -211,8 +212,6 @@ const AgentDashboard = () => {
     : sortDir === 'asc'
       ? <ChevronUp className="w-3 h-3 inline ml-1" />
       : <ChevronDown className="w-3 h-3 inline ml-1" />;
-
-  const COLORS = ['#10b981','#ef4444','#f59e0b','#3b82f6','#8b5cf6'];
 
   return (
     <div className="space-y-6">
@@ -451,17 +450,7 @@ const AgentDashboard = () => {
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Deal Status</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie data={dealStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}>
-                {dealStatusData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+        <DealStatusChart data={dealStatusData} height={260} />
       </div>
 
       {/* ── Charts Row 2: Revenue Over Time + Pipeline Value ── */}
@@ -487,7 +476,7 @@ const AgentDashboard = () => {
               <XAxis dataKey="stage" stroke="#999" />
               <YAxis stroke="#999" />
               <Tooltip formatter={v => formatUGX(v)} />
-              <Bar dataKey="value" fill="#3b82f6" radius={[4,4,0,0]} name="Value" />
+              <Bar dataKey="value" fill="#f97316" radius={[4,4,0,0]} name="Value" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -495,30 +484,18 @@ const AgentDashboard = () => {
 
       {/* ── Charts Row 3: Cash vs Credit + Follow-up Status ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Cash vs Credit Sales (This Month)</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie data={creditVsCashData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, value }) => `${name}: ${formatUGX(value)}`}>
-                <Cell fill="#f97316" />
-                <Cell fill="#3b82f6" />
-              </Pie>
-              <Tooltip formatter={v => formatUGX(v)} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+        <PaymentMethodChart 
+          data={creditVsCashData} 
+          formatCurrency={formatUGX}
+          height={260}
+          title="Cash vs Credit Sales (This Month)"
+        />
 
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Follow-up Task Status</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie data={followUpData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, value }) => `${name}: ${value}`}>
-                {followUpData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+        <TaskStatusChart 
+          data={followUpData} 
+          height={260}
+          title="Follow-up Task Status"
+        />
       </div>
 
     </div>
