@@ -16,18 +16,16 @@ import {
   AlertCircle
 } from 'lucide-react';
 import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip as ReTooltip,
   ResponsiveContainer,
   BarChart,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
-  Legend
+  Legend,
+  Tooltip as ReTooltip
 } from 'recharts';
+import DonutChart from '../../components/charts/DonutChart';
 import { dealsAPI, clientsAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -647,8 +645,6 @@ const DealsKanbanView = ({ deals, onUpdateStage, formatUGX }) => {
 };
 
 // Charts View Component
-const PIE_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7a45', '#a28fd0', '#f87171'];
-
 const DealsChartsView = ({ stats, formatUGX }) => {
   if (!stats || !stats.stageStats) {
     return (
@@ -679,23 +675,15 @@ const DealsChartsView = ({ stats, formatUGX }) => {
         </div>
 
         <div className="p-4 bg-gray-50 rounded-lg">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Deals by Stage</h4>
-          {pieData.length > 0 ? (
-            <div style={{ width: '100%', height: 220 }}>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <ReTooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="text-gray-500 text-sm text-center py-8">No stage data</div>
-          )}
+          <DonutChart
+            data={pieData}
+            title="Deals by Stage"
+            height={220}
+            innerRadius={50}
+            outerRadius={75}
+            showLegend={false}
+            emptyMessage="No stage data"
+          />
         </div>
 
         <div className="p-4 bg-gray-50 rounded-lg">
