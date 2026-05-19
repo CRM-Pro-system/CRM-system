@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Users, TrendingUp, DollarSign, Target, Download, FileText } from 'lucide-react';
-import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from 'recharts';
+import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
+import DonutChart, { StageValueChart, ORANGE_GRADIENT_COLORS } from '../../components/charts/DonutChart';
 import { useAuth } from '../../context/AuthContext';
 import { dealsAPI, salesAPI, clientsAPI, usersAPI, tenantsAPI } from '../../services/api';
 import OnboardingWizard from '../../components/OnboardingWizard';
@@ -63,8 +64,7 @@ const AdminDashboard = () => {
   const [conversionRatesData, setConversionRatesData] = useState([]);
   const [salesCountData, setSalesCountData] = useState([]);
 
-  const ORANGE_COLORS = ['#ff8c00', '#ff9f1c', '#ffb347', '#ffa500', '#ff7f00', '#ff6b00'];
-  const DEAL_STAGE_COLORS = ['#0ea5e9', '#f59e0b', '#f97316', '#14b8a6', '#22c55e', '#ef4444'];
+  const formatUGX = (v) => `UGX ${Number(v || 0).toLocaleString('en-UG')}`;
 
   const computeRange = (p) => {
     const now = new Date();
@@ -417,33 +417,21 @@ const AdminDashboard = () => {
               <YAxis stroke="#999" allowDecimals={false} />
               <Tooltip formatter={(value, name, item) => [Number(value || 0).toLocaleString(), name || item?.dataKey || 'Value']} />
               <Legend />
-              <Line type="monotone" dataKey="won" name="Won" stroke="#22c55e" strokeWidth={3} dot={{ fill: '#22c55e', r: 4 }} />
+              <Line type="monotone" dataKey="won" name="Won" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', r: 4 }} />
               <Line type="monotone" dataKey="lost" name="Lost" stroke="#ef4444" strokeWidth={3} dot={{ fill: '#ef4444', r: 4 }} />
             </LineChart>
           </ResponsiveContainer>
         )}
       </div>
 
-      {/* Row 1: Sales by Agent & Closed Won Deals */}
+{/* Row 1: Sales by Agent & Closed Won Deals */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h3 className="text-lg font-semibold mb-4">Deal Stages (by Value)</h3>
-          {dealStagesByValueData.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-8">No data</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={dealStagesByValueData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                  {dealStagesByValueData.map((entry, idx) => (
-                    <Cell key={`cell-${idx}`} fill={DEAL_STAGE_COLORS[idx % DEAL_STAGE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => `UGX ${Number(value).toLocaleString('en-UG')}`} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-        </div>
+        <StageValueChart 
+          data={dealStagesByValueData}
+          formatCurrency={formatUGX}
+          height={300}
+          emptyMessage="No deal stage data available"
+        />
 
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-lg font-semibold mb-4">Closed Won Deals by Agent</h3>
@@ -455,7 +443,7 @@ const AdminDashboard = () => {
               <Tooltip />
               <Legend />
               {agentsList.map((agent, idx) => (
-                <Bar key={agent._id} dataKey={agent._id} name={agent.name} fill={ORANGE_COLORS[idx % ORANGE_COLORS.length]} />
+                <Bar key={agent._id} dataKey={agent._id} name={agent.name} fill={ORANGE_GRADIENT_COLORS[idx % ORANGE_GRADIENT_COLORS.length]} />
               ))}
             </BarChart>
           </ResponsiveContainer>
@@ -475,7 +463,7 @@ const AdminDashboard = () => {
               <Tooltip />
               <Legend />
               {agentsList.map((agent, idx) => (
-                <Bar key={agent._id} dataKey={agent._id} name={agent.name} fill={ORANGE_COLORS[idx % ORANGE_COLORS.length]} />
+                <Bar key={agent._id} dataKey={agent._id} name={agent.name} fill={ORANGE_GRADIENT_COLORS[idx % ORANGE_GRADIENT_COLORS.length]} />
               ))}
             </BarChart>
           </ResponsiveContainer>
@@ -490,7 +478,7 @@ const AdminDashboard = () => {
               <YAxis stroke="#999" />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="Open" stroke="#60a5fa" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="Open" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="Closed-Won" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="Closed-Lost" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
@@ -501,10 +489,8 @@ const AdminDashboard = () => {
       {/* Row 3: Monthly Sales & Conversion Rates */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Monthly Sales</h3>
-            <span className="text-sm text-gray-600">Transactions</span>
-          </div>
+          <h3 className="text-lg font-semibold mb-4">Monthly Sales</h3>
+          <span className="text-sm text-gray-600">Transactions</span>
           {salesCountData.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-8">No data</p>
           ) : (
@@ -514,7 +500,7 @@ const AdminDashboard = () => {
                 <XAxis dataKey="month" stroke="#999" />
                 <YAxis stroke="#999" allowDecimals={false} />
                 <Tooltip />
-                <Bar dataKey="sales" fill="#ff8c00" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="sales" fill="#f97316" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -530,7 +516,7 @@ const AdminDashboard = () => {
               <Tooltip formatter={(value) => `${value}%`} />
               <Legend />
               {agentsList.map((agent, idx) => (
-                <Line key={agent._id} type="monotone" dataKey={agent._id} name={agent.name} stroke={ORANGE_COLORS[idx % ORANGE_COLORS.length]} strokeWidth={2} dot={{ r: 3 }} />
+                <Line key={agent._id} type="monotone" dataKey={agent._id} name={agent.name} stroke={ORANGE_GRADIENT_COLORS[idx % ORANGE_GRADIENT_COLORS.length]} strokeWidth={2} dot={{ r: 3 }} />
               ))}
             </LineChart>
           </ResponsiveContainer>
