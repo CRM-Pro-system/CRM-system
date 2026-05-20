@@ -1,12 +1,45 @@
 import express from 'express';
 import PDFDocument from 'pdfkit';
+import twilio from 'twilio';
 import Client from '../models/Client.js';
 import { body, validationResult, query } from 'express-validator';
 import { tenantAuth } from '../middleware/tenantAuth.js';
 import { logAction } from '../utils/auditLog.js';
 import { sendEmail } from '../services/emailService.js';
 
+const { AccessToken, VoiceGrant } = twilio.jwt;
+
 const router = express.Router();
+
+// Get Twilio Voice token for in-app calling (no client required, just auth)
+router.post('/call/token', tenantAuth, async (req, res) => {
+  try {
+    const { identity } = req.body;
+    
+    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_API_KEY_SID) {
+      return res.status(500).json({ message: 'Twilio not configured' });
+    }
+
+    const token = new AccessToken(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_API_KEY_SID,
+      process.env.TWILIO_API_KEY_SECRET || process.env.TWILIO_AUTH_TOKEN,
+      { identity: identity || `user_${req.user.userId}` }
+    );
+
+    const voiceGrant = new VoiceGrant({
+      outgoingApplicationSid: process.env.TWILIO_TWIML_APP_SID,
+      incomingAllow: true
+    });
+
+    token.addGrant(voiceGrant);
+    
+    res.json({ token: token.toJwt() });
+  } catch (error) {
+    console.error('Twilio token error:', error);
+    res.status(500).json({ message: 'Failed to generate token', error: error.message });
+  }
+});
 
 // Apply tenant-aware middleware to all routes
 router.use(tenantAuth);
@@ -220,9 +253,14 @@ router.post('/:id/interactions', [
       return res.status(404).json({ message: 'Client not found' });
     }
 
-    // Check if user has permission to add interactions
-    if (req.user.role === 'agent' && client.agent.toString() !== req.user.userId) {
-      return res.status(403).json({ message: 'Access denied' });
+    // Agents can add interactions to their assigned clients (including forwarded ones)
+    // Admin/managers can add to any client in tenant
+    if (req.user.role === 'agent') {
+      const isAssignedAgent = client.agent?.toString() === req.user.userId || 
+                            client.assignedAgents?.some(a => a.toString() === req.user.userId);
+      if (!isAssignedAgent && client.agent) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
     }
 
     const interaction = {
@@ -502,3 +540,43 @@ router.get('/export/pdf', async (req, res) => {
 });
 
 export { router as clientRoutes };
+
+// Get all notes/interactions of type 'other' for the agent
+router.get('/notes/my', async (req, res) => {
+  try {
+    const query = {
+      ...req.tenantQuery,
+      agent: req.user.userId,
+      'interactions.type': 'other'
+    };
+
+    const clients = await Client.find(query)
+      .select('name company interactions')
+      .populate('interactions.createdBy', 'name');
+
+    const notes = [];
+    clients.forEach(client => {
+      client.interactions
+        .filter(i => i.type === 'other')
+        .forEach(i => {
+          notes.push({
+            _id: i._id,
+            client: {
+              _id: client._id,
+              name: client.name,
+              company: client.company
+            },
+            notes: i.notes,
+            date: i.date,
+            createdBy: i.createdBy
+          });
+        });
+    });
+
+    notes.sort((a, b) => new Date(b.date) - new Date(a.date));
+    res.json(notes);
+  } catch (error) {
+    console.error('Error fetching notes:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});

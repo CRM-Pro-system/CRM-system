@@ -18,6 +18,7 @@ const Tasks = lazy(() => import('./pages/agent/Tasks'));
 const Issues = lazy(() => import('./pages/agent/Issues'));
 const Sales = lazy(() => import('./pages/agent/Sales'));
 const SalesManagement = lazy(() => import('./pages/agent/SalesManagement'));
+const Notes = lazy(() => import('./pages/agent/Notes'));
 const UserManagement = lazy(() => import('./pages/admin/UserManagement'));
 const Reports = lazy(() => import('./pages/admin/Reports'));
 const Settings = lazy(() => import('./pages/admin/Settings'));
@@ -182,11 +183,16 @@ function App() {
                     <Tasks />
                   </ProtectedRoute>
                 } />
-                <Route path="/agent/issues" element={
-                  <ProtectedRoute allowedRoles={['agent']}>
-                    <Issues />
-                  </ProtectedRoute>
-                } />
+<Route path="/agent/issues" element={
+                   <ProtectedRoute allowedRoles={['agent']}>
+                     <Issues />
+                   </ProtectedRoute>
+                 } />
+                 <Route path="/agent/notes" element={
+                   <ProtectedRoute allowedRoles={['agent']}>
+                     <Notes />
+                   </ProtectedRoute>
+                 } />
 
                 {/* Dashboard Route - Available to all authenticated users */}
                 <Route path="/dashboard" element={
