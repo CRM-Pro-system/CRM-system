@@ -67,9 +67,31 @@ router.get('/', async (req, res) => {
       query.status = status;
     }
 
-    // Apply agent filter (admin can filter by agent, agents see only their clients)
+    // Apply agent filter (admin can filter by agent, agents see only their clients or unassigned leads)
     if (req.user.role === 'agent') {
-      query.agent = req.user.userId;
+      if (status === 'prospect') {
+        // For prospects, agents can see their assigned leads OR unassigned leads
+        const agentConditions = [
+          { agent: req.user.userId },
+          { agent: { $exists: false } },
+          { agent: null }
+        ];
+        if (search) {
+          query.$and = [
+            { $or: agentConditions },
+            { $or: [
+              { name: { $regex: search, $options: 'i' } },
+              { email: { $regex: search, $options: 'i' } },
+              { phone: { $regex: search, $options: 'i' } },
+              { company: { $regex: search, $options: 'i' } }
+            ]}
+          ];
+        } else {
+          query.$or = agentConditions;
+        }
+      } else {
+        query.agent = req.user.userId;
+      }
     } else if (agent) {
       query.agent = agent;
     }
@@ -253,12 +275,13 @@ router.post('/:id/interactions', [
       return res.status(404).json({ message: 'Client not found' });
     }
 
-    // Agents can add interactions to their assigned clients (including forwarded ones)
+// Agents can add interactions to their assigned clients (including forwarded ones)
     // Admin/managers can add to any client in tenant
     if (req.user.role === 'agent') {
-      const isAssignedAgent = client.agent?.toString() === req.user.userId || 
-                            client.assignedAgents?.some(a => a.toString() === req.user.userId);
-      if (!isAssignedAgent && client.agent) {
+      const isAssignedAgent = !client.agent || 
+                             client.agent?.toString() === req.user.userId || 
+                             client.assignedAgents?.some(a => a.toString() === req.user.userId);
+      if (!isAssignedAgent) {
         return res.status(403).json({ message: 'Access denied' });
       }
     }
