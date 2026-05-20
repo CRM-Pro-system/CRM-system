@@ -275,13 +275,15 @@ router.post('/:id/interactions', [
       return res.status(404).json({ message: 'Client not found' });
     }
 
-// Agents can add interactions to their assigned clients (including forwarded ones)
+// Agents can add interactions to their assigned clients or unassigned leads
     // Admin/managers can add to any client in tenant
     if (req.user.role === 'agent') {
-      const isAssignedAgent = !client.agent || 
-                             client.agent?.toString() === req.user.userId || 
-                             client.assignedAgents?.some(a => a.toString() === req.user.userId);
-      if (!isAssignedAgent) {
+      const isOwner = !client.agent || 
+                      client.agent?.toString() === req.user.userId || 
+                      client.assignedAgents?.some(a => a.toString() === req.user.userId);
+      // Allow if agent is owner OR if it's a prospect (unassigned lead)
+      const isProspect = client.status === 'prospect';
+      if (!isOwner && !isProspect) {
         return res.status(403).json({ message: 'Access denied' });
       }
     }

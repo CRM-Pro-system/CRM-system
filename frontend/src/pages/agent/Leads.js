@@ -183,8 +183,7 @@ export default function Leads() {
         company: form.companyName,
         rating: form.rating,
         leadStatus: form.leadStatus,
-        status: "prospect",
-        agent: user?.id || user?._id
+        status: "prospect"
       };
       const res = await clientsAPI.create(payload);
       setLeads(p => [res.data, ...p]);
