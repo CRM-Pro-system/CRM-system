@@ -517,35 +517,37 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
 
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Craft Sector
+                      Sector / Industry
                     </label>
                     <select
                       value={formData.industry}
                       onChange={(e) => handleInputChange('industry', e.target.value)}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     >
-                      <option value="">Select Craft Sector</option>
-                      <option value="Arts & Crafts">🎨 Arts & Crafts</option>
-                      <option value="Textiles & Fashion">🧵 Textiles & Fashion</option>
-                      <option value="Woodwork & Furniture">🪵 Woodwork & Furniture</option>
-                      <option value="Pottery & Ceramics">🏺 Pottery & Ceramics</option>
-                      <option value="Weaving & Basketry">🧶 Weaving & Basketry</option>
-                      <option value="Jewelry & Accessories">💍 Jewelry & Accessories</option>
-                      <option value="Paintings & Visual Art">🖼️ Paintings & Visual Art</option>
-                      <option value="Cultural & Heritage Crafts">🎭 Cultural & Heritage Crafts</option>
-                      <option value="Natural & Organic Products">🌿 Natural & Organic Products</option>
-                      <option value="Leather & Beadwork">🪡 Leather & Beadwork</option>
-                      <option value="Musical Instruments">🎵 Musical Instruments</option>
-                      <option value="Home Décor & Interior">🏠 Home Décor & Interior</option>
-                      <option value="Export & Trade">🌍 Export & Trade</option>
-                      <option value="Wholesale & Distribution">📦 Wholesale & Distribution</option>
+                      <option value="">Select Sector</option>
+                      <option value="IT">IT & Technology</option>
+                      <option value="Agriculture">Agriculture</option>
+                      <option value="Finance">Finance & Banking</option>
+                      <option value="Healthcare">Healthcare</option>
+                      <option value="Education">Education</option>
+                      <option value="Real Estate">Real Estate</option>
+                      <option value="Manufacturing">Manufacturing</option>
+                      <option value="Retail">Retail & Trade</option>
+                      <option value="Logistics">Logistics & Transport</option>
+                      <option value="Hospitality">Hospitality & Tourism</option>
+                      <option value="Construction">Construction</option>
+                      <option value="Energy">Energy & Utilities</option>
+                      <option value="Telecommunications">Telecommunications</option>
+                      <option value="Media">Media & Entertainment</option>
+                      <option value="NGO">NGO / Non-Profit</option>
+                      <option value="Government">Government & Public Sector</option>
                       <option value="Other">Other</option>
                     </select>
                   </div>
 
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Region (Africa)
+                      Region
                     </label>
                     <select
                       value={formData.region}
@@ -553,13 +555,16 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     >
                       <option value="">Select Region</option>
-                      <option value="East Africa">🌍 East Africa</option>
-                      <option value="West Africa">🌍 West Africa</option>
-                      <option value="Central Africa">🌍 Central Africa</option>
-                      <option value="Southern Africa">🌍 Southern Africa</option>
-                      <option value="North Africa">🌍 North Africa</option>
-                      <option value="Pan-African">🌍 Pan-African</option>
-                      <option value="International">🌐 International</option>
+                      <option value="Central">Central</option>
+                      <option value="East">East</option>
+                      <option value="West">West</option>
+                      <option value="North">North</option>
+                      <option value="South">South</option>
+                      <option value="North East">North East</option>
+                      <option value="North West">North West</option>
+                      <option value="South East">South East</option>
+                      <option value="South West">South West</option>
+                      <option value="International">International</option>
                     </select>
                   </div>
                 </div>

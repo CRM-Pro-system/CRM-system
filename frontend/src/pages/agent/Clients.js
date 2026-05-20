@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronUp, X, Globe, Briefcase, AlertCircle, CheckCircle,
   Clock, Award, MessageSquare, Send
 } from 'lucide-react';
-import { clientsAPI } from '../../services/api';
+import { clientsAPI, emailTemplatesAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext'; 
 import toast from 'react-hot-toast';
 import ClientRegistrationForm from './ClientRegistrationForm';
@@ -168,6 +168,34 @@ const Clients = () => {
       toast.success('Clients exported successfully');
     } catch (error) {
       toast.error('Failed to export clients');
+    }
+  };
+
+  const handleExportClientsPDF = async () => {
+    try {
+      toast.loading('Generating PDF...', { id: 'pdf-export' });
+
+      const params = {
+        search: searchTerm || undefined,
+        status: filters.status || undefined,
+      };
+
+      const response = await clientsAPI.exportPDF(params);
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url  = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href     = url;
+      link.download = `clients-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('PDF exported successfully', { id: 'pdf-export' });
+    } catch (error) {
+      toast.error('Failed to export PDF', { id: 'pdf-export' });
+      console.error('PDF export error:', error);
     }
   };
 
@@ -694,13 +722,20 @@ const Clients = () => {
               <span>Delete Selected ({selectedClients.length})</span>
             </button>
           )}
-          <button
-            onClick={handleExportClients}
-            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            <span>Export</span>
-          </button>
+           <button
+             onClick={handleExportClients}
+             className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+           >
+             <Download className="w-4 h-4" />
+             <span>Export CSV</span>
+           </button>
+           <button
+             onClick={handleExportClientsPDF}
+             className="flex items-center space-x-2 px-4 py-2 border border-blue-300 rounded-lg text-blue-700 hover:bg-blue-50 transition-colors"
+           >
+             <FileText className="w-4 h-4" />
+             <span>Export PDF</span>
+           </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="bg-orange-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-orange-600 transition-colors"
@@ -1142,7 +1177,42 @@ const Clients = () => {
 
 const SendEmailModal = ({ client, onClose, onSent }) => {
   const [form, setForm] = useState({ subject: '', message: '' });
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
   const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const res = await emailTemplatesAPI.getAll();
+        setTemplates((res.data.templates || []).filter(t => t.isActive !== false && t.category === 'client'));
+      } catch {
+        setTemplates([]);
+      }
+    };
+    loadTemplates();
+  }, []);
+
+  const renderTemplateText = (text = '') => {
+    const replacements = {
+      clientName: client.name || '',
+      clientEmail: client.email || '',
+      clientCompany: client.company || '',
+      agentName: 'your CRM team',
+      companyName: 'our company'
+    };
+    return text.replace(/\{\{(\w+)\}\}/g, (_, key) => replacements[key] || '');
+  };
+
+  const handleTemplateChange = (templateId) => {
+    setSelectedTemplate(templateId);
+    const template = templates.find(item => String(item._id) === String(templateId));
+    if (!template) return;
+    setForm({
+      subject: renderTemplateText(template.subject),
+      message: renderTemplateText(template.body)
+    });
+  };
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -1179,6 +1249,23 @@ const SendEmailModal = ({ client, onClose, onSent }) => {
           </button>
         </div>
         <form onSubmit={handleSend} className="p-6 space-y-4">
+          {templates.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Template</label>
+              <select
+                value={selectedTemplate}
+                onChange={e => handleTemplateChange(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="">Write manually</option>
+                {templates.map(template => (
+                  <option key={template._id} value={template._id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Subject *</label>
             <input

@@ -16,18 +16,16 @@ import {
   AlertCircle
 } from 'lucide-react';
 import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip as ReTooltip,
   ResponsiveContainer,
   BarChart,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
-  Legend
+  Legend,
+  Tooltip as ReTooltip
 } from 'recharts';
+import DonutChart from '../../components/charts/DonutChart';
 import { dealsAPI, clientsAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -594,10 +592,10 @@ const DealsTableView = ({ deals, onUpdateStage, onDeleteDeal, formatUGX }) => {
                     <div className="w-16 bg-gray-200 rounded-full h-2">
                       <div 
                         className="bg-green-500 h-2 rounded-full" 
-                        style={{ width: `${deal.probability || 0}%` }}
+                        style={{ width: `${STAGE_PROBABILITY[deal.stage] ?? deal.probability ?? 0}%` }}
                       ></div>
                     </div>
-                    <span className="text-sm text-gray-600">{deal.probability || 0}%</span>
+                    <span className="text-sm text-gray-600">{STAGE_PROBABILITY[deal.stage] ?? deal.probability ?? 0}%</span>
                   </div>
                 </td>
                 <td className="px-6 py-4">
@@ -647,8 +645,6 @@ const DealsKanbanView = ({ deals, onUpdateStage, formatUGX }) => {
 };
 
 // Charts View Component
-const PIE_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7a45', '#a28fd0', '#f87171'];
-
 const DealsChartsView = ({ stats, formatUGX }) => {
   if (!stats || !stats.stageStats) {
     return (
@@ -679,23 +675,15 @@ const DealsChartsView = ({ stats, formatUGX }) => {
         </div>
 
         <div className="p-4 bg-gray-50 rounded-lg">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Deals by Stage</h4>
-          {pieData.length > 0 ? (
-            <div style={{ width: '100%', height: 220 }}>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <ReTooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="text-gray-500 text-sm text-center py-8">No stage data</div>
-          )}
+          <DonutChart
+            data={pieData}
+            title="Deals by Stage"
+            height={220}
+            innerRadius={50}
+            outerRadius={75}
+            showLegend={false}
+            emptyMessage="No stage data"
+          />
         </div>
 
         <div className="p-4 bg-gray-50 rounded-lg">
@@ -744,6 +732,16 @@ const DealsChartsView = ({ stats, formatUGX }) => {
 };
 
 // Create Deal Modal Component
+// Auto-calculate probability from stage per spec
+const STAGE_PROBABILITY = {
+  lead: 10,
+  qualification: 25,
+  proposal: 50,
+  negotiation: 75,
+  won: 100,
+  lost: 0,
+};
+
 const CreateDealModal = ({ onClose, onSubmit, clients, onClientSearch, error }) => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
@@ -753,7 +751,8 @@ const CreateDealModal = ({ onClose, onSubmit, clients, onClientSearch, error }) 
     client: '',
     agent: user?._id || user?.id || '',
     stage: 'lead',
-    probability: 0,
+    dealType: 'new',
+    probability: STAGE_PROBABILITY['lead'],
     expectedCloseDate: '',
   });
   const [clientSearch, setClientSearch] = useState('');
@@ -783,7 +782,8 @@ const CreateDealModal = ({ onClose, onSubmit, clients, onClientSearch, error }) 
       await onSubmit({
         ...formData,
         value: parseFloat(formData.value),
-        probability: parseInt(formData.probability) || 0,
+        probability: STAGE_PROBABILITY[formData.stage] ?? 0,
+        dealType: formData.dealType,
         expectedCloseDate: formData.expectedCloseDate || null
       });
     } catch (err) {
@@ -904,7 +904,14 @@ const CreateDealModal = ({ onClose, onSubmit, clients, onClientSearch, error }) 
               </label>
               <select
                 value={formData.stage}
-                onChange={(e) => setFormData(prev => ({ ...prev, stage: e.target.value }))}
+                onChange={(e) => {
+                  const stage = e.target.value;
+                  setFormData(prev => ({
+                    ...prev,
+                    stage,
+                    probability: STAGE_PROBABILITY[stage] ?? prev.probability
+                  }));
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               >
                 <option value="lead">Lead</option>
@@ -913,20 +920,39 @@ const CreateDealModal = ({ onClose, onSubmit, clients, onClientSearch, error }) 
                 <option value="negotiation">Negotiation</option>
               </select>
             </div>
-            
-            {/* Probability */}
+
+            {/* Deal Type — Existing vs New (spec requirement) */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Probability (%)
+                Deal Type
               </label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={formData.probability}
-                onChange={(e) => setFormData(prev => ({ ...prev, probability: e.target.value }))}
+              <select
+                value={formData.dealType}
+                onChange={(e) => setFormData(prev => ({ ...prev, dealType: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              />
+              >
+                <option value="new">New Business</option>
+                <option value="existing">Existing Client</option>
+              </select>
+            </div>
+
+            {/* Probability — auto-calculated, read-only display */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Probability (%) — auto-calculated
+              </label>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 bg-gray-100 rounded-lg px-3 py-2 text-gray-700 font-semibold">
+                  {formData.probability}%
+                </div>
+                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-orange-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${formData.probability}%` }}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Set automatically based on stage</p>
             </div>
             
             {/* Expected Close Date */}

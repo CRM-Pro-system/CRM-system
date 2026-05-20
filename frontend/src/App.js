@@ -10,8 +10,12 @@ const Login = lazy(() => import('./pages/Login'));
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AgentDashboard = lazy(() => import('./pages/agent/Dashboard'));
 const Clients = lazy(() => import('./pages/agent/Clients'));
+const Leads = lazy(() => import('./pages/agent/Leads'));
+const Contacts = lazy(() => import('./pages/agent/Contacts'));
 const Deals = lazy(() => import('./pages/agent/Deals'));
 const Schedules = lazy(() => import('./pages/agent/Schedules'));
+const Tasks = lazy(() => import('./pages/agent/Tasks'));
+const Issues = lazy(() => import('./pages/agent/Issues'));
 const Sales = lazy(() => import('./pages/agent/Sales'));
 const SalesManagement = lazy(() => import('./pages/agent/SalesManagement'));
 const UserManagement = lazy(() => import('./pages/admin/UserManagement'));
@@ -20,6 +24,8 @@ const Settings = lazy(() => import('./pages/admin/Settings'));
 const SuperAdminDashboardFull = lazy(() => import('./pages/superadmin/SuperAdminDashboard'));
 const TenantManagement = lazy(() => import('./pages/superadmin/TenantManagement'));
 const BulkOperations = lazy(() => import('./pages/admin/BulkOperations'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const PredictiveAnalytics = lazy(() => import('./pages/PredictiveAnalytics'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
@@ -146,6 +152,16 @@ function App() {
                     <Clients />
                   </ProtectedRoute>
                 } />
+                <Route path="/agent/leads" element={
+                  <ProtectedRoute allowedRoles={['agent']}>
+                    <Leads />
+                  </ProtectedRoute>
+                } />
+                <Route path="/agent/contacts" element={
+                  <ProtectedRoute allowedRoles={['agent']}>
+                    <Contacts />
+                  </ProtectedRoute>
+                } />
                 <Route path="/agent/deals" element={
                   <ProtectedRoute allowedRoles={['agent']}>
                     <Deals />
@@ -159,6 +175,30 @@ function App() {
                 <Route path="/agent/sales" element={
                   <ProtectedRoute allowedRoles={['agent']}>
                     <SalesManagement />
+                  </ProtectedRoute>
+                } />
+                <Route path="/agent/tasks" element={
+                  <ProtectedRoute allowedRoles={['agent']}>
+                    <Tasks />
+                  </ProtectedRoute>
+                } />
+                <Route path="/agent/issues" element={
+                  <ProtectedRoute allowedRoles={['agent']}>
+                    <Issues />
+                  </ProtectedRoute>
+                } />
+
+                {/* Dashboard Route - Available to all authenticated users */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } />
+
+                {/* Predictive Analytics Route - Available to admin and manager */}
+                <Route path="/predictive-analytics" element={
+                  <ProtectedRoute allowedRoles={['admin', 'manager']}>
+                    <PredictiveAnalytics />
                   </ProtectedRoute>
                 } />
 

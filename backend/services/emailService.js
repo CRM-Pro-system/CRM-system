@@ -84,6 +84,85 @@ export const generateOTP = () => {
 
 // Email templates - FIXED: Properly handle template data
 const emailTemplates = {
+  taskReminder: (templateData) => {
+    const { agentName, clientName, taskTitle, taskDescription, dueDate, isOverdue, appUrl } = templateData;
+
+    const formattedDate = new Date(dueDate).toLocaleString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long',
+      day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+
+    const headerColor  = isOverdue ? '#dc2626' : '#f97316';
+    const badgeColor   = isOverdue ? '#fef2f2' : '#fff7ed';
+    const badgeBorder  = isOverdue ? '#fca5a5' : '#fed7aa';
+    const badgeText    = isOverdue ? '#dc2626' : '#ea580c';
+    const statusLabel  = isOverdue ? '⚠️ OVERDUE' : '⏰ DUE SOON';
+    const subject      = isOverdue
+      ? `Overdue Task: "${taskTitle}" for ${clientName}`
+      : `Reminder: Task "${taskTitle}" is due soon for ${clientName}`;
+
+    return {
+      subject,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background: #f9fafb; }
+            .wrapper { max-width: 600px; margin: 30px auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+            .header { background: ${headerColor}; color: white; padding: 28px 32px; }
+            .header h1 { margin: 0 0 4px; font-size: 20px; }
+            .header p  { margin: 0; font-size: 13px; opacity: 0.9; }
+            .body { padding: 28px 32px; }
+            .badge { display: inline-block; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold; background: ${badgeColor}; border: 1px solid ${badgeBorder}; color: ${badgeText}; margin-bottom: 20px; }
+            .task-card { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid ${headerColor}; border-radius: 8px; padding: 20px; margin: 20px 0; }
+            .task-card h3 { margin: 0 0 8px; font-size: 16px; color: #1e293b; }
+            .task-card p  { margin: 4px 0; font-size: 14px; color: #64748b; }
+            .task-card .due { font-weight: bold; color: ${badgeText}; }
+            .cta { text-align: center; margin: 28px 0 8px; }
+            .cta a { background: ${headerColor}; color: white; padding: 13px 32px; border-radius: 8px; text-decoration: none; font-size: 15px; font-weight: bold; display: inline-block; }
+            .footer { text-align: center; padding: 18px 32px; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
+          </style>
+        </head>
+        <body>
+          <div class="wrapper">
+            <div class="header">
+              <h1>📋 Task Reminder</h1>
+              <p>CRM System — Automated Notification</p>
+            </div>
+            <div class="body">
+              <div class="badge">${statusLabel}</div>
+              <p>Hi <strong>${agentName}</strong>,</p>
+              <p>You have a task ${isOverdue ? 'that is <strong>overdue</strong>' : 'coming up <strong>soon</strong>'} for client <strong>${clientName}</strong>.</p>
+
+              <div class="task-card">
+                <h3>${taskTitle}</h3>
+                ${taskDescription ? `<p>${taskDescription}</p>` : ''}
+                <p class="due">📅 Due: ${formattedDate}</p>
+                <p>👤 Client: ${clientName}</p>
+              </div>
+
+              ${isOverdue
+                ? '<p style="color:#dc2626;font-weight:bold;">This task is past its due date. Please action it as soon as possible.</p>'
+                : '<p>Please make sure to complete this task on time to keep your client relationship on track.</p>'
+              }
+
+              ${appUrl ? `
+              <div class="cta">
+                <a href="${appUrl}/agent/clients">View Client</a>
+              </div>` : ''}
+            </div>
+            <div class="footer">
+              <p>This is an automated reminder from your CRM System. Do not reply to this email.</p>
+              <p>© ${new Date().getFullYear()} CRM System. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+  },
+
   meetingInvite: (templateData) => {
     const { clientName, agentName, title, date, duration, location, mode, agenda, meetingLink } = templateData;
 

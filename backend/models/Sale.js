@@ -60,6 +60,14 @@ const saleSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
+  currency: {
+    type: String,
+    default: 'USD'
+  },
+  exchangeRate: {
+    type: Number,
+    default: 1
+  },
   paymentMethod: {
     type: String,
     enum: ['cash', 'credit'],

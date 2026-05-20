@@ -640,11 +640,13 @@ router.patch('/branding/logo', async (req, res) => {
     if (req.isSuperAdmin) {
       return res.status(400).json({ message: 'Super admin does not have a tenant to update' });
     }
-    const { logo, primaryColor, secondaryColor } = req.body;
+    const { logo, primaryColor, secondaryColor, customDomain, currency } = req.body;
     const update = {};
     if (logo) update['settings.logo'] = logo;
     if (primaryColor) update['settings.primaryColor'] = primaryColor;
     if (secondaryColor) update['settings.secondaryColor'] = secondaryColor;
+    if (customDomain !== undefined) update['settings.customDomain'] = customDomain.trim().toLowerCase();
+    if (currency) update['settings.currency'] = currency;
 
     const tenant = await Tenant.findByIdAndUpdate(req.tenantId, update, { new: true });
     if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
@@ -741,6 +743,106 @@ router.post('/', requireSuperAdmin, async (req, res) => {
   }
 });
 
+// PATCH onboarding progress — admin saves wizard step data
+router.patch('/onboarding', async (req, res) => {
+  try {
+    if (req.isSuperAdmin) {
+      return res.status(400).json({ message: 'Super admin does not have an onboarding flow' });
+    }
+
+    const {
+      step,          // 'branding' | 'localization' | 'team' | 'client' | 'complete'
+      completed,     // boolean — did the user complete (not skip) this step?
+      currentStep,   // numeric index of the current wizard step
+      // Branding fields
+      logo, primaryColor, secondaryColor,
+      // Localization fields
+      timezone, currency, language, dateFormat,
+      // Company name update
+      companyName
+    } = req.body;
+
+    const update = {};
+
+    // Save step-specific data
+    if (step === 'branding') {
+      if (logo)           update['settings.logo']           = logo;
+      if (primaryColor)   update['settings.primaryColor']   = primaryColor;
+      if (secondaryColor) update['settings.secondaryColor'] = secondaryColor;
+      if (companyName)    update.name                       = companyName;
+      if (completed)      update['onboarding.stepsCompleted.branding'] = true;
+    }
+
+    if (step === 'localization') {
+      if (timezone)   update['settings.timezone']   = timezone;
+      if (currency)   update['settings.currency']   = currency;
+      if (language)   update['settings.language']   = language;
+      if (dateFormat) update['settings.dateFormat'] = dateFormat;
+      if (completed)  update['onboarding.stepsCompleted.localization'] = true;
+    }
+
+    if (step === 'team' && completed) {
+      update['onboarding.stepsCompleted.team'] = true;
+    }
+
+    if (step === 'client' && completed) {
+      update['onboarding.stepsCompleted.client'] = true;
+    }
+
+    // Always track current step position
+    if (typeof currentStep === 'number') {
+      update['onboarding.currentStep'] = currentStep;
+    }
+
+    // Mark wizard as fully completed
+    if (step === 'complete') {
+      update['onboarding.completed']   = true;
+      update['onboarding.completedAt'] = new Date();
+    }
+
+    const tenant = await Tenant.findByIdAndUpdate(
+      req.tenantId,
+      { $set: update },
+      { new: true }
+    );
+
+    if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
+
+    res.json({
+      message: 'Onboarding progress saved',
+      onboarding: tenant.onboarding,
+      settings:   tenant.settings
+    });
+  } catch (error) {
+    console.error('Error saving onboarding progress:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// GET onboarding status for current tenant
+router.get('/onboarding', async (req, res) => {
+  try {
+    if (req.isSuperAdmin) {
+      return res.json({ completed: true });
+    }
+
+    const tenant = await Tenant.findById(req.tenantId)
+      .select('onboarding settings name');
+
+    if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
+
+    res.json({
+      completed:      tenant.onboarding?.completed    ?? false,
+      currentStep:    tenant.onboarding?.currentStep  ?? 0,
+      stepsCompleted: tenant.onboarding?.stepsCompleted ?? {},
+      settings:       tenant.settings,
+      name:           tenant.name
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // GET single tenant (super admin only)
 router.get('/:id', requireSuperAdmin, async (req, res) => {
   try {
@@ -803,7 +905,7 @@ router.patch('/:id/status', requireSuperAdmin, async (req, res) => {
 router.delete('/:id', requireSuperAdmin, async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
-  
+
   try {
     const tenantId = req.params.id;
     const tenant = await Tenant.findById(tenantId).session(session);
@@ -821,30 +923,30 @@ router.delete('/:id', requireSuperAdmin, async (req, res) => {
     await Performance.deleteMany({ tenant: tenantId }).session(session);
     await Meeting.deleteMany({ tenant: tenantId }).session(session);
     await Schedule.deleteMany({ tenant: tenantId }).session(session);
-    
+
     // Delete Deal records (references Client, User)
     const deals = await Deal.find({ tenant: tenantId }).session(session);
     const dealIds = deals.map(d => d._id);
     await Deal.deleteMany({ tenant: tenantId }).session(session);
-    
+
     // Delete Sale records (references Client, User)
     await Sale.deleteMany({ tenant: tenantId }).session(session);
-    
+
     // Delete Client records (references User)
     await Client.deleteMany({ tenant: tenantId }).session(session);
-    
+
     // Delete Stock records (references User)
     await Stock.deleteMany({ tenant: tenantId }).session(session);
-    
+
     // Delete all User records for this tenant - this frees up unique emails for reuse
     await User.deleteMany({ tenant: tenantId }).session(session);
-    
+
     // Finally, delete the tenant itself
     await Tenant.findByIdAndDelete(tenantId).session(session);
-    
+
     await session.commitTransaction();
     session.endSession();
-    
+
     res.json({ message: 'Organization and all associated data deleted successfully' });
   } catch (error) {
     await session.abortTransaction();

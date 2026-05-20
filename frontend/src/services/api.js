@@ -76,16 +76,17 @@ export const clientsAPI = {
   addTask: (id, data) => api.post(`/clients/${id}/tasks`, data),
   sendEmail: (id, data) => api.post(`/clients/${id}/send-email`, data),
   exportCSV: async (params) => {
-    const res = await api.get('/clients', { params: { ...params, limit: 1000 } });
-    const clients = res.data?.clients || res.data || [];
-    const headers = ['Name', 'Email', 'Phone', 'Company', 'Status', 'Priority', 'Created'];
-    const rows = clients.map(c => [
-      c.name, c.email, c.phone, c.company || '', c.status, c.priority,
-      new Date(c.createdAt).toLocaleDateString()
-    ]);
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-    return { data: csv };
-  }
+     const res = await api.get('/clients', { params: { ...params, limit: 1000 } });
+     const clients = res.data?.clients || res.data || [];
+     const headers = ['Name', 'Email', 'Phone', 'Company', 'Status', 'Priority', 'Created'];
+     const rows = clients.map(c => [
+       c.name, c.email, c.phone, c.company || '', c.status, c.priority,
+       new Date(c.createdAt).toLocaleDateString()
+     ]);
+     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+     return { data: csv };
+   },
+   exportPDF: (params) => api.get(`/clients/export/pdf`, { params, responseType: 'blob' })
 };
 
 // Deals API
@@ -176,12 +177,16 @@ export const tenantsAPI = {
   delete: (id) => api.delete(`/tenants/${id}`),
   getStats: (id) => api.get(`/tenants/${id}/stats`),
   updateBranding: (data) => api.patch('/tenants/branding/logo', data),
+  // Onboarding
+  getOnboarding: () => api.get('/tenants/onboarding'),
+  saveOnboarding: (data) => api.patch('/tenants/onboarding', data),
 };
 
 // Audit Logs API
 export const auditLogsAPI = {
   getAll: (params) => api.get('/audit-logs', { params }),
-  getStats: () => api.get('/audit-logs/stats'),
+  getById: (id) => api.get(`/audit-logs/${id}`),
+  getStats: () => api.get('/audit-logs/stats/summary'),
 };
 
 // Meetings API
@@ -224,6 +229,59 @@ export const uploadAPI = {
       },
     });
   },
+};
+
+// Roles API
+export const rolesAPI = {
+  getAll: () => api.get('/roles'),
+  create: (data) => api.post('/roles', data),
+  update: (id, data) => api.put(`/roles/${id}`, data),
+  delete: (id) => api.delete(`/roles/${id}`),
+};
+
+// Email Templates API
+export const emailTemplatesAPI = {
+  getAll: () => api.get('/email-templates'),
+  create: (data) => api.post('/email-templates', data),
+  update: (id, data) => api.put(`/email-templates/${id}`, data),
+  delete: (id) => api.delete(`/email-templates/${id}`),
+};
+
+// Scheduled Exports API
+export const scheduledExportsAPI = {
+  getAll: () => api.get('/scheduled-exports'),
+  create: (data) => api.post('/scheduled-exports', data),
+  update: (id, data) => api.patch(`/scheduled-exports/${id}`, data),
+  runNow: (id) => api.post(`/scheduled-exports/${id}/run-now`),
+  delete: (id) => api.delete(`/scheduled-exports/${id}`),
+};
+
+// Predictive Analytics API
+export const predictiveAnalyticsAPI = {
+  getSalesForecast: (params) => api.get('/predictive-analytics/sales-forecast', { params }),
+  getLeadScoring: () => api.get('/predictive-analytics/lead-scoring'),
+  getPerformancePrediction: (agentId) => api.get(`/predictive-analytics/performance-prediction/${agentId}`),
+  getChurnPrediction: () => api.get('/predictive-analytics/churn-prediction'),
+};
+
+// Dashboards API
+export const dashboardsAPI = {
+  getAll: () => api.get('/dashboards'),
+  getById: (id) => api.get(`/dashboards/${id}`),
+  create: (data) => api.post('/dashboards', data),
+  update: (id, data) => api.put(`/dashboards/${id}`, data),
+  delete: (id) => api.delete(`/dashboards/${id}`),
+  getKPIs: (id) => api.get(`/dashboards/${id}/kpis`),
+};
+
+// Issues API
+export const issuesAPI = {
+  getAll: (params) => api.get('/issues', { params }),
+  getById: (id) => api.get(`/issues/${id}`),
+  create: (data) => api.post('/issues', data),
+  update: (id, data) => api.patch(`/issues/${id}`, data),
+  updateStatus: (id, data) => api.patch(`/issues/${id}/status`, data),
+  delete: (id) => api.delete(`/issues/${id}`),
 };
 
 // Default export

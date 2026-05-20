@@ -1,6 +1,7 @@
 import express from 'express';
+import PDFDocument from 'pdfkit';
 import Client from '../models/Client.js';
-import { body, validationResult } from 'express-validator';
+import { body, validationResult, query } from 'express-validator';
 import { tenantAuth } from '../middleware/tenantAuth.js';
 import { logAction } from '../utils/auditLog.js';
 import { sendEmail } from '../services/emailService.js';
@@ -66,7 +67,7 @@ router.get('/', async (req, res) => {
 });
 
 // Get client by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id([0-9a-fA-F]{24})', async (req, res) => {
   try {
     const client = await Client.findOne({ _id: req.params.id, ...req.tenantQuery })
       .populate('agent', 'name email')
@@ -335,6 +336,168 @@ router.post('/:id/send-email', [
   } catch (error) {
     console.error('Error sending email to client:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Export clients as PDF
+router.get('/export/pdf', async (req, res) => {
+  try {
+    // Build query with tenant filter
+    const clientQuery = { ...req.tenantQuery };
+
+    if (req.query.search) {
+      clientQuery.$or = [
+        { name:    { $regex: req.query.search, $options: 'i' } },
+        { email:   { $regex: req.query.search, $options: 'i' } },
+        { phone:   { $regex: req.query.search, $options: 'i' } },
+        { company: { $regex: req.query.search, $options: 'i' } }
+      ];
+    }
+    if (req.query.status)  clientQuery.status = req.query.status;
+    if (req.user.role === 'agent') {
+      clientQuery.agent = req.user.userId;
+    } else if (req.query.agent) {
+      clientQuery.agent = req.query.agent;
+    }
+
+    const clients = await Client.find(clientQuery)
+      .populate('agent', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(1000)
+      .lean();
+
+    // ── PDF generation ────────────────────────────────────────────────────────
+    const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="clients-${new Date().toISOString().slice(0, 10)}.pdf"`
+    );
+    doc.pipe(res);
+
+    // ── Colour palette ────────────────────────────────────────────────────────
+    const ORANGE  = '#f97316';
+    const DARK    = '#1f2937';
+    const MUTED   = '#6b7280';
+    const LIGHT   = '#f3f4f6';
+    const WHITE   = '#ffffff';
+    const PAGE_W  = doc.page.width  - 80; // usable width (margin 40 each side)
+    const PAGE_H  = doc.page.height;
+
+    // ── Header banner ─────────────────────────────────────────────────────────
+    doc.rect(0, 0, doc.page.width, 70).fill(ORANGE);
+    doc.fillColor(WHITE).fontSize(20).font('Helvetica-Bold')
+       .text('Client Report', 40, 22);
+    doc.fontSize(9).font('Helvetica')
+       .text(`Generated: ${new Date().toLocaleString()}  |  Total: ${clients.length} client(s)`,
+             40, 48);
+
+    // Active filters line
+    const filterParts = [];
+    if (req.query.search)  filterParts.push(`Search: "${req.query.search}"`);
+    if (req.query.status)  filterParts.push(`Status: ${req.query.status}`);
+    if (req.user.role === 'agent') filterParts.push('Showing: Your clients only');
+    if (filterParts.length) {
+      doc.text(`Filters — ${filterParts.join('  |  ')}`, 40, 58);
+    }
+
+    doc.moveDown(3);
+
+    // ── Column definitions ────────────────────────────────────────────────────
+    const cols = [
+      { label: '#',        width: 24  },
+      { label: 'Name',     width: 120 },
+      { label: 'Email',    width: 130 },
+      { label: 'Phone',    width: 80  },
+      { label: 'Company',  width: 90  },
+      { label: 'Status',   width: 55  },
+      { label: 'Priority', width: 50  },
+      { label: 'Agent',    width: 80  },
+    ];
+    const ROW_H   = 18;
+    const HEAD_H  = 22;
+
+    const drawTableHeader = (y) => {
+      doc.rect(40, y, PAGE_W, HEAD_H).fill(DARK);
+      let x = 40;
+      doc.fillColor(WHITE).fontSize(8).font('Helvetica-Bold');
+      cols.forEach(col => {
+        doc.text(col.label, x + 3, y + 6, { width: col.width - 6, ellipsis: true });
+        x += col.width;
+      });
+      return y + HEAD_H;
+    };
+
+    const drawRow = (client, index, y) => {
+      // Alternating row background
+      if (index % 2 === 0) doc.rect(40, y, PAGE_W, ROW_H).fill(LIGHT);
+
+      let x = 40;
+      doc.fillColor(DARK).fontSize(7.5).font('Helvetica');
+
+      const cells = [
+        String(index + 1),
+        client.name        || '—',
+        client.email       || '—',
+        client.phone       || '—',
+        client.company     || '—',
+        (client.status     || '—').toUpperCase(),
+        (client.priority   || '—').toUpperCase(),
+        client.agent?.name || 'Unassigned',
+      ];
+
+      cells.forEach((cell, i) => {
+        doc.text(cell, x + 3, y + 5, { width: cols[i].width - 6, ellipsis: true });
+        x += cols[i].width;
+      });
+
+      return y + ROW_H;
+    };
+
+    // ── Render table ──────────────────────────────────────────────────────────
+    let y = drawTableHeader(doc.y);
+
+    clients.forEach((client, i) => {
+      // New page if we're running out of space (leave 60px for footer)
+      if (y + ROW_H > PAGE_H - 60) {
+        doc.addPage();
+        // Re-draw header on new page
+        doc.rect(0, 0, doc.page.width, 30).fill(ORANGE);
+        doc.fillColor(WHITE).fontSize(9).font('Helvetica')
+           .text('Client Report (continued)', 40, 10);
+        y = drawTableHeader(40);
+      }
+      y = drawRow(client, i, y);
+    });
+
+    // ── Footer on every page ──────────────────────────────────────────────────
+    const totalPages = doc.bufferedPageRange().count;
+    for (let i = 0; i < totalPages; i++) {
+      doc.switchToPage(i);
+      doc.rect(0, PAGE_H - 30, doc.page.width, 30).fill(DARK);
+      doc.fillColor(WHITE).fontSize(8).font('Helvetica')
+         .text(
+           `Page ${i + 1} of ${totalPages}  |  CRM System  |  Confidential`,
+           40, PAGE_H - 18,
+           { align: 'center', width: PAGE_W }
+         );
+    }
+
+    doc.end();
+
+    // Log the export action (non-blocking)
+    logAction(req, 'EXPORT_DATA', `Exported ${clients.length} clients to PDF`, {
+      entityType: 'Client',
+      metadata: { count: clients.length, format: 'pdf' }
+    });
+
+  } catch (error) {
+    console.error('Error exporting clients to PDF:', error);
+    // Only send error response if headers haven't been sent yet
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Failed to generate PDF', error: error.message });
+    }
   }
 });
 

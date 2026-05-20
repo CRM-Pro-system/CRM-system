@@ -6,7 +6,7 @@ import {
   Filter, Download, CheckCircle, XCircle,
   Clock, AlertCircle, ChevronDown, Users
 } from 'lucide-react';
-import { usersAPI } from '../../services/api';
+import { usersAPI, rolesAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -14,6 +14,7 @@ const UserManagement = () => {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'superadmin';
   const [users, setUsers] = useState([]);
+  const [customRoles, setCustomRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,7 +32,10 @@ const UserManagement = () => {
     email: '',
     phone: '',
     role: 'agent',
-    nin: ''
+    customRole: '',
+    nin: '',
+    department: '',
+    region: ''
   });
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -42,20 +46,29 @@ const UserManagement = () => {
    const [showDeactivateModal, setShowDeactivateModal] = useState(false);
    const [deactivateTarget, setDeactivateTarget] = useState(null);
 
+   const [formErrors, setFormErrors] = useState({});
+   const [targetForm, setTargetForm] = useState({
+     monthlyTargetDeals: 0,
+     monthlyTargetAmount: 0,
+     monthlyTargetClients: 0
+   });
+   const [targetErrors, setTargetErrors] = useState({});
    const [showTargetModal, setShowTargetModal] = useState(false);
    const [targetUser, setTargetUser] = useState(null);
 
-    const [formErrors, setFormErrors] = useState({});
-    const [targetForm, setTargetForm] = useState({
-      monthlyTargetDeals: 0,
-      monthlyTargetAmount: 0,
-      monthlyTargetClients: 0
-    });
-    const [targetErrors, setTargetErrors] = useState({});
-
   useEffect(() => {
     loadUsers();
+    if (!isSuperAdmin) loadCustomRoles();
   }, []);
+
+  const loadCustomRoles = async () => {
+    try {
+      const res = await rolesAPI.getAll();
+      setCustomRoles(res.data.roles || []);
+    } catch (error) {
+      console.error('Failed to load custom roles');
+    }
+  };
 
   const handleExportCSV = () => {
     try {
@@ -171,7 +184,7 @@ const UserManagement = () => {
       setShowSuccessModal(true);
 
       setShowAddModal(false);
-      setNewUser({ name: '', email: '', phone: '', role: isSuperAdmin ? 'manager' : 'agent', nin: '' });
+      setNewUser({ name: '', email: '', phone: '', role: isSuperAdmin ? 'manager' : 'agent', customRole: '', nin: '', department: '', region: '' });
       setFormErrors({});
       loadUsers();
     } catch (error) {
@@ -289,7 +302,10 @@ const UserManagement = () => {
         phone: editUser.phone,
         nin: editUser.nin,
         isActive: editUser.isActive,
-        status: editUser.status
+        status: editUser.status,
+        customRole: editUser.customRole || null,
+        department: editUser.department || '',
+        region: editUser.region || ''
       };
       await usersAPI.update(editUser._id, payload);
       toast.success('User updated successfully');
@@ -851,8 +867,8 @@ const UserManagement = () => {
                             
                             {/* Superadmin can delete anyone except other superadmins. Admins can only delete agents. */}
                             {(
-                              user.role === 'superadmin' 
-                                ? userItem.role !== 'superadmin' 
+                              user.role === 'superadmin'
+                                ? userItem.role !== 'superadmin'
                                 : userItem.role === 'agent'
                             ) && (
                               <motion.button
@@ -988,6 +1004,18 @@ const UserManagement = () => {
                             {getRoleMeta(detailsUser.role).label}
                           </span>
                         </div>
+                        {detailsUser.department && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Department</p>
+                            <p className="text-sm text-gray-900">{detailsUser.department}</p>
+                          </div>
+                        )}
+                        {detailsUser.region && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Region</p>
+                            <p className="text-sm text-gray-900">{detailsUser.region}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1186,14 +1214,12 @@ const UserManagement = () => {
                 
                  <div>
                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                     Role
+                     Base Role
                    </label>
                    <select
                      value={newUser.role}
                      onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                     className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${
-                       formErrors.role ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                     }"
+                     className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all border-gray-200"
                    >
                      <option value="admin">Administrator</option>
                      <option value="manager">Manager</option>
@@ -1206,6 +1232,24 @@ const UserManagement = () => {
                      </p>
                    )}
                  </div>
+
+                 {!isSuperAdmin && (
+                   <div>
+                     <label className="block text-sm font-medium text-gray-700 mb-2">
+                       Custom Role (Permissions)
+                     </label>
+                     <select
+                       value={newUser.customRole || ''}
+                       onChange={(e) => setNewUser({ ...newUser, customRole: e.target.value })}
+                       className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all border-gray-200"
+                     >
+                       <option value="">Default Permissions</option>
+                       {customRoles.map(role => (
+                         <option key={role._id} value={role._id}>{role.name}</option>
+                       ))}
+                     </select>
+                   </div>
+                 )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1226,6 +1270,38 @@ const UserManagement = () => {
                       {formErrors.nin}
                     </p>
                   )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                    placeholder="e.g. Sales, Finance, Operations"
+                    value={newUser.department}
+                    onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Region</label>
+                  <select
+                    value={newUser.region}
+                    onChange={(e) => setNewUser({ ...newUser, region: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                  >
+                    <option value="">Select Region</option>
+                    <option value="Central">Central</option>
+                    <option value="East">East</option>
+                    <option value="West">West</option>
+                    <option value="North">North</option>
+                    <option value="South">South</option>
+                    <option value="North East">North East</option>
+                    <option value="North West">North West</option>
+                    <option value="South East">South East</option>
+                    <option value="South West">South West</option>
+                    <option value="International">International</option>
+                  </select>
                 </div>
 
                 <div className="flex space-x-3 pt-4">
@@ -1353,10 +1429,42 @@ const UserManagement = () => {
                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                    />
                  </div>
+
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                   <input
+                     type="text"
+                     value={editUser.department || ''}
+                     onChange={(e) => setEditUser({ ...editUser, department: e.target.value })}
+                     placeholder="e.g. Sales, Finance, Operations"
+                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                   />
+                 </div>
+
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-2">Region</label>
+                   <select
+                     value={editUser.region || ''}
+                     onChange={(e) => setEditUser({ ...editUser, region: e.target.value })}
+                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                   >
+                     <option value="">Select Region</option>
+                     <option value="Central">Central</option>
+                     <option value="East">East</option>
+                     <option value="West">West</option>
+                     <option value="North">North</option>
+                     <option value="South">South</option>
+                     <option value="North East">North East</option>
+                     <option value="North West">North West</option>
+                     <option value="South East">South East</option>
+                     <option value="South West">South West</option>
+                     <option value="International">International</option>
+                   </select>
+                 </div>
                  
                  <div>
                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                     Role
+                     Base Role
                    </label>
                    <select
                      value={editUser.role}
@@ -1368,6 +1476,24 @@ const UserManagement = () => {
                      <option value="agent">Sales Agent</option>
                    </select>
                  </div>
+
+                 {!isSuperAdmin && (
+                   <div>
+                     <label className="block text-sm font-medium text-gray-700 mb-2">
+                       Custom Role (Permissions)
+                     </label>
+                     <select
+                       value={editUser.customRole || ''}
+                       onChange={(e) => setEditUser({ ...editUser, customRole: e.target.value })}
+                       className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                     >
+                       <option value="">Default Permissions</option>
+                       {customRoles.map(role => (
+                         <option key={role._id} value={role._id}>{role.name}</option>
+                       ))}
+                     </select>
+                   </div>
+                 )}
                 
                 <div className="grid grid-cols-2 gap-4">
                   <label className="flex items-center space-x-2 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer">

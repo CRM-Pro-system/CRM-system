@@ -23,7 +23,8 @@
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^6.18.0",
     "react-scripts": "5.0.1",
-    "recharts": "^3.3.0",
+    "recharts": "^2.12.4",
+    "victory-vendor": "^37.3.6",
     "web-vitals": "^2.1.4"
   },
   "eslintConfig": {

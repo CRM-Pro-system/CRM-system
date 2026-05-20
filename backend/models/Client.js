@@ -145,12 +145,19 @@ const clientSchema = new mongoose.Schema({
     type: [
       {
         title: String,
+        subject: { type: String, default: 'Call', enum: ['Call', 'Support', 'Follow-up', 'Meeting', 'Review', 'Other'] },
         description: { type: String, default: '' },
         dueDate: Date,
         dueTime: String,
+        status: { type: String, default: 'pending', enum: ['pending', 'in_progress', 'completed', 'waiting', 'deferred'] },
+        priority: { type: String, default: 'Medium', enum: ['Low', 'Medium', 'Critical'] },
         completed: { type: Boolean, default: false },
+        contactPerson: { type: String, default: '' },
         assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-        createdAt: { type: Date, default: Date.now }
+        createdAt: { type: Date, default: Date.now },
+        // Reminder tracking — prevents duplicate reminder emails/notifications
+        reminderSent: { type: Boolean, default: false },
+        overdueSent:  { type: Boolean, default: false }
       }
     ],
     default: []
@@ -187,24 +194,30 @@ const clientSchema = new mongoose.Schema({
   contacts: {
     type: [{
       name: String,
-      position: {
-        type: String,
-        default: ''
-      },
-      email: {
-        type: String,
-        default: ''
-      },
-      phone: {
-        type: String,
-        default: ''
-      },
-      isPrimary: {
-        type: Boolean,
-        default: false
-      }
+      position: { type: String, default: '' },
+      email:    { type: String, default: '' },
+      phone:    { type: String, default: '' },
+      birthday: { type: Date,   default: null },
+      reportingLine: { type: String, default: '' },
+      isPrimary: { type: Boolean, default: false }
     }],
     default: []
+  },
+
+  // Lead-specific fields (used when status = prospect)
+  contactName: { type: String, default: '' },
+  telephone:   { type: String, default: '' },
+  companyName: { type: String, default: '' },
+  companyEmail:{ type: String, default: '' },
+  leadStatus: {
+    type: String,
+    enum: ['New', 'Contacted', 'Unqualified', 'Qualified', 'Converted', ''],
+    default: 'New'
+  },
+  rating: {
+    type: String,
+    enum: ['Cold', 'Warm', 'Hot', ''],
+    default: 'Cold'
   }
 }, {
   timestamps: true
