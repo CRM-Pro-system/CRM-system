@@ -22,15 +22,13 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
     name: '',
     title: '',
     gender: '',
-    nin: '',
-    idType: 'national_id',
     email: '',
     phone: '',
     address: '',
     city: '',
     state: '',
     postalCode: '',
-    country: '',
+    country: 'Uganda',
     region: '',
     company: '',
     position: '',
@@ -63,10 +61,10 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
 
     if (step === 1) {
       if (!formData.name.trim()) newErrors.name = 'Full name is required';
-      if (!formData.nin.trim()) newErrors.nin = 'NIN is required';
       if (!formData.email.trim()) newErrors.email = 'Email is required';
       else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
       if (!formData.phone.trim()) newErrors.phone = 'Phone number is required';
+      else if (!formData.phone.startsWith('+256')) newErrors.phone = 'Phone must start with +256';
     }
 
     setErrors(newErrors);
@@ -181,11 +179,9 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
-        nin: formData.nin,
         agent: user.id,
         
         // Basic optional fields
-        idType: formData.idType,
         status: formData.status,
         priority: formData.priority,
         engagementScore: formData.engagementScore,
@@ -371,40 +367,6 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      NIN (National Identification Number) *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.nin}
-                      onChange={(e) => handleInputChange('nin', e.target.value)}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
-                        errors.nin ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                      placeholder="Enter NIN"
-                    />
-                    {errors.nin && (
-                      <p className="text-red-500 text-sm mt-1">{errors.nin}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      ID Type *
-                    </label>
-                    <select
-                      value={formData.idType}
-                      onChange={(e) => handleInputChange('idType', e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    >
-                      <option value="national_id">National ID</option>
-                      <option value="passport">Passport</option>
-                      <option value="drivers_license">Driver's License</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Email Address *
                     </label>
                     <input
@@ -432,7 +394,7 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
                       className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
                         errors.phone ? 'border-red-300' : 'border-gray-300'
                       }`}
-                      placeholder="+1 (555) 123-4567"
+                      placeholder="+256 7XX XXX XXX"
                     />
                     {errors.phone && (
                       <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
@@ -850,7 +812,7 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
                         value={formData.emergencyContact.relationship}
                         onChange={(e) => handleInputChange('emergencyContact.relationship', e.target.value)}
                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        placeholder="Relationship to client"
+                        placeholder="e.g., Spouse, Parent"
                       />
                     </div>
                     <div className="md:col-span-2">

@@ -21,21 +21,26 @@ import {
   UserCheck,
   BookUser,
   ListTodo,
-  AlertTriangle
+  AlertTriangle,
+  Plus,
+  DollarSign
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { notificationsAPI } from '../services/api';
 import NotificationCenter from './NotificationCenter';
 import ProfileModal from './ProfileModal';
 import LogoutModal from './LogoutModal';
+import QuickActionModal from './QuickActionModal';
+import Taskbar from './Taskbar';
 import logo from '../assets/logo.png';
 
-const Layout = ({ children }) => {
+const Layout = ({ children, showHeaderActions = true }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -43,6 +48,9 @@ const Layout = ({ children }) => {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
   const isSuperAdmin = user?.role === 'superadmin';
+  const isAgent = user?.role === 'agent';
+  const showTaskbar = isAdmin || isSuperAdmin || isAgent;
+  const taskbarRole = user?.role || 'agent';
 
   // Load unread notifications count for admin with periodic polling
   useEffect(() => {
@@ -65,34 +73,34 @@ const Layout = ({ children }) => {
   };
 
   const superAdminNavItems = [
-    { path: '/dashboard', icon: PieChart, label: 'Dashboard' },
-    { path: '/superadmin', icon: ShieldCheck, label: 'Super Admin' },
-    { path: '/superadmin/tenants', icon: Building2, label: 'Tenant Management' },
-    { path: '/admin', icon: Home, label: 'Admin View' },
-    { path: '/admin/users', icon: UserPlus, label: 'User Management' },
-    { path: '/admin/reports', icon: PieChart, label: 'Reports' },
-    { path: '/admin/settings', icon: Settings, label: 'Settings' },
+    { path: '/dashboard', icon: PieChart, label: 'Dashboard', description: 'Platform insights and tenant summaries at a glance.' },
+    { path: '/superadmin', icon: ShieldCheck, label: 'Super Admin', description: 'Super admin control center for platform operations.' },
+    { path: '/superadmin/tenants', icon: Building2, label: 'Tenant Management', description: 'View and manage tenant organizations from one place.' },
+    { path: '/admin', icon: Home, label: 'Admin View', description: 'Switch to the admin dashboard for organization-level management.' },
+    { path: '/admin/users', icon: UserPlus, label: 'User Management', description: 'Manage users, roles, and access across the organization.' },
+    { path: '/admin/reports', icon: PieChart, label: 'Reports', description: 'Generate and review reports for performance and activity.' },
+    { path: '/admin/settings', icon: Settings, label: 'Settings', description: 'Update application and account settings.' },
   ];
 
   const adminNavItems = [
-    { path: '/admin', icon: PieChart, label: 'Dashboard' },
-    { path: '/predictive-analytics', icon: Zap, label: 'Predictive Analytics' },
-    { path: '/admin/users', icon: UserPlus, label: 'User Management' },
-    { path: '/admin/reports', icon: PieChart, label: 'Reports' },
-    { path: '/admin/bulk-operations', icon: ArrowLeftRight, label: 'Bulk Operations' },
-    { path: '/admin/settings', icon: Settings, label: 'Settings' },
+    { path: '/admin', icon: PieChart, label: 'Dashboard', description: 'Your organization summary with quick access to key metrics.' },
+    { path: '/predictive-analytics', icon: Zap, label: 'Predictive Analytics', description: 'Use AI insights to make smarter decisions and forecasts.' },
+    { path: '/admin/users', icon: UserPlus, label: 'User Management', description: 'Manage users, roles, and permissions for your team.' },
+    { path: '/admin/reports', icon: PieChart, label: 'Reports', description: 'Review performance and activity reports across the business.' },
+    { path: '/admin/bulk-operations', icon: ArrowLeftRight, label: 'Bulk Operations', description: 'Execute bulk tasks quickly and efficiently.' },
+    { path: '/admin/settings', icon: Settings, label: 'Settings', description: 'Update account preferences and system settings.' },
   ];
 
   const agentNavItems = [
-    { path: '/agent',            icon: PieChart,   label: 'Dashboard'  },
-    { path: '/agent/leads',      icon: UserCheck,  label: 'Leads'      },
-    { path: '/agent/clients',    icon: Users,      label: 'Clients'    },
-    { path: '/agent/contacts',   icon: BookUser,   label: 'Contacts'   },
-    { path: '/agent/tasks',      icon: ListTodo,   label: 'Tasks'      },
-    { path: '/agent/issues',     icon: AlertTriangle, label: 'Issues'   },
-    { path: '/agent/deals',      icon: Target,     label: 'Deals'      },
-    { path: '/agent/sales',      icon: TrendingUp, label: 'Sales'      },
-    { path: '/agent/schedules',  icon: Calendar,   label: 'Schedules'  },
+    { path: '/agent',            icon: PieChart,   label: 'Dashboard', description: 'Your sales dashboard with performance and activity summaries.' },
+    { path: '/agent/leads',      icon: UserCheck,  label: 'Leads', description: 'Track and manage sales leads in one place.' },
+    { path: '/agent/clients',    icon: Users,      label: 'Clients', description: 'View your client list and manage customer relationships.' },
+    { path: '/agent/contacts',   icon: BookUser,   label: 'Contacts', description: 'Manage your contact directory and communication details.' },
+    { path: '/agent/tasks',      icon: ListTodo,   label: 'Tasks', description: 'Track tasks and stay on top of daily work items.' },
+    { path: '/agent/issues',     icon: AlertTriangle, label: 'Issues', description: 'Manage issues and support requests efficiently.' },
+    { path: '/agent/deals',      icon: Target,     label: 'Deals', description: 'Review and progress your current deals.' },
+    { path: '/agent/sales',      icon: TrendingUp, label: 'Sales', description: 'Track sales performance and revenue results.' },
+    { path: '/agent/schedules',  icon: Calendar,   label: 'Schedules', description: 'Manage your meetings and calendar events.' },
   ];
 
   const navItems = isSuperAdmin ? superAdminNavItems : isAdmin ? adminNavItems : agentNavItems;
@@ -106,6 +114,14 @@ const Layout = ({ children }) => {
     navigate('/login');
     setShowLogoutModal(false);
   };
+
+  const getActiveNavItem = () => {
+    const exactMatch = navItems.find(item => item.path === location.pathname);
+    if (exactMatch) return exactMatch;
+    return navItems.find(item => item.path !== '/' && location.pathname.startsWith(item.path)) || { label: 'Dashboard' };
+  };
+
+  const activeNavItem = getActiveNavItem();
 
   const NavItem = ({ item, isActive, onClick }) => {
     const Icon = item.icon;
@@ -126,7 +142,6 @@ const Layout = ({ children }) => {
         </div>
         <div className="flex-1 min-w-0">
           <div className="font-medium text-white">{item.label}</div>
-          <div className="text-xs text-white/90 mt-1">{item.description}</div>
         </div>
         {isActive && (
           <div className="w-2 h-2 bg-white rounded-full"></div>
@@ -269,71 +284,15 @@ const Layout = ({ children }) => {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white shadow-sm border-b border-gray-200">
-          <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center">
-              {/* Mobile menu button - Only show on mobile */}
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-500"
-              >
-                <Menu className="w-6 h-6" />
-              </button>
-
-              <div className="ml-2 sm:ml-4 lg:ml-0">
-                <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold text-gray-900 truncate">
-                  {navItems.find(item => item.path === location.pathname)?.label || 'Dashboard'}
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">
-                  {navItems.find(item => item.path === location.pathname)?.description || 'Welcome to CRM Pro'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-3 sm:space-x-4">
-              {(isAdmin || isSuperAdmin) && (
-                <button
-                  onClick={() => setShowNotifications(true)}
-                  className="p-2 text-gray-400 hover:text-gray-500 relative transition-colors"
-                  title="Notifications"
-                >
-                  <Bell className="w-5 h-5" />
-                  {unreadNotifications > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                      {unreadNotifications > 99 ? '99+' : unreadNotifications}
-                    </span>
-                  )}
-                </button>
-              )}
-
-              {/* Profile Photo - Clickable */}
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    setShowProfileModal(true);
-                  }}
-                  className="p-1 rounded-full hover:bg-gray-100 transition-colors group"
-                  title="View Profile"
-                >
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-orange-500 flex items-center justify-center overflow-hidden border-2 border-orange-500 cursor-pointer hover:border-orange-600 transition-colors">
-                    {user?.profileImage || user?.photo ? (
-                      <img
-                        src={user.profileImage || user.photo}
-                        alt={user?.name || 'Profile'}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                    )}
-                  </div>
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
-
         <main className="flex-1 overflow-auto bg-gray-50">
-          <div className="p-3 sm:p-4 md:p-6 lg:p-8">
+          <div className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-4">
+            <div className="space-y-2">
+              <h1 className="text-2xl font-semibold text-gray-900">{activeNavItem.label}</h1>
+              <p className="text-sm text-gray-600 max-w-3xl">{activeNavItem.description || 'Welcome to CRM Pro — your central workspace.'}</p>
+            </div>
+            {showTaskbar && (
+              <Taskbar role={taskbarRole} onOpenProfile={() => setShowProfileModal(true)} />
+            )}
             {children}
           </div>
         </main>
@@ -360,13 +319,19 @@ const Layout = ({ children }) => {
         }}
       />
 
-      {/* Logout Modal */}
-      <LogoutModal
-        isOpen={showLogoutModal}
-        onClose={() => setShowLogoutModal(false)}
-        onConfirm={confirmLogout}
-      />
-    </div>
+{/* Logout Modal */}
+       <LogoutModal
+         isOpen={showLogoutModal}
+         onClose={() => setShowLogoutModal(false)}
+         onConfirm={confirmLogout}
+       />
+
+       {/* Quick Action Modal */}
+       <QuickActionModal
+         isOpen={showQuickActions}
+         onClose={() => setShowQuickActions(false)}
+       />
+     </div>
   );
 };
 
