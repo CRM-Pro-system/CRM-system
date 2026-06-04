@@ -22,7 +22,8 @@ import {
    BookUser,
    ListTodo,
    AlertTriangle,
-   FileText
+   FileText,
+   BarChart3
  } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { notificationsAPI } from '../services/api';
