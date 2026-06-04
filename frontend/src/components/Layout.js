@@ -1,30 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Users,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  User,
-  Target,
-  Calendar,
-  Home,
-  PieChart,
-  UserPlus,
-  Bell,
-  TrendingUp,
-  Building2,
-  ShieldCheck,
-  ArrowLeftRight,
-  Zap,
-  UserCheck,
-  BookUser,
-  ListTodo,
-  AlertTriangle,
-  Plus,
-  DollarSign
-} from 'lucide-react';
+   Users,
+   Settings,
+   LogOut,
+   Menu,
+   X,
+   User,
+   Target,
+   Calendar,
+   Home,
+   PieChart,
+   UserPlus,
+   Bell,
+   TrendingUp,
+   Building2,
+   ShieldCheck,
+   ArrowLeftRight,
+   Zap,
+   UserCheck,
+   BookUser,
+   ListTodo,
+   AlertTriangle,
+   FileText
+ } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { notificationsAPI } from '../services/api';
 import NotificationCenter from './NotificationCenter';
@@ -91,7 +90,7 @@ const Layout = ({ children, showHeaderActions = true }) => {
     { path: '/admin/settings', icon: Settings, label: 'Settings', description: 'Update account preferences and system settings.' },
   ];
 
-  const agentNavItems = [
+const agentNavItems = [
     { path: '/agent',            icon: PieChart,   label: 'Dashboard', description: 'Your sales dashboard with performance and activity summaries.' },
     { path: '/agent/leads',      icon: UserCheck,  label: 'Leads', description: 'Track and manage sales leads in one place.' },
     { path: '/agent/clients',    icon: Users,      label: 'Clients', description: 'View your client list and manage customer relationships.' },
@@ -101,7 +100,7 @@ const Layout = ({ children, showHeaderActions = true }) => {
     { path: '/agent/deals',      icon: Target,     label: 'Deals', description: 'Review and progress your current deals.' },
     { path: '/agent/sales',      icon: TrendingUp, label: 'Sales', description: 'Track sales performance and revenue results.' },
     { path: '/agent/schedules',  icon: Calendar,   label: 'Schedules', description: 'Manage your meetings and calendar events.' },
-  ];
+ ];
 
   const navItems = isSuperAdmin ? superAdminNavItems : isAdmin ? adminNavItems : agentNavItems;
 

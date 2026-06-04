@@ -75,18 +75,7 @@ export const clientsAPI = {
   addInteraction: (id, data) => api.post(`/clients/${id}/interactions`, data),
   addTask: (id, data) => api.post(`/clients/${id}/tasks`, data),
   sendEmail: (id, data) => api.post(`/clients/${id}/send-email`, data),
-  exportCSV: async (params) => {
-     const res = await api.get('/clients', { params: { ...params, limit: 1000 } });
-     const clients = res.data?.clients || res.data || [];
-     const headers = ['Name', 'Email', 'Phone', 'Company', 'Status', 'Priority', 'Created'];
-     const rows = clients.map(c => [
-       c.name, c.email, c.phone, c.company || '', c.status, c.priority,
-       new Date(c.createdAt).toLocaleDateString()
-     ]);
-     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-     return { data: csv };
-   },
-   exportPDF: (params) => api.get(`/clients/export/pdf`, { params, responseType: 'blob' })
+  getNotes: () => api.get('/clients/notes/my'),
 };
 
 // Deals API
