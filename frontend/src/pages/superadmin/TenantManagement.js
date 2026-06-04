@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Building2, Plus, Search, CheckCircle, XCircle, Clock, Edit, Eye, X, Trash2, Users, MapPin } from 'lucide-react';
 import { tenantsAPI } from '../../services/api';
 import toast from 'react-hot-toast';
@@ -19,18 +20,32 @@ const StatusBadge = ({ status }) => {
 };
 
 const CreateTenantModal = ({ onClose, onCreated }) => {
+  const [currentStep, setCurrentStep] = useState(0);
   const [form, setForm] = useState({
     name: '', email: '', phone: '', sector: '',
     addressStreet: '', addressCity: '', addressState: '', addressCountry: '',
-    adminName: '', adminPhone: '', adminEmail: '',
-    subscriptionPlan: 'starter',
+    adminName: '', adminPhone: '', subscriptionPlan: 'starter',
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(null);
 
+  const steps = ['Organization', 'Admin & Plan'];
+
+  const handleNext = () => {
+    if (!form.name || !form.email) {
+      toast.error('Organization name and email are required to continue');
+      return;
+    }
+    setCurrentStep(1);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.email) return toast.error('Name and email are required');
+    if (currentStep === 0) {
+      handleNext();
+      return;
+    }
+
     const payload = {
       name: form.name,
       email: form.email,
@@ -41,10 +56,11 @@ const CreateTenantModal = ({ onClose, onCreated }) => {
         state: form.addressState || '',
         country: form.addressCountry || '',
       },
-      adminName: form.adminName || form.name,
+      adminName: form.adminName || `${form.name} Admin`,
       subscriptionPlan: form.subscriptionPlan,
       metadata: { industry: form.sector || '' },
     };
+
     try {
       setLoading(true);
       const res = await tenantsAPI.create(payload);
@@ -125,126 +141,147 @@ const CreateTenantModal = ({ onClose, onCreated }) => {
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Organization Name *</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={e => setForm({ ...form, name: e.target.value })}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              placeholder="e.g. Xtreative Ltd"
-            />
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            {steps.map((step, index) => (
+              <div
+                key={step}
+                className={`rounded-full px-3 py-2 text-sm font-semibold text-center ${currentStep === index ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+              >
+                {step}
+              </div>
+            ))}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Sector / Industry</label>
-            <select
-              value={form.sector}
-              onChange={e => setForm({ ...form, sector: e.target.value })}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-            >
-              <option value="">Select sector…</option>
-              <option value="IT">IT / Technology</option>
-              <option value="Agriculture">Agriculture</option>
-              <option value="Finance">Finance / Banking</option>
-              <option value="Healthcare">Healthcare</option>
-              <option value="Real Estate">Real Estate</option>
-              <option value="Manufacturing">Manufacturing</option>
-              <option value="Education">Education</option>
-              <option value="Retail">Retail</option>
-              <option value="Logistics">Logistics / Transport</option>
-              <option value="Construction">Construction</option>
-              <option value="Media">Media / Entertainment</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Admin Name</label>
-            <input
-              type="text"
-              value={form.adminName}
-              onChange={e => setForm({ ...form, adminName: e.target.value })}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              placeholder="e.g. John Doe"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Admin Email * <span className="text-xs text-gray-500">(login credentials sent here)</span></label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={e => setForm({ ...form, email: e.target.value })}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              placeholder="admin@company.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Admin Telephone</label>
-            <input
-              type="text"
-              value={form.adminPhone}
-              onChange={e => setForm({ ...form, adminPhone: e.target.value })}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              placeholder="+256 700 000 000"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Organization Phone</label>
-            <input
-              type="text"
-              value={form.phone}
-              onChange={e => setForm({ ...form, phone: e.target.value })}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              placeholder="+256 200 000 000"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <MapPin className="inline w-4 h-4 mr-1" />
-              Organization Address
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <input
-                type="text"
-                value={form.addressStreet}
-                onChange={e => setForm({ ...form, addressStreet: e.target.value })}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="Street address"
-              />
-              <input
-                type="text"
-                value={form.addressCity}
-                onChange={e => setForm({ ...form, addressCity: e.target.value })}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="City"
-              />
-              <input
-                type="text"
-                value={form.addressState}
-                onChange={e => setForm({ ...form, addressState: e.target.value })}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="State / Region"
-              />
-              <input
-                type="text"
-                value={form.addressCountry}
-                onChange={e => setForm({ ...form, addressCountry: e.target.value })}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="Country"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Subscription Plan</label>
-            <select
-              value={form.subscriptionPlan}
-              onChange={e => setForm({ ...form, subscriptionPlan: e.target.value })}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-            >
-              <option value="starter">Starter - Free</option>
-              <option value="professional">Professional</option>
-              <option value="enterprise">Enterprise</option>
-            </select>
-          </div>
+
+          {currentStep === 0 && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Organization Name *</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={e => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. Xtreative Ltd"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Organization Email *</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={e => setForm({ ...form, email: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="admin@company.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sector / Industry</label>
+                <select
+                  value={form.sector}
+                  onChange={e => setForm({ ...form, sector: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                >
+                  <option value="">Select sector…</option>
+                  <option value="IT">IT / Technology</option>
+                  <option value="Agriculture">Agriculture</option>
+                  <option value="Finance">Finance / Banking</option>
+                  <option value="Healthcare">Healthcare</option>
+                  <option value="Real Estate">Real Estate</option>
+                  <option value="Manufacturing">Manufacturing</option>
+                  <option value="Education">Education</option>
+                  <option value="Retail">Retail</option>
+                  <option value="Logistics">Logistics / Transport</option>
+                  <option value="Construction">Construction</option>
+                  <option value="Media">Media / Entertainment</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Organization Phone</label>
+                <input
+                  type="text"
+                  value={form.phone}
+                  onChange={e => setForm({ ...form, phone: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="+256 200 000 000"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <MapPin className="inline w-4 h-4 mr-1" />
+                  Organization Address
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    value={form.addressStreet}
+                    onChange={e => setForm({ ...form, addressStreet: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    placeholder="Street address"
+                  />
+                  <input
+                    type="text"
+                    value={form.addressCity}
+                    onChange={e => setForm({ ...form, addressCity: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    placeholder="City"
+                  />
+                  <input
+                    type="text"
+                    value={form.addressState}
+                    onChange={e => setForm({ ...form, addressState: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    placeholder="State / Region"
+                  />
+                  <input
+                    type="text"
+                    value={form.addressCountry}
+                    onChange={e => setForm({ ...form, addressCountry: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    placeholder="Country"
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {currentStep === 1 && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Admin Name</label>
+                <input
+                  type="text"
+                  value={form.adminName}
+                  onChange={e => setForm({ ...form, adminName: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. John Doe"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Admin Phone</label>
+                <input
+                  type="text"
+                  value={form.adminPhone}
+                  onChange={e => setForm({ ...form, adminPhone: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="+256 700 000 000"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subscription Plan</label>
+                <select
+                  value={form.subscriptionPlan}
+                  onChange={e => setForm({ ...form, subscriptionPlan: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                >
+                  <option value="starter">Starter - Free</option>
+                  <option value="professional">Professional</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+              </div>
+            </>
+          )}
+
           <div className="flex space-x-3 pt-2">
             <button
               type="button"
@@ -253,12 +290,21 @@ const CreateTenantModal = ({ onClose, onCreated }) => {
             >
               Cancel
             </button>
+            {currentStep === 1 && (
+              <button
+                type="button"
+                onClick={() => setCurrentStep(0)}
+                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
+              >
+                Previous
+              </button>
+            )}
             <button
               type="submit"
               disabled={loading}
               className="flex-1 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
             >
-              {loading ? 'Creating...' : 'Create Organization'}
+              {loading ? 'Creating...' : currentStep === 0 ? 'Next' : 'Create Organization'}
             </button>
           </div>
         </form>
@@ -656,6 +702,16 @@ const TenantManagement = () => {
     loadTenants();
   }, []);
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (location?.state?.openCreate) {
+      setShowCreateModal(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
+
   const loadTenants = async () => {
     try {
       setLoading(true);
@@ -738,17 +794,8 @@ const TenantManagement = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-3 rounded-xl">
-            <img src={logo} alt="Logo" className="w-8 h-8 object-contain" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Tenant Management</h1>
-            <p className="text-gray-600 mt-1">Manage all organizations on the platform</p>
-          </div>
-        </div>
+      {/* Action Button */}
+      <div className="flex justify-end">
         <button
           onClick={() => setShowCreateModal(true)}
           className="flex items-center space-x-2 bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl font-medium transition-colors shadow-sm"

@@ -136,9 +136,10 @@ router.get('/:id([0-9a-fA-F]{24})', async (req, res) => {
     }
 
     // Check if user has permission to view this client
-    if (req.user.role === 'agent' && client.agent.toString() !== req.user.userId) {
+    if (req.user.role === 'agent' && String(client.agent._id || client.agent) !== req.user.userId) {
       return res.status(403).json({ message: 'Access denied' });
     }
+    // Admin, manager, superadmin have access to all clients (no additional check needed)
 
     res.json(client);
   } catch (error) {

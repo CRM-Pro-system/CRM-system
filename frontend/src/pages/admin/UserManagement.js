@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, Edit, Trash2, User, UserPlus, Shield, RefreshCw, 
@@ -13,6 +14,15 @@ import toast from 'react-hot-toast';
 const UserManagement = () => {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'superadmin';
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (location?.state?.openCreate) {
+      setShowAddModal(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
   const [users, setUsers] = useState([]);
   const [customRoles, setCustomRoles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -444,20 +454,12 @@ const UserManagement = () => {
     );
   }
 
-  return (
+return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header Section */}
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-              <p className="text-gray-600 mt-1">
-                {isSuperAdmin
-                  ? 'Register platform admins and managers. Company onboarding stays in Tenant Management.'
-                  : 'Manage your team members and their access permissions'}
-              </p>
-            </div>
             <div className="flex items-center space-x-3">
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -469,7 +471,7 @@ const UserManagement = () => {
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 <span>Refresh</span>
               </motion.button>
-              
+
               {(user?.role === 'admin' || isSuperAdmin) && (
                 <motion.button
                   whileHover={{ scale: 1.02 }}

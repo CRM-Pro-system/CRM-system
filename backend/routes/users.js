@@ -40,11 +40,16 @@ router.get('/', tenantAuth, requireRole(['admin', 'manager', 'superadmin']), asy
 router.post('/', tenantAuth, requireRole(['admin', 'manager', 'superadmin']), checkUsageLimit('users'), async (req, res) => {
   try {
     const { name, email, phone, role = 'agent', nin = null } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+    if (!normalizedEmail) {
+      return res.status(400).json({ message: 'Valid email is required' });
+    }
 
     // Check if user already exists (tenant-scoped for regular admins)
     const existingUserQuery = req.isSuperAdmin
-      ? { email }
-      : { email, $or: [{ tenant: req.tenantId }, { tenant: null }] };
+      ? { email: normalizedEmail }
+      : { email: normalizedEmail, $or: [{ tenant: req.tenantId }, { tenant: null }] };
 
     const existingUser = await User.findOne(existingUserQuery);
     if (existingUser) {
@@ -63,7 +68,7 @@ router.post('/', tenantAuth, requireRole(['admin', 'manager', 'superadmin']), ch
     // Prepare user data with tenant context
     const userData = {
       name,
-      email,
+      email: normalizedEmail,
       phone,
       nin,
       password: otp, // OTP is the initial password
@@ -89,11 +94,11 @@ router.post('/', tenantAuth, requireRole(['admin', 'manager', 'superadmin']), ch
     }
 
     // Log the action
-    await logAction(req, 'CREATE_USER', `Created user ${email}`, { entityType: 'User', entityId: user._id });
+    await logAction(req, 'CREATE_USER', `Created user ${normalizedEmail}`, { entityType: 'User', entityId: user._id });
 
     // Send welcome email with OTP
     const emailResult = await sendEmail(
-      email,
+      normalizedEmail,
       'agentWelcome',
       { name, email, otp }
     );

@@ -483,15 +483,6 @@ const Settings = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-600 mt-1">
-            Manage your account and system preferences
-          </p>
-        </div>
-      </div>
-
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         {/* Tab Navigation */}
         <div className="border-b border-gray-200 overflow-x-auto">

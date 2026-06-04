@@ -1,5 +1,6 @@
 // pages/agent/Deals.js
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Plus, 
@@ -32,6 +33,8 @@ import toast from 'react-hot-toast';
 
 const Deals = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [deals, setDeals] = useState([]);
   const [clients, setClients] = useState([]);
   const [stats, setStats] = useState(null);
@@ -99,6 +102,13 @@ const Deals = () => {
       loadClients();
     }
   }, [showCreateModal]);
+
+  useEffect(() => {
+    if (location?.state?.openCreate) {
+      setShowCreateModal(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   const loadDeals = async () => {
     try {
@@ -278,12 +288,8 @@ const Deals = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Deals</h1>
-          <p className="text-gray-600 mt-1">Track your sales pipeline and deal progress</p>
-        </div>
+      {/* Quick Add Button */}
+      <div className="flex justify-end">
         <button 
           onClick={() => setShowCreateModal(true)}
           className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2"

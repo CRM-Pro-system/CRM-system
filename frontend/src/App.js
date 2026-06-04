@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -40,6 +40,9 @@ const PageLoader = () => (
 
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const { user } = useAuth();
+  const location = useLocation();
+
+  const isDashboardRoute = ['/superadmin', '/admin', '/agent', '/dashboard'].includes(location.pathname);
 
   const cachedUser = user || (() => {
     try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
@@ -48,14 +51,16 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   if (!cachedUser) return <Navigate to="/login" replace />;
 
   // Superadmin can access everything
-  if (cachedUser.role === 'superadmin') return <Layout>{children}</Layout>;
+  if (cachedUser.role === 'superadmin') {
+    return <Layout showHeaderActions={!isDashboardRoute}>{children}</Layout>;
+  }
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(cachedUser.role)) {
     const redirectPath = cachedUser.role === 'admin' || cachedUser.role === 'manager' ? '/admin' : '/agent';
-    return <Navigate to={redirectPath} replace />;
+    return <Layout showHeaderActions={!isDashboardRoute}><Navigate to={redirectPath} replace /></Layout>;
   }
 
-  return <Layout>{children}</Layout>;
+  return <Layout showHeaderActions={!isDashboardRoute}>{children}</Layout>;
 };
 
 const PublicRoute = ({ children }) => {

@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Users, TrendingUp, DollarSign, Target, Download, FileText } from 'lucide-react';
+import { Users, TrendingUp, DollarSign, Target, Download, FileText, Settings, ArrowLeftRight } from 'lucide-react';
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import DonutChart, { StageValueChart, ORANGE_GRADIENT_COLORS } from '../../components/charts/DonutChart';
 import { useAuth } from '../../context/AuthContext';
 import { dealsAPI, salesAPI, clientsAPI, usersAPI, tenantsAPI } from '../../services/api';
 import OnboardingWizard from '../../components/OnboardingWizard';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 const PERIODS = ['daily', 'weekly', 'monthly', 'yearly'];
 
@@ -27,6 +28,8 @@ const AdminDashboard = () => {
   const { user } = useAuth();
   const [period, setPeriod] = useState('monthly');
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
 
   // Check onboarding status on mount
   useEffect(() => {
@@ -365,20 +368,17 @@ const AdminDashboard = () => {
         <OnboardingWizard onComplete={() => setShowOnboarding(false)} />
       )}
 
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
-          <p className="text-gray-600 mt-1">Welcome back, {user?.name}!</p>
+      <div className="space-y-6 pt-4">
+        {/* Period Filter */}
+        <div className="flex justify-end">
+          <div className="flex items-center space-x-2">
+            {PERIODS.map(p => (
+              <button key={p} onClick={() => setPeriod(p)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${p === period ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                {p[0].toUpperCase() + p.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex items-center space-x-2">
-          {PERIODS.map(p => (
-            <button key={p} onClick={() => setPeriod(p)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${p === period ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-              {p[0].toUpperCase() + p.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Stats Cards — spec: Sales (Monthly), Users (All time), Deals */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -387,8 +387,43 @@ const AdminDashboard = () => {
         <StatCard icon={Target} title="Deals" value={dealsCount} />
       </div>
 
-      {/* User Table with Export */}
-      <UserTable users={allUsers} />
+      {/* Quick Actions */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="mb-5">
+          <h2 className="text-lg font-semibold text-gray-900">Quick actions</h2>
+          <p className="text-sm text-gray-500 mt-1">Run the top admin workflows from one place.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <button onClick={() => navigate('/admin/users')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
+            <div className="rounded-2xl bg-orange-50 p-3 text-orange-600"><Users className="w-5 h-5" /></div>
+            <div>
+              <p className="font-semibold text-gray-900">Manage Users</p>
+              <p className="text-sm text-gray-500 mt-1">Add, edit, or review platform accounts.</p>
+            </div>
+          </button>
+          <button onClick={() => navigate('/admin/reports')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
+            <div className="rounded-2xl bg-blue-50 p-3 text-blue-600"><FileText className="w-5 h-5" /></div>
+            <div>
+              <p className="font-semibold text-gray-900">View Reports</p>
+              <p className="text-sm text-gray-500 mt-1">Open sales and performance dashboards.</p>
+            </div>
+          </button>
+          <button onClick={() => navigate('/admin/settings')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
+            <div className="rounded-2xl bg-green-50 p-3 text-green-600"><Settings className="w-5 h-5" /></div>
+            <div>
+              <p className="font-semibold text-gray-900">Settings</p>
+              <p className="text-sm text-gray-500 mt-1">Update platform configuration quickly.</p>
+            </div>
+          </button>
+          <button onClick={() => navigate('/admin/bulk-operations')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
+            <div className="rounded-2xl bg-yellow-50 p-3 text-yellow-600"><ArrowLeftRight className="w-5 h-5" /></div>
+            <div>
+              <p className="font-semibold text-gray-900">Bulk Operations</p>
+              <p className="text-sm text-gray-500 mt-1">Perform large updates across the system.</p>
+            </div>
+          </button>
+        </div>
+      </div>
 
       {/* Deals Won vs Lost */}
       <div className="bg-white rounded-xl shadow-sm p-6">
@@ -522,6 +557,9 @@ const AdminDashboard = () => {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* User Table with Export */}
+      <UserTable users={allUsers} />
     </div>
     </>
   );

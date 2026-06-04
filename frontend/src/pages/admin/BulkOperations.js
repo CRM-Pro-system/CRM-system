@@ -179,12 +179,8 @@ const BulkOperations = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Bulk Operations</h1>
-          <p className="text-gray-600 mt-1">Manage records in bulk - transfer, reassign and update</p>
-        </div>
+      {/* Action Button */}
+      <div className="flex justify-end">
         <button
           onClick={loadData}
           className="flex items-center space-x-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors"

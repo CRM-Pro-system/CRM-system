@@ -706,13 +706,8 @@ const Clients = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Client Management</h1>
-          <p className="text-gray-600 mt-1">Manage your client relationships and contacts</p>
-        </div>
-        <div className="flex items-center space-x-3">
+      {/* Action Buttons */}
+      <div className="flex justify-end flex-wrap gap-3">
           {selectedClients.length > 0 && (
             <button
               onClick={handleBulkDelete}
@@ -742,9 +737,8 @@ const Clients = () => {
           >
             <Plus className="w-5 h-5" />
             <span>Add Client</span>
-          </button>
-        </div>
-      </div>
+        </button>
+    </div>
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1028,50 +1022,67 @@ const Clients = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
-                        {(client.phone || client.email) && (
+<div className="flex items-center space-x-2">
+                          {(client.phone || client.email) && (
+                            <button
+                              onClick={() => {
+                                if (client.phone) {
+                                  window.open(`https://wa.me/${client.phone.replace(/\D/g, '')}?text=Hello ${client.name}, this is regarding our recent conversation.`, '_blank');
+                                } else if (client.email) {
+                                  window.open(`mailto:${client.email}?subject=Follow-up&body=Hello ${client.name},`, '_blank');
+                                }
+                              }}
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
+                              aria-label={`WhatsApp ${client.name}`}
+                              title="WhatsApp"
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => handleViewProfile(client._id)} 
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" 
+                            aria-label={`View ${client.name}`}
+                            title="View Profile"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => {
-                              if (client.phone) {
-                                window.open(`https://wa.me/${client.phone.replace(/\D/g, '')}?text=Hello ${client.name}, this is regarding our recent conversation.`, '_blank');
-                              } else if (client.email) {
-                                window.open(`mailto:${client.email}?subject=Follow-up&body=Hello ${client.name},`, '_blank');
-                              }
+                              // Pre-fill schedule with client info
+                              const params = new URLSearchParams({
+                                clientId: client._id,
+                                clientName: client.name,
+                                clientPhone: client.phone,
+                                clientEmail: client.email
+                              });
+                              window.location.href = `/agent/schedules?${params.toString()}`;
                             }}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
-                            aria-label={`WhatsApp ${client.name}`}
-                            title="WhatsApp"
+                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg"
+                            aria-label={`Schedule with ${client.name}`}
+                            title="Create Schedule"
                           >
-                            <MessageSquare className="w-4 h-4" />
+                            <Calendar className="w-4 h-4" />
                           </button>
-                        )}
-                        <button 
-                          onClick={() => handleViewProfile(client._id)} 
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" 
-                          aria-label={`View ${client.name}`}
-                          title="View Profile"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => { setEmailClient(client); setShowEmailModal(true); }}
-                          className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg"
-                          title="Send Email"
-                        >
-                          <Mail className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => handleEditClient(client)} 
-                          className="p-2 text-gray-500 hover:text-gray-700 rounded-lg" 
-                          aria-label={`Edit ${client.name}`}
-                          title="Edit"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleDeleteClient(client._id, client.name)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" aria-label={`Delete ${client.name}`}>
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                          <button
+                            onClick={() => { setEmailClient(client); setShowEmailModal(true); }}
+                            className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg"
+                            title="Send Email"
+                          >
+                            <Mail className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleEditClient(client)} 
+                            className="p-2 text-gray-500 hover:text-gray-700 rounded-lg" 
+                            aria-label={`Edit ${client.name}`}
+                            title="Edit"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDeleteClient(client._id, client.name)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" aria-label={`Delete ${client.name}`}>
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                     </td>
                   </motion.tr>
                 ))

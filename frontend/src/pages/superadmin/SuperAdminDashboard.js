@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Users, Target, TrendingUp, ShieldCheck, AlertCircle, CheckCircle, Clock, ArrowRight, Search, Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { Building2, Users, Target, TrendingUp, ShieldCheck, AlertCircle, CheckCircle, Clock, ArrowRight, Settings, FileText, UserPlus } from 'lucide-react';
 import { tenantsAPI, usersAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -52,6 +52,28 @@ const SuperAdminDashboard = () => {
   const [platformUsers, setPlatformUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userSearch, setUserSearch] = useState('');
+
+  const handleExport = (type) => {
+    const headers = ['Name', 'Email', 'Role', 'Status', 'Tenant', 'Created'];
+    const data = platformUsers.map(u => [
+      u.name || '',
+      u.email || '',
+      u.role || '',
+      u.isActive !== false ? 'Active' : 'Inactive',
+      u.tenantName || u.tenant?.name || '',
+      u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '',
+    ]);
+
+    if (type === 'csv') {
+      exportToCSV(data, headers, `platform-users-${new Date().toISOString().slice(0,10)}.csv`);
+      toast.success(`Exported ${platformUsers.length} users`);
+    } else if (type === 'pdf') {
+      exportToPDF('Platform Users', headers, data, `platform-users-${new Date().toISOString().slice(0,10)}.pdf`);
+    } else {
+      toast.error('Export type not supported');
+    }
+  };
+
   const [stats, setStats] = useState({
     total: 0, active: 0, trial: 0, suspended: 0,
     totalUsers: 0, totalClients: 0, totalDeals: 0,
@@ -138,10 +160,31 @@ const SuperAdminDashboard = () => {
     URL.revokeObjectURL(a.href);
   };
 
-  const exportToPDF = (filename) => {
-    document.title = filename;
-    setTimeout(() => window.print(), 300);
-    setTimeout(() => { document.title = 'Super Admin Dashboard'; }, 5000);
+  const exportToPDF = (title, headers, data, filename) => {
+    const rows = data.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('');
+    const html = `
+      <html><head><title>${title}</title>
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; }
+        h2 { color: #f97316; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th { background: #1f2937; color: white; padding: 8px; text-align: left; font-size: 11px; }
+        td { padding: 7px 8px; border-bottom: 1px solid #e5e7eb; }
+        tr:nth-child(even) td { background: #f9fafb; }
+      </style></head>
+      <body>
+        <h2>${title}</h2>
+        <p>Generated: ${new Date().toLocaleString()}</p>
+        <table>
+          <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.print();
   };
 
   const filteredPlatformUsers = useMemo(() => {
@@ -165,25 +208,42 @@ const SuperAdminDashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-3 rounded-xl">
-            <img src={logo} alt="Logo" className="w-8 h-8 object-contain" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Super Admin Dashboard</h1>
-            <p className="text-gray-600 mt-1">Welcome back, {user?.name} — Platform Overview</p>
-          </div>
+      {/* Quick Actions */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="mb-5">
+          <h2 className="text-lg font-semibold text-gray-900">Quick actions</h2>
+          <p className="text-sm text-gray-500 mt-1">Take control of tenant and user workflows quickly.</p>
         </div>
-        <button
-          onClick={() => navigate('/superadmin/tenants')}
-          className="flex items-center space-x-2 bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl font-medium transition-colors shadow-sm"
-        >
-          <Building2 className="w-4 h-4" />
-          <span>Manage Tenants</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <button onClick={() => navigate('/superadmin/tenants')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
+            <div className="rounded-2xl bg-orange-50 p-3 text-orange-600"><Building2 className="w-5 h-5" /></div>
+            <div>
+              <p className="font-semibold text-gray-900">Manage Tenants</p>
+              <p className="text-sm text-gray-500 mt-1">Review and update tenant accounts.</p>
+            </div>
+          </button>
+          <button onClick={() => navigate('/admin/users')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
+            <div className="rounded-2xl bg-blue-50 p-3 text-blue-600"><Users className="w-5 h-5" /></div>
+            <div>
+              <p className="font-semibold text-gray-900">View Users</p>
+              <p className="text-sm text-gray-500 mt-1">Inspect platform user activity and roles.</p>
+            </div>
+          </button>
+          <button onClick={() => navigate('/admin/reports')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
+            <div className="rounded-2xl bg-green-50 p-3 text-green-600"><FileText className="w-5 h-5" /></div>
+            <div>
+              <p className="font-semibold text-gray-900">View Reports</p>
+              <p className="text-sm text-gray-500 mt-1">See revenue, usage and performance summaries.</p>
+            </div>
+          </button>
+          <button onClick={() => navigate('/admin/settings')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
+            <div className="rounded-2xl bg-yellow-50 p-3 text-yellow-600"><Settings className="w-5 h-5" /></div>
+            <div>
+              <p className="font-semibold text-gray-900">Settings</p>
+              <p className="text-sm text-gray-500 mt-1">Adjust global settings and tenant policies.</p>
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* Platform Stats — 4 spec-required cards */}
@@ -225,35 +285,10 @@ const SuperAdminDashboard = () => {
         </div>
       </div>
 
-      {/* All Users Table with Export */}
+      {/* All Users Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">All Users</h2>
-          <div className="flex gap-3">
-            <button
-              onClick={() => exportToCSV(platformUsers, 'all-users')}
-              className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 text-sm font-medium rounded-xl hover:bg-green-100 transition-colors"
-            >
-              <FileSpreadsheet size={16} /> Excel
-            </button>
-            <button
-              onClick={() => exportToPDF('all-users-report')}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 text-sm font-medium rounded-xl hover:bg-blue-100 transition-colors"
-            >
-              <FileText size={16} /> PDF
-            </button>
-          </div>
-        </div>
-        <div className="p-4 border-b border-gray-100">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search users by name, email, or role..."
-              onChange={(e) => setUserSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm"
-            />
-          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">

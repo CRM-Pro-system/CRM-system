@@ -105,7 +105,8 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await authAPI.login({ email, password });
+      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+      const response = await authAPI.login({ email: normalizedEmail, password });
       const { token: newToken, user: userData, requiresPasswordChange } = response.data;
 
       // Store tenant info alongside user

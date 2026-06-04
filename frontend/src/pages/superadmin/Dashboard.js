@@ -90,18 +90,9 @@ const SuperAdminDashboard = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-3 rounded-xl">
-            <img src={logo} alt="Logo" className="w-8 h-8 object-contain" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Super Admin Dashboard</h1>
-            <p className="text-gray-600 mt-1">Welcome back, {user?.name} — Platform Overview</p>
-          </div>
-        </div>
+    <div className="space-y-6 pt-4">
+      {/* Action Button */}
+      <div className="flex justify-end">
         <button
           onClick={() => navigate('/superadmin/tenants')}
           className="flex items-center space-x-2 bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl font-medium transition-colors shadow-sm"
@@ -118,6 +109,27 @@ const SuperAdminDashboard = () => {
         <StatCard icon={Users} title="Total Users" value={stats.totalUsers} subtitle="Across all organizations" color="blue" />
         <StatCard icon={Target} title="Total Deals" value={stats.totalDeals} subtitle="Across all organizations" color="green" />
         <StatCard icon={TrendingUp} title="Total Clients" value={stats.totalClients} subtitle="Across all organizations" color="yellow" />
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Quick actions</h2>
+            <p className="text-sm text-gray-500 mt-1">Run common platform tasks without extra clicks.</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button onClick={() => navigate('/superadmin/tenants')} className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition">
+              Manage Tenants
+            </button>
+            <button onClick={() => navigate('/admin/users')} className="px-4 py-2 rounded-lg border border-orange-200 text-orange-600 hover:bg-orange-50 transition">
+              View Users
+            </button>
+            <button onClick={() => navigate('/admin/reports')} className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition">
+              View Reports
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Tenant Status Summary */}
@@ -227,6 +239,7 @@ const SuperAdminDashboard = () => {
           </div>
         </div>
       </div>
+
     </div>
   );
 };

@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   DollarSign, TrendingUp, Users, UserCheck,
-  Search, Filter, Eye, Mail, MessageSquare,
-  ChevronDown, ChevronUp, Star, Clock, CheckCircle, AlertCircle, Award
+  Filter, Eye, Mail, MessageSquare,
+  ChevronDown, ChevronUp, Star, Clock, CheckCircle, AlertCircle, Award,
+  Download, FileText, Plus
 } from 'lucide-react';
 import {
   LineChart, Line,
@@ -14,7 +15,43 @@ import {
 import DonutChart, { DealStatusChart, PaymentMethodChart, TaskStatusChart } from '../../components/charts/DonutChart';
 import { performanceAPI, dealsAPI, clientsAPI, salesAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import QuickActionModal from '../../components/QuickActionModal';
+
+const exportToCSV = (data, headers, filename) => {
+  const csv = [headers, ...data].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+const exportToPDF = (title, headers, data, filename) => {
+  const rows = data.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('');
+  const html = `
+    <html><head><title>${title}</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 12px; }
+      h2 { color: #f97316; }
+      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+      th { background: #1f2937; color: white; padding: 8px; text-align: left; font-size: 11px; }
+      td { padding: 7px 8px; border-bottom: 1px solid #e5e7eb; }
+      tr:nth-child(even) td { background: #f9fafb; }
+    </style></head>
+    <body>
+      <h2>${title}</h2>
+      <p>Generated: ${new Date().toLocaleString()}</p>
+      <table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>
+    </body></html>`;
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+  win.print();
+};
 
 // ─── KPI Card ────────────────────────────────────────────────────────────────
 const KPICard = ({ icon: Icon, title, value, subtitle, iconBg, iconColor }) => (
@@ -52,6 +89,8 @@ const PRIORITY_STYLES = {
 // ─── Main Component ───────────────────────────────────────────────────────────
 const AgentDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [showQuickActions, setShowQuickActions] = useState(false);
 
   // ── KPI state ──
   const [salesValue, setSalesValue]     = useState(0);
@@ -77,6 +116,19 @@ const AgentDashboard = () => {
   const [tableLoading, setTableLoading] = useState(false);
   const [sortKey, setSortKey]           = useState('createdAt');
   const [sortDir, setSortDir]           = useState('desc');
+
+  const handleExport = (type) => {
+    const headers = ['Name', 'Email', 'Phone', 'Company', 'Status', 'Priority'];
+    const data = clients.map(c => [c.name || '', c.email || '', c.phone || '', c.company || '', c.status || '', c.priority || '']);
+    if (type === 'csv') {
+      exportToCSV(data, headers, `clients-${new Date().toISOString().slice(0,10)}.csv`);
+      toast.success(`Exported ${clients.length} clients`);
+    } else if (type === 'pdf') {
+      exportToPDF('Clients Report', headers, data, `clients-${new Date().toISOString().slice(0,10)}.pdf`);
+    } else {
+      toast.error('Export type not supported');
+    }
+  };
 
   const PAGE_SIZE = 8;
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -213,20 +265,8 @@ const AgentDashboard = () => {
       ? <ChevronUp className="w-3 h-3 inline ml-1" />
       : <ChevronDown className="w-3 h-3 inline ml-1" />;
 
-  return (
-    <div className="space-y-6">
-
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Sales Dashboard</h1>
-          <p className="text-gray-600 mt-1">Welcome back, {user?.name}!</p>
-        </div>
-        <div className="text-right text-sm text-gray-500">
-          {new Date().toLocaleDateString('en-UG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-        </div>
-      </div>
-
+return (
+    <div className="space-y-6 pt-4">
       {/* ── 4 KPI Cards (spec: Sales Value, Pipeline, Total Clients, Leads) ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
@@ -269,21 +309,112 @@ const AgentDashboard = () => {
         with search & filter so agents can immediately find and act on clients
         without navigating to a separate page. This is the agent's primary workspace.
       */}
+      {/* Quick Actions */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="mb-5">
+          <h2 className="text-lg font-semibold text-gray-900">Quick actions</h2>
+          <p className="text-sm text-gray-500 mt-1">Jump directly into your most common sales workflows.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <button onClick={() => navigate('/agent/clients', { state: { openCreate: true } })} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
+            <div className="rounded-2xl bg-orange-50 p-3 text-orange-600"><Users className="w-5 h-5" /></div>
+            <div>
+              <p className="font-semibold text-gray-900">Create Client</p>
+              <p className="text-sm text-gray-500 mt-1">Open the new client workflow.</p>
+            </div>
+          </button>
+          <button onClick={() => navigate('/agent/sales', { state: { openCreate: true } })} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
+            <div className="rounded-2xl bg-green-50 p-3 text-green-600"><TrendingUp className="w-5 h-5" /></div>
+            <div>
+              <p className="font-semibold text-gray-900">Add Sale</p>
+              <p className="text-sm text-gray-500 mt-1">Record a new deal in seconds.</p>
+            </div>
+          </button>
+          <button onClick={() => navigate('/agent/leads', { state: { openCreate: true } })} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
+            <div className="rounded-2xl bg-blue-50 p-3 text-blue-600"><UserCheck className="w-5 h-5" /></div>
+            <div>
+              <p className="font-semibold text-gray-900">Create Lead</p>
+              <p className="text-sm text-gray-500 mt-1">Capture a prospect without leaving this page.</p>
+            </div>
+          </button>
+          <button onClick={() => navigate('/agent/tasks')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
+            <div className="rounded-2xl bg-yellow-50 p-3 text-yellow-600"><Clock className="w-5 h-5" /></div>
+            <div>
+              <p className="font-semibold text-gray-900">View Tasks</p>
+              <p className="text-sm text-gray-500 mt-1">Check your follow-ups and reminders.</p>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* ── Charts Row 1: Monthly Sales + Deal Status ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Sales Revenue</h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={monthlySalesData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="month" stroke="#999" />
+              <YAxis stroke="#999" />
+              <Tooltip formatter={v => formatUGX(v)} />
+              <Bar dataKey="sales" fill="#f97316" radius={[4,4,0,0]} name="Sales" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <DealStatusChart data={dealStatusData} height={260} />
+      </div>
+
+      {/* ── Charts Row 2: Revenue Over Time + Pipeline Value ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Over Time</h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <AreaChart data={revenueOverTimeData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="month" stroke="#999" />
+              <YAxis stroke="#999" />
+              <Tooltip formatter={v => formatUGX(v)} />
+              <Area type="monotone" dataKey="revenue" stroke="#f97316" fill="#fff7ed" strokeWidth={2} name="Revenue" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Pipeline Value by Stage</h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={pipelineValueData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="stage" stroke="#999" />
+              <YAxis stroke="#999" />
+              <Tooltip formatter={v => formatUGX(v)} />
+              <Bar dataKey="value" fill="#f97316" radius={[4,4,0,0]} name="Value" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* ── Charts Row 3: Cash vs Credit + Follow-up Status ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <PaymentMethodChart 
+          data={creditVsCashData} 
+          formatCurrency={formatUGX}
+          height={260}
+          title="Cash vs Credit Sales (This Month)"
+        />
+
+        <TaskStatusChart 
+          data={followUpData} 
+          height={260}
+title="Follow-up Task Status"
+        />
+      </div>
+
+      {/* My Clients Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="p-5 border-b border-gray-100">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <h2 className="text-lg font-semibold text-gray-900 flex-1">My Clients</h2>
-            {/* Search */}
-            <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search clients..."
-                value={tableSearch}
-                onChange={e => { setTableSearch(e.target.value); setTablePage(1); }}
-                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              />
-            </div>
             {/* Status filter */}
             <select
               value={tableStatus}
@@ -373,7 +504,6 @@ const AgentDashboard = () => {
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-1">
-                          {/* WhatsApp */}
                           {client.phone && (
                             <button
                               onClick={() => window.open(`https://wa.me/${client.phone.replace(/\D/g,'')}?text=Hello ${client.name}`, '_blank')}
@@ -383,7 +513,6 @@ const AgentDashboard = () => {
                               <MessageSquare className="w-4 h-4" />
                             </button>
                           )}
-                          {/* Email */}
                           {client.email && (
                             <button
                               onClick={() => window.open(`mailto:${client.email}?subject=Follow-up`, '_blank')}
@@ -393,7 +522,6 @@ const AgentDashboard = () => {
                               <Mail className="w-4 h-4" />
                             </button>
                           )}
-                          {/* View — navigates to Clients page */}
                           <button
                             onClick={() => window.location.href = '/agent/clients'}
                             className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
@@ -411,7 +539,6 @@ const AgentDashboard = () => {
           </table>
         </div>
 
-        {/* Pagination */}
         {tableTotalPages > 1 && (
           <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between text-sm text-gray-600">
             <span>Showing {((tablePage - 1) * PAGE_SIZE) + 1}–{Math.min(tablePage * PAGE_SIZE, tableTotal)} of {tableTotal}</span>
@@ -434,70 +561,6 @@ const AgentDashboard = () => {
           </div>
         )}
       </div>
-
-      {/* ── Charts Row 1: Monthly Sales + Deal Status ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Sales Revenue</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={monthlySalesData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="month" stroke="#999" />
-              <YAxis stroke="#999" />
-              <Tooltip formatter={v => formatUGX(v)} />
-              <Bar dataKey="sales" fill="#f97316" radius={[4,4,0,0]} name="Sales" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        <DealStatusChart data={dealStatusData} height={260} />
-      </div>
-
-      {/* ── Charts Row 2: Revenue Over Time + Pipeline Value ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Over Time</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={revenueOverTimeData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="month" stroke="#999" />
-              <YAxis stroke="#999" />
-              <Tooltip formatter={v => formatUGX(v)} />
-              <Area type="monotone" dataKey="revenue" stroke="#f97316" fill="#fff7ed" strokeWidth={2} name="Revenue" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Pipeline Value by Stage</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={pipelineValueData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="stage" stroke="#999" />
-              <YAxis stroke="#999" />
-              <Tooltip formatter={v => formatUGX(v)} />
-              <Bar dataKey="value" fill="#f97316" radius={[4,4,0,0]} name="Value" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* ── Charts Row 3: Cash vs Credit + Follow-up Status ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PaymentMethodChart 
-          data={creditVsCashData} 
-          formatCurrency={formatUGX}
-          height={260}
-          title="Cash vs Credit Sales (This Month)"
-        />
-
-        <TaskStatusChart 
-          data={followUpData} 
-          height={260}
-          title="Follow-up Task Status"
-        />
-      </div>
-
     </div>
   );
 };

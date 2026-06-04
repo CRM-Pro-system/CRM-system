@@ -1,10 +1,20 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import {
-  Users, DollarSign, Target, TrendingUp, BarChart3,
-  PieChart as RPie, Activity, Calendar, Clock,
-  ArrowUpRight, ArrowDownRight, Zap, Bell, FileText,
-  ShoppingBag, CheckCircle, AlertCircle
+  Users,
+  DollarSign,
+  Target,
+  TrendingUp,
+  BarChart3,
+  Activity,
+  Calendar,
+  ArrowUpRight,
+  ArrowDownRight,
+  CheckCircle,
+  AlertCircle,
+  Plus,
+  Download,
+  Settings
 } from 'lucide-react';
 import {
   BarChart, Bar, LineChart, Line,
@@ -47,9 +57,46 @@ const KPICard = ({ icon: Icon, title, value, subtitle, trend, color = 'orange' }
   );
 };
 
-// ─── build a bar/line data array from a map { label → value } ───────────────
-const seriesToChartData = (map, monthOrder) =>
-  (monthOrder || Object.keys(map)).map(label => ({ name: label, value: map[label] || 0 }));
+// ─── Quick Actions Component ───────────────────────────────────────────────────
+const QuickActions = ({ role }) => {
+  const actions = role === 'agent' 
+    ? [
+        { label: 'Create Lead', icon: Plus, color: 'orange', action: () => window.location.href = '/agent/leads' },
+        { label: 'New Sale', icon: DollarSign, color: 'green', action: () => window.location.href = '/agent/sales' },
+        { label: 'Schedule', icon: Calendar, color: 'blue', action: () => window.location.href = '/agent/schedules' },
+      ]
+    : [
+        { label: 'View Reports', icon: BarChart3, color: 'orange', action: () => window.location.href = '/admin/reports' },
+        { label: 'Manage Users', icon: Users, color: 'blue', action: () => window.location.href = '/admin/users' },
+        { label: 'Settings', icon: Settings, color: 'gray', action: () => window.location.href = '/admin/settings' },
+      ];
+
+  const colorClasses = {
+    orange: 'bg-orange-50 text-orange-600 hover:bg-orange-100',
+    green: 'bg-green-50 text-green-600 hover:bg-green-100',
+    blue: 'bg-blue-50 text-blue-600 hover:bg-blue-100',
+    gray: 'bg-gray-50 text-gray-600 hover:bg-gray-100',
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      {actions.map((action, idx) => {
+        const Icon = action.icon;
+        return (
+          <button
+            key={idx}
+            onClick={action.action}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${colorClasses[action.color]}`}
+            title={action.label}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            <span>{action.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
 
 // ─── main component ─────────────────────────────────────────────────────────
 const Dashboard = () => {
@@ -65,6 +112,9 @@ const Dashboard = () => {
   const [cashVsCreditData, setCashVsCreditData]     = useState([]);
   const [followUpData, setFollowUpData]             = useState([]);
   const [topAgentsData, setTopAgentsData]           = useState([]);
+
+  const formatUGX = (v) => `UGX ${Number(v||0).toLocaleString('en-UG',{maximumFractionDigits:0})}`;
+  const formatUSD = (v) => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(v||0);
 
   useEffect(() => {
     if (role === 'agent') {
@@ -101,8 +151,6 @@ const Dashboard = () => {
       const salesValue = monthlySales.reduce((sum, s) => sum + (Number(s.finalAmount) || 0), 0);
       const pipeline = allDeals.filter(d => !['won','lost'].includes((d.stage || '').toLowerCase()));
       const leads = allClients.filter(c => (c.status || '') === 'prospect');
-
-      const perf = perfRes.status === 'fulfilled' ? (perfRes.value?.data || {}) : {};
 
       setKpi({
         salesValue, pipeline: pipeline.length,
@@ -177,7 +225,6 @@ const Dashboard = () => {
       const allSales  = salesRes.status === 'fulfilled' ? (salesRes.value?.data?.sales || []) : [];
       const allDeals  = dealsRes.status === 'fulfilled' ? (dealsRes.value?.data?.deals      || dealsRes.value?.data || []) : [];
       const totalUsers = usersRes.status === 'fulfilled' ? (usersRes.value?.data?.users?.length || usersRes.value?.data?.length || 0) : 0;
-      const perf      = perfRes.status === 'fulfilled' ? (perfRes.value?.data || {}) : {};
 
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -242,9 +289,6 @@ const Dashboard = () => {
     }
   };
 
-  const formatUGX = (v) => `UGX ${Number(v||0).toLocaleString('en-UG',{maximumFractionDigits:0})}`;
-  const formatUSD = (v) => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(v||0);
-
   // ─── guard ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -258,20 +302,6 @@ const Dashboard = () => {
 
   return (
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
-
-      {/* ── Page Header ── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">{isAgent ? 'Agent Dashboard' : 'Admin Dashboard'}</h1>
-          <p className="text-gray-500 mt-1">
-            Welcome back, {user?.name}{user?.tenant?.name ? ` · ${user.tenant.name}` : ''}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-gray-400">
-          <Calendar size={16} />
-          {new Date().toLocaleDateString('en-UG',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}
-        </div>
-      </div>
 
       {/* ─────────────────────────────────────────────────────────────────── */}
       {/* ADMIN / SUPER-ADMIN DASHBOARD                                       */}
@@ -421,4 +451,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-

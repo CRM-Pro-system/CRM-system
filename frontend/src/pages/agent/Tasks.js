@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
-import clientsAPI from '../../services/api';
+import { clientsAPI } from '../../services/api';
 
 const TASK_SUBJECTS = ['Call', 'Support', 'Follow-up', 'Meeting', 'Review', 'Other'];
 const TASK_STATUSES = ['pending', 'in_progress', 'completed', 'waiting', 'deferred'];
@@ -145,13 +145,9 @@ export default function Tasks() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800">Task Management</h1>
-          <p className="text-slate-500 mt-1">Track and manage tasks across all clients.</p>
-        </div>
-        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-xl transition-all">
+      {/* Quick Add Button */}
+      <div className="flex justify-end">
+        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-orange-400 hover:bg-orange-500 text-white px-5 py-3 rounded-xl transition-all">
           <Plus size={18} /> Create Task
         </button>
       </div>
@@ -420,7 +416,7 @@ export default function Tasks() {
                   Cancel
                 </button>
                 <button type="submit"
-                  className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition">
+                  className="px-6 py-3 rounded-xl bg-orange-400 hover:bg-orange-500 text-white transition">
                   Create Task
                 </button>
               </div>

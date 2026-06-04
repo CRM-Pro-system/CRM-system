@@ -34,7 +34,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const result = await login(formData.email, formData.password);
+      const result = await login(formData.email.trim().toLowerCase(), formData.password);
 
       if (result.success) {
         toast.success(`Welcome back, ${result.user.name}! 🎉`);

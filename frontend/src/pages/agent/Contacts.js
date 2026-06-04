@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Search, Plus, Phone, Mail, MessageCircle,
   Building2, User, X, Send, ChevronDown, ChevronUp,
@@ -14,6 +15,15 @@ const avatar = (name = '') => name.charAt(0).toUpperCase() || '?';
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Contacts() {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (location && location.state && location.state.openCreate) {
+      setShowCreate(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   // all contacts flattened from all clients
   const [contacts, setContacts]     = useState([]);
@@ -40,35 +50,50 @@ export default function Contacts() {
   const [emailForm, setEmailForm]   = useState({ subject: '', message: '' });
   const [sendingEmail, setSendingEmail] = useState(false);
 
-  // ── Load all contacts from all clients ──────────────────────────────────────
-  const loadContacts = async () => {
-    setLoading(true);
-    try {
-      const res = await clientsAPI.getAll({ limit: 1000 });
-      const allClients = res.data?.clients || res.data || [];
-      setClients(allClients);
+// ┌─ Load all contacts from all clients ──────────────────────────────────────
+   const loadContacts = async () => {
+     setLoading(true);
+     try {
+       const res = await clientsAPI.getAll({ limit: 1000 });
+       const allClients = res.data?.clients || res.data || [];
+       setClients(allClients);
 
-      // Flatten every client's contacts array, tagging each with org info
-      const flat = [];
-      allClients.forEach(client => {
-        (client.contacts || []).forEach(c => {
-          flat.push({
-            ...c,
-            // unique key combining client id + contact index
-            _key: `${client._id}_${c._id || c.name}`,
-            clientId: client._id,
-            organisation: client.company || client.name || '—',
-            organisationId: client._id,
-          });
-        });
-      });
-      setContacts(flat);
-    } catch (err) {
-      toast.error('Failed to load contacts');
-    } finally {
-      setLoading(false);
-    }
-  };
+       // Flatten every client's contacts array, tagging each with org info
+       const flat = [];
+       allClients.forEach(client => {
+         // Add the client themselves as a contact
+         if (client.email || client.phone) {
+           flat.push({
+             _key: `client_${client._id}`,
+             name: client.name,
+             email: client.email,
+             phone: client.phone,
+             position: client.position,
+             organisation: client.company || client.name || '—',
+             organisationId: client._id,
+             isPrimary: true,
+             clientId: client._id,
+             isClient: true
+           });
+         }
+         // Add each contact person
+         (client.contacts || []).forEach(c => {
+           flat.push({
+             ...c,
+             _key: `${client._id}_${c._id || c.name}`,
+             clientId: client._id,
+             organisation: client.company || client.name || '—',
+             organisationId: client._id,
+           });
+         });
+       });
+       setContacts(flat);
+     } catch (err) {
+       toast.error('Failed to load contacts');
+     } finally {
+       setLoading(false);
+     }
+   };
 
   useEffect(() => { loadContacts(); }, [user]);
 
@@ -193,13 +218,8 @@ export default function Contacts() {
 
   return (
     <div className="space-y-6">
-
-      {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Contacts</h1>
-          <p className="text-gray-500 mt-1">All contact persons across your organisations</p>
-        </div>
+      {/* Action Button */}
+      <div className="flex justify-end">
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl font-medium transition-colors"

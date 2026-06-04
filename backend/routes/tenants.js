@@ -703,16 +703,15 @@ router.post('/', requireSuperAdmin, async (req, res) => {
     await tenant.save();
 
     const otp = generateOTP();
-    const hashedPassword = await bcrypt.hash(otp, 10);
     const companyAdminName = adminName || `${name} Admin`;
 
     const adminUser = new User({
       name: companyAdminName,
       email,
-      password: hashedPassword,
+      password: otp, // Pass plain OTP; User model pre-save will hash it
       role: 'admin',
       tenant: tenant._id,
-      otp,
+      otp, // Also store plain OTP for first-login OTP verification
       otpExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
       isFirstLogin: true,
       isActive: true,
