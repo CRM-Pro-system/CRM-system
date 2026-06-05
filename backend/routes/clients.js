@@ -11,6 +11,85 @@ const { AccessToken, VoiceGrant } = twilio.jwt;
 
 const router = express.Router();
 
+const duplicateClientMessage = (error) => {
+  const duplicateField = Object.keys(error.keyPattern || {})[0];
+  if (duplicateField === 'email') return 'Client with this email already exists';
+  if (duplicateField === 'phone') return 'Client with this phone number already exists';
+  if (duplicateField === 'nin') return 'Legacy NIN index blocked this client. Please restart the backend so the old index can be removed.';
+  return 'Client already exists';
+};
+
+const cleanClientPayload = (data = {}) => {
+  const payload = { ...data };
+  if (payload.nin === null || payload.nin === undefined || String(payload.nin).trim() === '') {
+    delete payload.nin;
+  }
+  return payload;
+};
+
+const idString = (value) => {
+  if (!value) return '';
+  return String(value._id || value);
+};
+
+const agentClientConditions = (userId, { includeUnassignedProspects = false } = {}) => {
+  const conditions = [
+    { agent: userId },
+    { assignedAgents: userId }
+  ];
+
+  if (includeUnassignedProspects) {
+    conditions.push(
+      { agent: { $exists: false } },
+      { agent: null }
+    );
+  }
+
+  return conditions;
+};
+
+const addAgentAccessFilter = (query, userId, options = {}) => {
+  const accessFilter = { $or: agentClientConditions(userId, options) };
+
+  if (query.$or) {
+    const existingOr = query.$or;
+    delete query.$or;
+    query.$and = [...(query.$and || []), { $or: existingOr }, accessFilter];
+  } else if (query.$and) {
+    query.$and.push(accessFilter);
+  } else {
+    query.$or = accessFilter.$or;
+  }
+};
+
+const agentCanAccessClient = (req, client, { allowUnassignedProspect = false } = {}) => {
+  if (req.user.role !== 'agent') return true;
+
+  const userId = String(req.user.userId);
+  const primaryAgent = idString(client.agent);
+  const isPrimaryAgent = primaryAgent === userId;
+  const isAssignedAgent = Array.isArray(client.assignedAgents) &&
+    client.assignedAgents.some((agent) => idString(agent) === userId);
+  const isUnassignedProspect = allowUnassignedProspect &&
+    client.status === 'prospect' &&
+    !primaryAgent;
+
+  return isPrimaryAgent || isAssignedAgent || isUnassignedProspect;
+};
+
+const taskSubjectFromRequest = (body = {}) => {
+  if (body.subject) return body.subject;
+  const typeMap = {
+    call: 'Call',
+    support: 'Support',
+    'follow-up': 'Follow-up',
+    meeting: 'Meeting',
+    review: 'Review',
+    other: 'Other'
+  };
+  return typeMap[String(body.type || '').toLowerCase()] || 'Call';
+};
+
 // Get Twilio Voice token for in-app calling (no client required, just auth)
 router.post('/call/token', tenantAuth, async (req, res) => {
   try {
@@ -50,7 +129,7 @@ router.get('/', async (req, res) => {
     const { page = 1, limit = 10, search, status, agent } = req.query;
 
     // Start with tenant-filtered query
-    let query = req.tenantQuery;
+    let query = { ...req.tenantQuery };
 
     // Apply search filter
     if (search) {
@@ -67,30 +146,12 @@ router.get('/', async (req, res) => {
       query.status = status;
     }
 
-    // Apply agent filter (admin can filter by agent, agents see only their clients or unassigned leads)
+    // Apply agent filter (admin can filter by agent, agents see their accessible clients/leads)
     if (req.user.role === 'agent') {
       if (status === 'prospect') {
-        // For prospects, agents can see their assigned leads OR unassigned leads
-        const agentConditions = [
-          { agent: req.user.userId },
-          { agent: { $exists: false } },
-          { agent: null }
-        ];
-        if (search) {
-          query.$and = [
-            { $or: agentConditions },
-            { $or: [
-              { name: { $regex: search, $options: 'i' } },
-              { email: { $regex: search, $options: 'i' } },
-              { phone: { $regex: search, $options: 'i' } },
-              { company: { $regex: search, $options: 'i' } }
-            ]}
-          ];
-        } else {
-          query.$or = agentConditions;
-        }
+        addAgentAccessFilter(query, req.user.userId, { includeUnassignedProspects: true });
       } else {
-        query.agent = req.user.userId;
+        addAgentAccessFilter(query, req.user.userId);
       }
     } else if (agent) {
       query.agent = agent;
@@ -136,7 +197,7 @@ router.get('/:id([0-9a-fA-F]{24})', async (req, res) => {
     }
 
     // Check if user has permission to view this client
-    if (req.user.role === 'agent' && String(client.agent._id || client.agent) !== req.user.userId) {
+    if (!agentCanAccessClient(req, client, { allowUnassignedProspect: true })) {
       return res.status(403).json({ message: 'Access denied' });
     }
     // Admin, manager, superadmin have access to all clients (no additional check needed)
@@ -169,7 +230,7 @@ router.post('/', [
     }
 
     const clientData = {
-      ...req.body,
+      ...cleanClientPayload(req.body),
       tenant: req.user.tenantId,
       agent: req.user.role === 'agent' ? req.user.userId : req.body.agent
     };
@@ -189,7 +250,7 @@ router.post('/', [
   } catch (error) {
     console.error('Error creating client:', error);
     if (error.code === 11000) {
-      return res.status(400).json({ message: 'Client with this email already exists' });
+      return res.status(400).json({ message: duplicateClientMessage(error) });
     }
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -214,13 +275,24 @@ router.put('/:id', [
     }
 
     // Check if user has permission to update this client
-    if (req.user.role === 'agent' && client.agent.toString() !== req.user.userId) {
+    if (!agentCanAccessClient(req, client, { allowUnassignedProspect: true })) {
       return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const updatePayload = cleanClientPayload(req.body);
+    if (
+      req.user.role === 'agent' &&
+      !idString(client.agent) &&
+      updatePayload.status &&
+      updatePayload.status !== 'prospect' &&
+      !updatePayload.agent
+    ) {
+      updatePayload.agent = req.user.userId;
     }
 
     const updatedClient = await Client.findOneAndUpdate(
       { _id: req.params.id, ...req.tenantQuery },
-      req.body,
+      updatePayload,
       { new: true }
     ).populate('agent', 'name email');
 
@@ -229,7 +301,7 @@ router.put('/:id', [
   } catch (error) {
     console.error('Error updating client:', error);
     if (error.code === 11000) {
-      return res.status(400).json({ message: 'Client with this email already exists' });
+      return res.status(400).json({ message: duplicateClientMessage(error) });
     }
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -245,7 +317,7 @@ router.delete('/:id', async (req, res) => {
     }
 
     // Check if user has permission to delete this client
-    if (req.user.role === 'agent' && client.agent.toString() !== req.user.userId) {
+    if (req.user.role === 'agent' && idString(client.agent) !== String(req.user.userId)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -276,17 +348,13 @@ router.post('/:id/interactions', [
       return res.status(404).json({ message: 'Client not found' });
     }
 
-// Agents can add interactions to their assigned clients or unassigned leads
     // Admin/managers can add to any client in tenant
-    if (req.user.role === 'agent') {
-      const isOwner = !client.agent || 
-                      client.agent?.toString() === req.user.userId || 
-                      client.assignedAgents?.some(a => a.toString() === req.user.userId);
-      // Allow if agent is owner OR if it's a prospect (unassigned lead)
-      const isProspect = client.status === 'prospect';
-      if (!isOwner && !isProspect) {
-        return res.status(403).json({ message: 'Access denied' });
-      }
+    if (!agentCanAccessClient(req, client, { allowUnassignedProspect: true })) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    if (req.user.role === 'agent' && !idString(client.agent)) {
+      client.agent = req.user.userId;
     }
 
     const interaction = {
@@ -327,17 +395,25 @@ router.post('/:id/tasks', [
     }
 
     // Check if user has permission to add tasks
-    if (req.user.role === 'agent' && client.agent.toString() !== req.user.userId) {
+    if (!agentCanAccessClient(req, client, { allowUnassignedProspect: true })) {
       return res.status(403).json({ message: 'Access denied' });
+    }
+
+    if (req.user.role === 'agent' && !idString(client.agent)) {
+      client.agent = req.user.userId;
     }
 
     const task = {
       title: req.body.title,
+      subject: taskSubjectFromRequest(req.body),
       description: req.body.description || '',
       dueDate: new Date(req.body.dueDate),
       dueTime: req.body.dueTime || '',
+      status: req.body.status || 'pending',
+      priority: req.body.priority || 'Medium',
+      contactPerson: req.body.contactPerson || '',
       assignedTo: req.body.assignedTo || req.user.userId,
-      completed: false
+      completed: req.body.status === 'completed'
     };
 
     client.tasks.push(task);
@@ -366,6 +442,10 @@ router.post('/:id/send-email', [
 
     const client = await Client.findOne({ _id: req.params.id, ...req.tenantQuery });
     if (!client) return res.status(404).json({ message: 'Client not found' });
+
+    if (!agentCanAccessClient(req, client, { allowUnassignedProspect: true })) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
 
     if (!client.email) {
       return res.status(400).json({ message: 'Client has no email address' });

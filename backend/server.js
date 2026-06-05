@@ -31,6 +31,7 @@ import { issueRoutes } from './routes/issues.js';
 import { testEmailConfig } from './services/emailService.js';
 import { startTaskReminderJob } from './jobs/taskReminderJob.js';
 import { startScheduledExportJob } from './jobs/scheduledExportJob.js';
+import Client from './models/Client.js';
 
 dotenv.config();
 
@@ -91,12 +92,31 @@ if (!MONGODB_URI.startsWith('mongodb://') && !MONGODB_URI.startsWith('mongodb+sr
   process.exit(1);
 }
 
+const cleanupLegacyClientIndexes = async () => {
+  try {
+    const indexes = await Client.collection.indexes();
+    const legacyNinIndex = indexes.find((index) => index.name === 'nin_1');
+
+    if (legacyNinIndex) {
+      await Client.collection.dropIndex('nin_1');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Dropped legacy clients.nin_1 index');
+      }
+    }
+  } catch (error) {
+    if (error.codeName !== 'IndexNotFound' && process.env.NODE_ENV !== 'production') {
+      console.warn('Could not clean up legacy client indexes:', error.message);
+    }
+  }
+};
+
 mongoose.connect(MONGODB_URI, mongoOptions)
-  .then(() => {
+  .then(async () => {
     if (process.env.NODE_ENV !== 'production') {
       console.log('✅ MongoDB connected successfully');
       console.log('Database:', mongoose.connection.name);
     }
+    await cleanupLegacyClientIndexes();
   })
   .catch(err => {
     console.error('❌ MongoDB connection error:', err.message);

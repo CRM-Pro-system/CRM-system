@@ -149,8 +149,11 @@ export default DonutChart;
 export const DealStatusChart = ({ data, ...props }) => (
   <DonutChart
     data={data}
-    title="Deal Status"
+    title="Deal Outcomes"
+    subtitle="Closed wins, closed losses, and open pipeline counts"
     colors={['#10b981', '#ef4444', '#f59e0b']} // Green, Red, Amber
+    labelFormatter={({ name, value }) => `${name}: ${value}`}
+    tooltipFormatter={(value) => `${value.toLocaleString()} deal${value === 1 ? '' : 's'}`}
     centerContent={(total) => (
       <div>
         <p className="text-3xl font-bold text-gray-900">{total}</p>

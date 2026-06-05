@@ -123,13 +123,13 @@ const agentNavItems = [
         to={item.path}
         onClick={onClick}
         className={`flex items-center space-x-4 px-4 py-3 rounded-xl text-sm font-medium transition-all group ${isActive
-            ? 'bg-orange-700 text-white shadow-md'
-            : 'text-white hover:bg-orange-500/90'
+            ? 'bg-white/20 text-white shadow-md'
+            : 'text-white hover:bg-white/10'
           }`}
       >
         <div className={`p-2 rounded-lg ${isActive
-            ? 'bg-orange-800 text-white'
-            : 'bg-orange-600/20 text-white'
+            ? 'bg-white/20 text-white'
+            : 'bg-white/10 text-white'
           }`}>
           <Icon className="w-4 h-4" />
         </div>
@@ -144,12 +144,12 @@ const agentNavItems = [
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--workspace-bg)' }}>
       {/* Desktop Sidebar - Always Visible */}
       <div className="hidden lg:flex lg:flex-shrink-0">
-        <div className="w-64 flex flex-col bg-orange-600 shadow-xl border-r border-orange-700 text-white">
+        <div className="w-64 flex flex-col shadow-xl border-r border-white/15 text-white" style={{ backgroundColor: 'var(--workspace-sidebar)' }}>
           {/* Header */}
-          <div className="flex items-center justify-between h-16 px-6 border-b border-orange-700">
+          <div className="flex items-center justify-between h-16 px-6 border-b border-white/15">
             <div className="flex items-center space-x-3">
               <img 
                 src={user?.tenant?.logo || user?.tenant?.settings?.logo || logo} 
@@ -180,7 +180,7 @@ const agentNavItems = [
           </nav>
 
           {/* Footer */}
-          <div className="border-t border-orange-700 p-6 space-y-4">
+          <div className="border-t border-white/15 p-6 space-y-4">
             <div className="flex items-center justify-between text-sm">
               <span className="text-white text-opacity-90">Status</span>
               <span className="flex items-center space-x-1">
@@ -191,7 +191,7 @@ const agentNavItems = [
 
             <button
               onClick={handleLogout}
-              className="flex items-center space-x-3 w-full px-4 py-3 rounded-lg text-sm font-medium text-white hover:bg-orange-700 transition-colors group"
+              className="flex items-center space-x-3 w-full px-4 py-3 rounded-lg text-sm font-medium text-white hover:bg-white/10 transition-colors group"
             >
               <LogOut className="w-4 h-4 text-white" />
               <span>Sign Out</span>
@@ -208,7 +208,7 @@ const agentNavItems = [
               className="fixed inset-0 bg-gray-600 bg-opacity-75"
               onClick={() => setSidebarOpen(false)}
             />
-            <div className="relative flex-1 flex flex-col max-w-xs w-full bg-orange-600 shadow-xl text-white">
+            <div className="relative flex-1 flex flex-col max-w-xs w-full shadow-xl text-white" style={{ backgroundColor: 'var(--workspace-sidebar)' }}>
               <div className="absolute top-0 right-0 -mr-12 pt-2">
                 <button
                   className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
@@ -219,7 +219,7 @@ const agentNavItems = [
               </div>
               <div className="flex-1 h-0 overflow-y-auto">
                 {/* Mobile Header */}
-                <div className="flex items-center h-16 px-6 border-b border-orange-700 bg-orange-600 text-white">
+                <div className="flex items-center h-16 px-6 border-b border-white/15 text-white">
                   <div className="flex items-center space-x-3">
                     <svg className="w-10 h-10" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M125 93L175 43L175 143L125 93Z" fill="white" />
@@ -250,7 +250,7 @@ const agentNavItems = [
               </div>
 
               {/* Mobile Footer */}
-              <div className="border-t border-orange-700 p-6 space-y-4 text-white">
+              <div className="border-t border-white/15 p-6 space-y-4 text-white">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-white text-opacity-90">Status</span>
                   <span className="flex items-center space-x-1">
@@ -264,7 +264,7 @@ const agentNavItems = [
                     setSidebarOpen(false);
                     handleLogout();
                   }}
-                  className="flex items-center space-x-3 w-full px-4 py-3 rounded-lg text-sm font-medium text-white hover:bg-orange-700 transition-colors group"
+                  className="flex items-center space-x-3 w-full px-4 py-3 rounded-lg text-sm font-medium text-white hover:bg-white/10 transition-colors group"
                 >
                   <LogOut className="w-4 h-4 text-white" />
                   <span>Sign Out</span>
@@ -277,7 +277,7 @@ const agentNavItems = [
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-auto bg-gray-50">
+        <main className="flex-1 overflow-auto" style={{ backgroundColor: 'var(--workspace-bg)' }}>
           <Taskbar
             onOpenNotifications={() => setShowNotifications(true)}
             onOpenQuickActions={() => setShowQuickActions(true)}

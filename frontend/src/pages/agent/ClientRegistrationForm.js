@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   X, 
-  Upload, 
   User, 
   Users,
   FileText,
@@ -16,7 +15,6 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const [uploadedFiles, setUploadedFiles] = useState([]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -136,19 +134,6 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
     }));
   };
 
-  const handleFileUpload = (event) => {
-    const files = Array.from(event.target.files);
-    const newFiles = files.map(file => ({
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      preview: URL.createObjectURL(file)
-    }));
-    setUploadedFiles(prev => [...prev, ...newFiles]);
-    
-    toast.success('Document uploaded successfully');
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -162,8 +147,10 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
       return;
     }
 
+    const currentUserId = user?.id || user?._id;
+
     // Check if user is authenticated
-    if (!user?.id) {
+    if (!currentUserId) {
       toast.error('Your session has expired. Please log in again.');
       // Optionally redirect to login
       setTimeout(() => {
@@ -179,7 +166,7 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
-        agent: user.id,
+        agent: currentUserId,
         
         // Basic optional fields
         status: formData.status,
@@ -208,14 +195,16 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
       toast.success('Client registered successfully! 🎉');
       onSuccess();
     } catch (error) {
-      if (error.response?.status === 401 || error.response?.status === 403) {
+      if (error.response?.status === 401) {
         toast.error('Your session has expired. Please log in again.');
         setTimeout(() => {
           window.location.href = '/login';
         }, 2000);
+      } else if (error.response?.status === 403) {
+        toast.error(error.response?.data?.message || 'You do not have permission to register this client.');
       } else if (error.response?.data?.message) {
         if (error.response.data.message.includes('already exists')) {
-          toast.error('A client with this NIN already exists');
+          toast.error(error.response.data.message);
         } else if (error.response.data.errors) {
           error.response.data.errors.forEach(err => toast.error(err));
         } else {
@@ -402,45 +391,6 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
                   </div>
                 </div>
 
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Upload ID Document
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    Upload ID document for reference (optional)
-                  </p>
-                  <input
-                    type="file"
-                    onChange={handleFileUpload}
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    className="hidden"
-                    id="document-upload"
-                  />
-                  <label
-                    htmlFor="document-upload"
-                    className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors cursor-pointer inline-block"
-                  >
-                    Choose Document
-                  </label>
-                </div>
-
-                {uploadedFiles.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-gray-900">Uploaded Documents:</h4>
-                    {uploadedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <FileText className="w-5 h-5 text-gray-400" />
-                          <span className="text-sm text-gray-700">{file.name}</span>
-                        </div>
-                        <span className="text-xs text-gray-500">
-                          {(file.size / 1024 / 1024).toFixed(2)} MB
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </motion.div>
             )}
 

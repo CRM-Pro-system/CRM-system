@@ -145,28 +145,17 @@ const SalesManagement = () => {
     setShowClientDropdown(false);
   };
 
-  const handleSelectLead = async (lead) => {
-    try {
-      await clientsAPI.update(lead._id, {
-        status: 'active',
-        leadStatus: 'Converted'
-      });
-      
-      setSaleForm({
-        ...saleForm,
-        leadId: lead._id,
-        clientId: lead._id,
-        customerName: lead.contactName || lead.name,
-        customerEmail: lead.companyEmail || lead.email || '',
-        customerPhone: lead.telephone || lead.phone || ''
-      });
-      setLeadSearchTerm('');
-      setShowLeadDropdown(false);
-      toast.success('Lead converted to contact automatically');
-    } catch (error) {
-      console.error('Error converting lead:', error);
-      toast.error('Failed to convert lead');
-    }
+  const handleSelectLead = (lead) => {
+    setSaleForm({
+      ...saleForm,
+      leadId: lead._id,
+      clientId: lead._id,
+      customerName: lead.contactName || lead.name,
+      customerEmail: lead.companyEmail || lead.email || '',
+      customerPhone: lead.telephone || lead.phone || ''
+    });
+    setLeadSearchTerm(lead.contactName || lead.name || '');
+    setShowLeadDropdown(false);
   };
 
   const handleSaveSale = async (e) => {
@@ -178,17 +167,6 @@ const SalesManagement = () => {
     }
 
     try {
-      if (saleForm.leadId) {
-        const selectedLead = leads.find(l => l._id === saleForm.leadId);
-        if (selectedLead) {
-          await clientsAPI.update(saleForm.leadId, {
-            status: 'active',
-            leadStatus: 'Converted'
-          });
-          toast.success('Lead automatically converted to contact');
-        }
-      }
-
       const saleData = {
         customerName: saleForm.customerName,
         customerEmail: saleForm.customerEmail,
@@ -205,6 +183,14 @@ const SalesManagement = () => {
       } else {
         await salesAPI.create(saleData);
         toast.success('Sale created successfully');
+      }
+
+      if (saleForm.leadId) {
+        await clientsAPI.update(saleForm.leadId, {
+          status: 'active',
+          leadStatus: 'Converted'
+        });
+        toast.success('Lead moved to contacts');
       }
 
       resetForm();

@@ -56,11 +56,12 @@ export default function Contacts() {
      try {
        const res = await clientsAPI.getAll({ limit: 1000 });
        const allClients = res.data?.clients || res.data || [];
-       setClients(allClients);
+       const contactClients = allClients.filter(client => client.status !== 'prospect' || client.leadStatus === 'Converted');
+       setClients(contactClients);
 
        // Flatten every client's contacts array, tagging each with org info
        const flat = [];
-       allClients.forEach(client => {
+       contactClients.forEach(client => {
          // Add the client themselves as a contact
          if (client.email || client.phone) {
            flat.push({

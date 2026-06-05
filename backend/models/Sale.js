@@ -71,7 +71,7 @@ const saleSchema = new mongoose.Schema({
   paymentMethod: {
     type: String,
     enum: ['cash', 'credit'],
-    required: true
+    default: 'cash'
   },
   status: {
     type: String,
@@ -138,7 +138,14 @@ saleSchema.pre('save', function(next) {
     let discountAmount = 0;
 
     if (!this.items || !Array.isArray(this.items) || this.items.length === 0) {
-      return next(new Error('At least one item is required'));
+      const amount = Number(this.finalAmount || this.totalAmount || 0);
+      if (amount <= 0) {
+        return next(new Error('Sale amount must be greater than 0'));
+      }
+      this.totalAmount = amount;
+      this.discountAmount = 0;
+      this.finalAmount = amount;
+      return next();
     }
 
     let hasInvalidItem = false;

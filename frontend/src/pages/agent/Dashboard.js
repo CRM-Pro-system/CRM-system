@@ -180,9 +180,9 @@ const AgentDashboard = () => {
       const lost    = allDeals.filter(d => d.stage === 'lost').length;
       const pending = allDeals.filter(d => !['won','lost'].includes(d.stage)).length;
       setDealStatusData([
-        { name: 'Won', value: won },
-        { name: 'Lost', value: lost },
-        { name: 'Pending', value: pending },
+        { name: 'Won Deals', value: won },
+        { name: 'Lost Deals', value: lost },
+        { name: 'Open Pipeline', value: pending },
       ]);
 
       // Credit vs Cash pie
@@ -317,7 +317,7 @@ return (
               <XAxis dataKey="month" stroke="#999" />
               <YAxis stroke="#999" />
               <Tooltip formatter={v => formatUGX(v)} />
-              <Bar dataKey="sales" fill="#f97316" radius={[4,4,0,0]} name="Sales" />
+              <Bar dataKey="sales" fill="var(--primary-color)" radius={[4,4,0,0]} name="Sales" />
             </BarChart>
           </ResponsiveContainer>
         </div>

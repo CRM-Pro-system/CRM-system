@@ -387,10 +387,6 @@ const Clients = () => {
                 <div className="bg-white border border-gray-200 rounded-lg p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Details</h3>
                   <div className="space-y-3">
-                    <div>
-                      <span className="text-sm text-gray-600">NIN</span>
-                      <p className="text-gray-900 font-medium">{client.nin}</p>
-                    </div>
                     {client.dateOfBirth && (
                       <div>
                         <span className="text-sm text-gray-600">Date of Birth</span>
@@ -823,7 +819,7 @@ const Clients = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search clients by name, email, company, or NIN..."
+                placeholder="Search clients by name, email, company, or phone..."
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}

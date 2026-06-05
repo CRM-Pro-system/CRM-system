@@ -228,8 +228,10 @@ router.get('/stats', async (req, res) => {
 // Create new sale
 router.post('/', [
   body('customerName').trim().isLength({ min: 1 }).withMessage('Customer name is required'),
-  body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
-  body('paymentMethod').isIn(['cash', 'credit']).withMessage('Invalid payment method')
+  body('finalAmount').optional().isFloat({ min: 0.01 }).withMessage('Sale amount must be greater than 0'),
+  body('totalAmount').optional().isFloat({ min: 0.01 }).withMessage('Sale amount must be greater than 0'),
+  body('items').optional().isArray({ min: 1 }).withMessage('At least one item is required when items are provided'),
+  body('paymentMethod').optional().isIn(['cash', 'credit']).withMessage('Invalid payment method')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -238,24 +240,37 @@ router.post('/', [
       return res.status(400).json({ message: 'Validation errors', errors: errors.array() });
     }
 
-    const { customerName, customerEmail, customerPhone, items, paymentMethod, client, notes, dueDate } = req.body;
+    const {
+      customerName,
+      customerEmail,
+      customerPhone,
+      items,
+      paymentMethod = 'cash',
+      client,
+      notes,
+      dueDate,
+      saleDate,
+      finalAmount,
+      totalAmount
+    } = req.body;
+    const saleAmount = Number(finalAmount ?? totalAmount ?? 0);
 
-    // Validate items before creating sale
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ message: 'At least one item is required' });
+    if ((!items || !Array.isArray(items) || items.length === 0) && saleAmount <= 0) {
+      return res.status(400).json({ message: 'Sale amount must be greater than 0' });
     }
 
-    // Validate each item
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      if (!item.itemName || !item.itemName.trim()) {
-        return res.status(400).json({ message: `Item ${i + 1}: Item name is required` });
-      }
-      if (!item.quantity || item.quantity < 1) {
-        return res.status(400).json({ message: `Item ${i + 1}: Quantity must be at least 1` });
-      }
-      if (item.unitPrice === undefined || item.unitPrice === null || item.unitPrice < 0) {
-        return res.status(400).json({ message: `Item ${i + 1}: Unit price must be non-negative` });
+    if (items && Array.isArray(items)) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (!item.itemName || !item.itemName.trim()) {
+          return res.status(400).json({ message: `Item ${i + 1}: Item name is required` });
+        }
+        if (!item.quantity || item.quantity < 1) {
+          return res.status(400).json({ message: `Item ${i + 1}: Quantity must be at least 1` });
+        }
+        if (item.unitPrice === undefined || item.unitPrice === null || item.unitPrice < 0) {
+          return res.status(400).json({ message: `Item ${i + 1}: Unit price must be non-negative` });
+        }
       }
     }
 
@@ -264,14 +279,16 @@ router.post('/', [
       customerName,
       customerEmail,
       customerPhone,
-      items,
+      items: Array.isArray(items) ? items : [],
+      totalAmount: saleAmount,
+      finalAmount: saleAmount,
       paymentMethod,
       agent: req.user.userId,
       tenant: req.user.tenantId,
       client: client || null,
       notes,
       dueDate: paymentMethod === 'credit' ? dueDate : null,
-      saleDate: new Date()
+      saleDate: saleDate ? new Date(saleDate) : new Date()
     });
 
     try {
@@ -285,7 +302,7 @@ router.post('/', [
     }
 
     // Update stock levels for each item
-    for (const item of items) {
+    for (const item of Array.isArray(items) ? items : []) {
       try {
         let stockItem = await Stock.findOne({ itemName: item.itemName });
         if (stockItem) {
@@ -326,7 +343,7 @@ router.post('/', [
       metadata: {
         customerName: sale.customerName,
         finalAmount: sale.finalAmount,
-        itemCount: items.length
+        itemCount: Array.isArray(items) ? items.length : 0
       }
     });
 
@@ -344,7 +361,7 @@ router.post('/', [
 });
 
 // Get single sale
-router.get('/:id', async (req, res) => {
+router.get('/:id([0-9a-fA-F]{24})', async (req, res) => {
   try {
     // Start with tenant-filtered query
     let query = { _id: req.params.id, ...req.tenantQuery };
@@ -372,6 +389,8 @@ router.get('/:id', async (req, res) => {
 // Update sale (only for credit sales, agents can edit their own)
 router.put('/:id', [
   body('customerName').optional().trim().isLength({ min: 1 }).withMessage('Customer name cannot be empty'),
+  body('finalAmount').optional().isFloat({ min: 0.01 }).withMessage('Sale amount must be greater than 0'),
+  body('totalAmount').optional().isFloat({ min: 0.01 }).withMessage('Sale amount must be greater than 0'),
   body('items').optional().isArray({ min: 1 }).withMessage('At least one item is required'),
   body('items.*.itemName').optional().trim().isLength({ min: 1 }).withMessage('Item name is required'),
   body('items.*.quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
@@ -398,19 +417,23 @@ router.put('/:id', [
       return res.status(404).json({ message: 'Sale not found' });
     }
 
-    // Only allow editing credit sales
-    if (sale.paymentMethod !== 'credit') {
-      return res.status(400).json({ message: 'Only credit sales can be edited' });
-    }
-
-    const { customerName, customerEmail, customerPhone, items, notes, dueDate } = req.body;
+    const { customerName, customerEmail, customerPhone, items, notes, dueDate, saleDate, finalAmount, totalAmount, client } = req.body;
+    const saleAmount = Number(finalAmount ?? totalAmount ?? 0);
 
     if (customerName) sale.customerName = customerName;
-    if (customerEmail) sale.customerEmail = customerEmail;
-    if (customerPhone) sale.customerPhone = customerPhone;
+    if (customerEmail !== undefined) sale.customerEmail = customerEmail;
+    if (customerPhone !== undefined) sale.customerPhone = customerPhone;
     if (items) sale.items = items;
+    if (!items && saleAmount > 0) {
+      sale.items = [];
+      sale.totalAmount = saleAmount;
+      sale.discountAmount = 0;
+      sale.finalAmount = saleAmount;
+    }
     if (notes !== undefined) sale.notes = notes;
     if (dueDate) sale.dueDate = dueDate;
+    if (saleDate) sale.saleDate = new Date(saleDate);
+    if (client !== undefined) sale.client = client || null;
 
     await sale.save();
 
@@ -453,10 +476,6 @@ router.post('/:id/payment', [
 
     if (!sale) {
       return res.status(404).json({ message: 'Sale not found' });
-    }
-
-    if (sale.paymentMethod !== 'credit') {
-      return res.status(400).json({ message: 'Only credit sales can receive payments' });
     }
 
     const { amount, paymentMethod = 'cash', notes, paymentDate, cardNumber, bankName, accountName } = req.body;

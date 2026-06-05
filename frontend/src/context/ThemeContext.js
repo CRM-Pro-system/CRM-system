@@ -56,10 +56,14 @@ export const ThemeProvider = ({ children }) => {
     root.style.setProperty('--primary-hover', adjustColor(primary, -20));
     root.style.setProperty('--primary-light', adjustColor(primary, 40));
     root.style.setProperty('--primary-ring', `${primary}66`);
+    root.style.setProperty('--workspace-bg', `color-mix(in srgb, ${primary} 7%, #f9fafb)`);
+    root.style.setProperty('--workspace-sidebar', primary);
+    root.style.setProperty('--workspace-sidebar-hover', adjustColor(primary, -20));
 
     if (themeConfig.mode === 'dark') {
       root.classList.add('dark');
       body.classList.add('dark');
+      root.style.setProperty('--workspace-bg', `color-mix(in srgb, ${primary} 10%, #111827)`);
     } else {
       root.classList.remove('dark');
       body.classList.remove('dark');

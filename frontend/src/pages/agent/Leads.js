@@ -22,6 +22,18 @@ const LEAD_STATUSES = [
 ];
 
 const LEAD_RATINGS = ["Cold", "Warm", "Hot"];
+const POSITION_OPTIONS = [
+  "Owner",
+  "CEO / Managing Director",
+  "Director",
+  "Manager",
+  "Procurement Officer",
+  "Finance Officer",
+  "Operations Officer",
+  "Sales / Marketing",
+  "Administrator",
+  "Other",
+];
 
 const statusColors = {
   New: "bg-orange-100 text-orange-700",
@@ -49,9 +61,9 @@ export default function Leads() {
 
   const [formData, setFormData] = useState({
     contactName: "",
-    telephone: "",
+    telephone: "+256",
     email: "",
-    position: "",
+    position: "Manager",
     companyName: "",
     companyEmail: "",
     rating: "Cold",
@@ -77,9 +89,19 @@ export default function Leads() {
   const fetchLeads = async () => {
     try {
       setLoading(true);
-      const response = await clientsAPI.getAll({ status: 'prospect', limit: 500 });
-      const allClients = response?.data?.clients || response?.data || [];
-      setLeads(allClients);
+      const [prospectsResponse, assignedResponse] = await Promise.all([
+        clientsAPI.getAll({ status: 'prospect', limit: 500 }),
+        clientsAPI.getAll({ limit: 1000 }),
+      ]);
+      const prospects = prospectsResponse?.data?.clients || prospectsResponse?.data || [];
+      const assignedClients = assignedResponse?.data?.clients || assignedResponse?.data || [];
+      const byId = new Map();
+      [...prospects, ...assignedClients].forEach((client) => {
+        if (client.status === 'prospect' || client.leadStatus === 'Converted') {
+          byId.set(client._id, client);
+        }
+      });
+      setLeads(Array.from(byId.values()));
     } catch (error) {
       console.error("Error fetching leads:", error);
       toast.error("Failed to load leads");
@@ -114,19 +136,61 @@ export default function Leads() {
     });
   };
 
+  const normalizePhoneNumber = (value) => {
+    const compact = String(value || "").trim().replace(/[\s().-]/g, "");
+    if (!compact) return { valid: false, message: "Telephone number is required" };
+
+    if (compact.startsWith("00")) {
+      const international = `+${compact.slice(2)}`;
+      return /^\+[1-9]\d{7,14}$/.test(international)
+        ? { valid: true, value: international }
+        : { valid: false, message: "Enter a valid international number" };
+    }
+
+    if (compact.startsWith("+")) {
+      if (!/^\+[1-9]\d{7,14}$/.test(compact)) {
+        return { valid: false, message: "Enter a valid international number, for example +256XXXXXXXXX" };
+      }
+      if (compact.startsWith("+256") && !/^\+256\d{9}$/.test(compact)) {
+        return { valid: false, message: "Uganda numbers should use +256 followed by 9 digits" };
+      }
+      return { valid: true, value: compact };
+    }
+
+    if (/^0\d{9}$/.test(compact)) {
+      return { valid: true, value: `+256${compact.slice(1)}` };
+    }
+
+    if (/^[237]\d{8}$/.test(compact)) {
+      return { valid: true, value: `+256${compact}` };
+    }
+
+    if (/^256\d{9}$/.test(compact)) {
+      return { valid: true, value: `+${compact}` };
+    }
+
+    return { valid: false, message: "Use +256XXXXXXXXX, 07XXXXXXXX, or a valid international number" };
+  };
+
   const handleCreateLead = async (e) => {
     e.preventDefault();
+    const phone = normalizePhoneNumber(formData.telephone);
+    if (!phone.valid) {
+      toast.error(phone.message);
+      return;
+    }
+
     try {
       const payload = {
         // map lead fields to existing Client model fields
         name: formData.contactName,
-        phone: formData.telephone,
+        phone: phone.value,
         email: formData.email,
         position: formData.position,
         company: formData.companyName,
         // lead-specific fields stored in Client model
         contactName: formData.contactName,
-        telephone: formData.telephone,
+        telephone: phone.value,
         companyName: formData.companyName,
         companyEmail: formData.companyEmail,
         rating: formData.rating,
@@ -139,8 +203,8 @@ export default function Leads() {
       toast.success('Lead created successfully!');
       setShowModal(false);
       setFormData({
-        contactName: '', telephone: '', email: '',
-        position: '', companyName: '', companyEmail: '',
+        contactName: '', telephone: '+256', email: '',
+        position: 'Manager', companyName: '', companyEmail: '',
         rating: 'Cold', leadStatus: 'New',
       });
     } catch (error) {
@@ -280,8 +344,6 @@ export default function Leads() {
       });
       if (newStatus === 'Converted') {
         toast.success('Lead converted to active client!');
-        // remove from leads list since it's now active
-        setLeads((prev) => prev.filter((l) => l._id !== leadId));
       }
     } catch (error) {
       console.error('Error updating lead:', error);
@@ -876,9 +938,15 @@ export default function Leads() {
                     name="telephone"
                     value={formData.telephone}
                     onChange={handleInputChange}
+                    onBlur={() => {
+                      const phone = normalizePhoneNumber(formData.telephone);
+                      if (phone.valid) {
+                        setFormData((prev) => ({ ...prev, telephone: phone.value }));
+                      }
+                    }}
                     required
                     className="w-full border border-slate-200 rounded-xl px-4 py-3"
-                    placeholder="+256 7XX XXX XXX"
+                    placeholder="+256XXXXXXXXX"
                   />
                 </div>
 
@@ -902,13 +970,18 @@ export default function Leads() {
                     Position
                   </label>
 
-                  <input
-                    type="text"
+                  <select
                     name="position"
                     value={formData.position}
                     onChange={handleInputChange}
                     className="w-full border border-slate-200 rounded-xl px-4 py-3"
-                  />
+                  >
+                    {POSITION_OPTIONS.map((position) => (
+                      <option key={position} value={position}>
+                        {position}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

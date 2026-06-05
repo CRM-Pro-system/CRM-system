@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }) => {
         } catch (validationError) {
           // Token is expired or invalid - clear session and redirect to login
           const status = validationError.response?.status;
-          if (status === 401 || status === 403) {
+          if (status === 401) {
             console.warn('Session expired, clearing login state');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
@@ -50,6 +50,8 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem('tenantName');
             setToken(null);
             setUser(null);
+          } else if (status === 403) {
+            console.warn('Session is valid but access is forbidden:', validationError.response?.data?.message);
           }
         }
       }

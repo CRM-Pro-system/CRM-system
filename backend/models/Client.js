@@ -14,8 +14,6 @@ const clientSchema = new mongoose.Schema({
   },
   nin: {
     type: String,
-    unique: true,
-    sparse: true, // Allow multiple null values
     trim: true
   },
   idType: {
@@ -227,7 +225,6 @@ const clientSchema = new mongoose.Schema({
 clientSchema.index({ agent: 1 }); // Fast agent lookups
 clientSchema.index({ email: 1 }); // Fast email lookups
 clientSchema.index({ status: 1 }); // Fast status filtering
-clientSchema.index({ nin: 1 }); // Fast NIN lookups
 clientSchema.index({ createdAt: -1 }); // Fast date-based sorting
 clientSchema.index({ tenant: 1 }); // Fast tenant-based filtering
 clientSchema.index({ tenant: 1, agent: 1 }); // Compound index for tenant + agent queries
