@@ -5,6 +5,7 @@ import { tenantsAPI, usersAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import logo from '../../assets/logo.png';
+import DashboardQuickActions from '../../components/DashboardQuickActions';
 
 const StatCard = ({ icon: Icon, title, value, subtitle, color = 'orange' }) => {
   const colors = {
@@ -215,6 +216,8 @@ const SuperAdminDashboard = () => {
         <StatCard icon={AlertCircle} title="Cancelled Subscriptions" value={stats.cancelledSubscriptions} subtitle="Tenants with cancelled plan" color="red" />
         <StatCard icon={TrendingUp} title="Value of Subscriptions" value={`$${stats.subscriptionValue.toLocaleString()}`} subtitle="Monthly recurring revenue (USD)" color="green" />
       </div>
+
+      <DashboardQuickActions role="superadmin" />
 
       {/* Tenant Status Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

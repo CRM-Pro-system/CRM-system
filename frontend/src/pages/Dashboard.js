@@ -23,6 +23,7 @@ import {
 } from 'recharts';
 import DonutChart, { DealStatusChart, PaymentMethodChart, TaskStatusChart, TopAgentsChart } from '../components/charts/DonutChart';
 import { useAuth } from '../context/AuthContext';
+import DashboardQuickActions from '../components/DashboardQuickActions';
 import { performanceAPI, dealsAPI, clientsAPI, salesAPI, usersAPI } from '../services/api';
 
 // ─── thin wrapper so both roles share the same KPI card style ────────────────
@@ -316,6 +317,8 @@ const Dashboard = () => {
             <KPICard icon={Activity}    title="Clients"           value={kpi.totalClients || 0}   color="purple" />
           </div>
 
+          <DashboardQuickActions role={role === 'superadmin' ? 'superadmin' : 'admin'} />
+
           {/* Second-row quick stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <KPICard icon={CheckCircle} title="Won Deals"          value={kpi.wonDeals || 0}        color="green"  />
@@ -375,6 +378,8 @@ const Dashboard = () => {
             <KPICard icon={Users}       title="Total Clients"     value={kpi.totalClients || 0}              color="green"  />
             <KPICard icon={Target}      title="Leads"             value={kpi.leads || 0}                     color="purple" />
           </div>
+
+          <DashboardQuickActions role="agent" />
 
           {/* Second-row agent stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

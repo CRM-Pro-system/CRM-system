@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ListTodo, Plus, Search, Calendar, Phone, Mail, MessageSquare,
   Clock, CheckSquare, Square, AlertCircle, UserX, MoreHorizontal,
@@ -28,6 +29,8 @@ const priorityMeta = {
 
 export default function Tasks() {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [allTasks, setAllTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -46,6 +49,13 @@ export default function Tasks() {
 
   useEffect(() => { fetchAllData(); }, []);
   useEffect(() => { if (clients.length) fetchAgents(); }, [clients]);
+
+  useEffect(() => {
+    if (location?.state?.openCreate) {
+      setShowModal(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   const fetchAllData = async () => {
     try {
@@ -301,15 +311,16 @@ export default function Tasks() {
       {/* ── CREATE TASK MODAL ── */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-2xl p-8 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-8">
+          <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[min(90vh,900px)] flex flex-col overflow-hidden">
+            <div className="flex-shrink-0 flex items-center justify-between p-8 pb-4 border-b border-slate-100">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">Create New Task</h2>
                 <p className="text-slate-500 mt-1">Add a new task linked to a client record.</p>
               </div>
               <button onClick={() => setShowModal(false)} className="text-slate-500 text-2xl leading-none">×</button>
             </div>
-            <form onSubmit={handleCreateTask} className="space-y-5">
+            <form onSubmit={handleCreateTask} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto px-8 py-4 space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="md:col-span-2">
                   <label className="block mb-2 font-medium text-slate-700">Client / Organization *</label>
@@ -410,7 +421,8 @@ export default function Tasks() {
                   />
                 </div>
               </div>
-              <div className="flex justify-end gap-4 pt-4 border-t border-slate-100">
+              </div>
+              <div className="flex-shrink-0 flex justify-end gap-4 p-8 pt-4 border-t border-slate-100 bg-gray-50">
                 <button type="button" onClick={() => setShowModal(false)}
                   className="px-6 py-3 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-50 transition">
                   Cancel

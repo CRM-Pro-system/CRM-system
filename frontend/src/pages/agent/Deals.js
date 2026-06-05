@@ -27,6 +27,7 @@ import {
   Tooltip as ReTooltip
 } from 'recharts';
 import DonutChart from '../../components/charts/DonutChart';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { dealsAPI, clientsAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -628,25 +629,56 @@ const DealsTableView = ({ deals, onUpdateStage, onDeleteDeal, formatUGX }) => {
 
 // Kanban View Component
 const DealsKanbanView = ({ deals, onUpdateStage, formatUGX }) => {
-  // Pipeline should only show active stages
   const stages = ['lead', 'qualification', 'proposal', 'negotiation'];
-  
+
+  const handleDragEnd = (result) => {
+    const { destination, source, draggableId } = result;
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId) return;
+    onUpdateStage(draggableId, destination.droppableId);
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
-      {stages.map(stage => (
-        <div key={stage} className="bg-gray-50 rounded-xl p-4">
-          <h3 className="font-semibold text-gray-900 mb-4 capitalize">{stage}</h3>
-          <div className="space-y-3">
-            {deals.filter(d => d.stage === stage).map(deal => (
-              <div key={deal._id} className="bg-white rounded-lg p-3 shadow-sm">
-                <p className="font-medium text-sm text-gray-900">{deal.title}</p>
-                <p className="text-xs text-gray-600">{formatUGX(deal.value)}</p>
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {stages.map((stage) => {
+          const stageDeals = deals.filter((d) => d.stage === stage);
+          return (
+            <div key={stage} className="bg-gray-50 rounded-xl p-4 min-h-[280px]">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900 capitalize">{stage}</h3>
+                <span className="text-xs font-medium bg-white px-2 py-1 rounded-full text-gray-600">{stageDeals.length}</span>
               </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
+              <Droppable droppableId={stage}>
+                {(provided) => (
+                  <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-3 min-h-[200px]">
+                    {stageDeals.map((deal, index) => (
+                      <Draggable key={deal._id} draggableId={String(deal._id)} index={index}>
+                        {(dragProvided, snapshot) => (
+                          <div
+                            ref={dragProvided.innerRef}
+                            {...dragProvided.draggableProps}
+                            {...dragProvided.dragHandleProps}
+                            className={`bg-white rounded-lg p-3 shadow-sm border border-gray-100 ${snapshot.isDragging ? 'ring-2 ring-orange-300 shadow-lg' : ''}`}
+                          >
+                            <p className="font-medium text-sm text-gray-900">{deal.title}</p>
+                            <p className="text-xs text-gray-600 mt-1">{formatUGX(deal.value)}</p>
+                            {deal.client?.name && (
+                              <p className="text-xs text-gray-500 mt-1 truncate">{deal.client.name}</p>
+                            )}
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </div>
+          );
+        })}
+      </div>
+    </DragDropContext>
   );
 };
 

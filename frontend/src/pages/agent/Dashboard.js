@@ -16,6 +16,7 @@ import DonutChart, { DealStatusChart, PaymentMethodChart, TaskStatusChart } from
 import { performanceAPI, dealsAPI, clientsAPI, salesAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
+import DashboardQuickActions from '../../components/DashboardQuickActions';
 const exportToCSV = (data, headers, filename) => {
   const csv = [headers, ...data].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -297,6 +298,8 @@ return (
           iconColor="text-purple-500"
         />
       </div>
+
+      <DashboardQuickActions role={user?.role || 'agent'} />
 
       {/* ── Customer Table with Search & Filter ── */}
       {/*

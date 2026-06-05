@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, Plus, Search, Filter, FileText, FileSpreadsheet,
   Clock, CheckCircle, AlertCircle, X, Users, Bug, MessageSquare,
@@ -35,6 +36,8 @@ const priorityMeta = {
 
 export default function Issues() {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [issues, setIssues] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +53,13 @@ export default function Issues() {
   });
 
   useEffect(() => { fetchData(); }, []);
+
+  useEffect(() => {
+    if (location?.state?.openCreate) {
+      setShowModal(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   const fetchData = async () => {
     try {

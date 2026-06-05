@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Calendar, 
@@ -780,6 +781,8 @@ const ScheduleForm = ({ onClose, onSubmit, schedule, isEdit = false, clients = [
 // Main Schedules Component
 const Schedules = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [schedules, setSchedules] = useState([]);
   const [clients, setClients] = useState([]);
   const [view, setView] = useState('list');
@@ -835,6 +838,13 @@ const Schedules = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (location?.state?.openCreate) {
+      setShowForm(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   const filteredSchedules = schedules.filter(schedule => {
     if (filters.type && schedule.type !== filters.type) return false;

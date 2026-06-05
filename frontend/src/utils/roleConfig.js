@@ -86,11 +86,12 @@ export const getQuickActions = (role) => {
     case 'manager':
       return [
         {
-          label: 'Manage Users',
-          description: 'Add, edit, or review team accounts.',
-          icon: Users,
+          label: 'Add User',
+          description: 'Open the new user form directly.',
+          icon: UserPlus,
           color: 'orange',
           path: '/admin/users',
+          state: { openCreate: true },
         },
         {
           label: 'View Reports',
@@ -142,11 +143,12 @@ export const getQuickActions = (role) => {
           state: { openCreate: true },
         },
         {
-          label: 'View Tasks',
-          description: 'Check follow-ups and reminders.',
-          icon: Clock,
+          label: 'Create Task',
+          description: 'Open the new task form directly.',
+          icon: ListTodo,
           color: 'yellow',
           path: '/agent/tasks',
+          state: { openCreate: true },
         },
       ];
   }

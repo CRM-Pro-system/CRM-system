@@ -32,8 +32,6 @@ import ProfileModal from './ProfileModal';
 import LogoutModal from './LogoutModal';
 import QuickActionModal from './QuickActionModal';
 import Taskbar from './Taskbar';
-import DashboardQuickActions from './DashboardQuickActions';
-import { isDashboardRoute } from '../utils/roleConfig';
 import logo from '../assets/logo.png';
 
 const Layout = ({ children, showHeaderActions = true }) => {
@@ -51,9 +49,6 @@ const Layout = ({ children, showHeaderActions = true }) => {
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
   const isSuperAdmin = user?.role === 'superadmin';
   const isAgent = user?.role === 'agent';
-  const taskbarRole = user?.role || 'agent';
-  const onDashboard = isDashboardRoute(location.pathname);
-
   // Load unread notifications for all authenticated roles
   useEffect(() => {
     loadUnreadNotifications();
@@ -289,17 +284,12 @@ const agentNavItems = [
             onOpenProfile={() => setShowProfileModal(true)}
             onMenuClick={() => setSidebarOpen(true)}
             unreadNotifications={unreadNotifications}
-            messageCount={isAgent ? 0 : Math.min(unreadNotifications, 8)}
-            chatCount={isAgent ? 0 : Math.floor(unreadNotifications / 2)}
           />
           <div className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-4">
             <div className="space-y-2">
               <h1 className="text-2xl font-semibold text-gray-900">{activeNavItem.label}</h1>
               <p className="text-sm text-gray-600 max-w-3xl">{activeNavItem.description || 'Welcome to CRM Pro — your central workspace.'}</p>
             </div>
-            {onDashboard && (
-              <DashboardQuickActions role={taskbarRole} />
-            )}
             {children}
           </div>
         </main>

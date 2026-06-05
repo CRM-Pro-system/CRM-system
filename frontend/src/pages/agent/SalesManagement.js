@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { salesAPI, clientsAPI } from '../../services/api';
@@ -13,6 +14,8 @@ import {
 
 const SalesManagement = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [sales, setSales] = useState([]);
   const [clients, setClients] = useState([]);
   const [leads, setLeads] = useState([]);
@@ -89,6 +92,13 @@ const SalesManagement = () => {
   useEffect(() => {
     loadSales();
   }, []);
+
+  useEffect(() => {
+    if (location?.state?.openCreate) {
+      setShowSaleModal(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   useEffect(() => {
     if (showSaleModal) {
@@ -374,9 +384,9 @@ const SalesManagement = () => {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[min(90vh,900px)] flex flex-col overflow-hidden"
           >
-            <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 flex items-center justify-between">
+            <div className="flex-shrink-0 bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 flex items-center justify-between">
               <h2 className="text-2xl font-bold">
                 {editingSale ? 'Edit Sale' : 'Create New Sale'}
               </h2>
@@ -385,7 +395,8 @@ const SalesManagement = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSaveSale} className="p-6 space-y-6">
+            <form onSubmit={handleSaveSale} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Customer Selection */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Customer *</label>
@@ -518,9 +529,9 @@ const SalesManagement = () => {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
               </div>
+              </div>
 
-              {/* Actions */}
-              <div className="flex gap-4 pt-4 border-t">
+              <div className="flex-shrink-0 flex gap-4 p-6 border-t bg-gray-50">
                 <button
                   type="submit"
                   className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-lg font-semibold transition-colors"

@@ -290,21 +290,16 @@ export default function Leads() {
     }
   };
 
-  // Drag and Drop handlers for Kanban
-  const handleDragEnd = async (event) => {
-    const { active, over } = event;
-    
-    if (!over) return;
-    
-    const leadId = active.id;
-    const newStatus = over.id;
-    
-    // Get the lead being dragged
-    const draggedLead = leads.find(lead => lead._id === leadId);
-    if (!draggedLead || draggedLead.leadStatus === newStatus) return;
-    
-    // Update the lead status
-    await handleStatusChange(leadId, newStatus);
+  const handleDragEnd = async (result) => {
+    const { destination, source, draggableId } = result;
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+
+    const newStatus = destination.droppableId;
+    const draggedLead = leads.find((lead) => lead._id === draggableId);
+    if (!draggedLead || (draggedLead.leadStatus || 'New') === newStatus) return;
+
+    await handleStatusChange(draggableId, newStatus);
   };
 
   return (
@@ -617,16 +612,16 @@ export default function Leads() {
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className="space-y-4"
+                        className="space-y-4 min-h-[120px]"
                       >
                         {statusLeads.map((lead, index) => (
-                          <Draggable key={lead._id} draggableId={lead._id} index={index}>
-                            {(provided) => (
+                          <Draggable key={lead._id} draggableId={String(lead._id)} index={index}>
+                            {(provided, snapshot) => (
                               <div
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
-                                {...provided.dragPreviewProps}
-                                className="bg-white rounded-xl p-4 shadow-sm cursor-move hover:shadow-md transition-shadow"
+                                {...provided.dragHandleProps}
+                                className={`bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow ${snapshot.isDragging ? 'ring-2 ring-orange-300 shadow-lg' : ''}`}
                               >
                                 <div className="flex items-start justify-between">
                                   <div>

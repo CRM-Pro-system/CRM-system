@@ -5,6 +5,7 @@ import DonutChart, { StageValueChart, ORANGE_GRADIENT_COLORS } from '../../compo
 import { useAuth } from '../../context/AuthContext';
 import { dealsAPI, salesAPI, clientsAPI, usersAPI, tenantsAPI } from '../../services/api';
 import OnboardingWizard from '../../components/OnboardingWizard';
+import DashboardQuickActions from '../../components/DashboardQuickActions';
 import toast from 'react-hot-toast';
 const PERIODS = ['daily', 'weekly', 'monthly', 'yearly'];
 
@@ -383,6 +384,8 @@ const AdminDashboard = () => {
         <StatCard icon={Users} title="Users (All Time)" value={totalUsersAllTime} />
         <StatCard icon={Target} title="Deals" value={dealsCount} />
       </div>
+
+      <DashboardQuickActions role={user?.role || 'admin'} />
 
       {/* Deals Won vs Lost */}
       <div className="bg-white rounded-xl shadow-sm p-6">
