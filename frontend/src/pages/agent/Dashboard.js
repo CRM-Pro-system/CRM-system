@@ -15,10 +15,7 @@ import {
 import DonutChart, { DealStatusChart, PaymentMethodChart, TaskStatusChart } from '../../components/charts/DonutChart';
 import { performanceAPI, dealsAPI, clientsAPI, salesAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import QuickActionModal from '../../components/QuickActionModal';
-
 const exportToCSV = (data, headers, filename) => {
   const csv = [headers, ...data].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -89,8 +86,6 @@ const PRIORITY_STYLES = {
 // ─── Main Component ───────────────────────────────────────────────────────────
 const AgentDashboard = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const [showQuickActions, setShowQuickActions] = useState(false);
 
   // ── KPI state ──
   const [salesValue, setSalesValue]     = useState(0);
@@ -309,44 +304,6 @@ return (
         with search & filter so agents can immediately find and act on clients
         without navigating to a separate page. This is the agent's primary workspace.
       */}
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-        <div className="mb-5">
-          <h2 className="text-lg font-semibold text-gray-900">Quick actions</h2>
-          <p className="text-sm text-gray-500 mt-1">Jump directly into your most common sales workflows.</p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <button onClick={() => navigate('/agent/clients', { state: { openCreate: true } })} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
-            <div className="rounded-2xl bg-orange-50 p-3 text-orange-600"><Users className="w-5 h-5" /></div>
-            <div>
-              <p className="font-semibold text-gray-900">Create Client</p>
-              <p className="text-sm text-gray-500 mt-1">Open the new client workflow.</p>
-            </div>
-          </button>
-          <button onClick={() => navigate('/agent/sales', { state: { openCreate: true } })} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
-            <div className="rounded-2xl bg-green-50 p-3 text-green-600"><TrendingUp className="w-5 h-5" /></div>
-            <div>
-              <p className="font-semibold text-gray-900">Add Sale</p>
-              <p className="text-sm text-gray-500 mt-1">Record a new deal in seconds.</p>
-            </div>
-          </button>
-          <button onClick={() => navigate('/agent/leads', { state: { openCreate: true } })} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
-            <div className="rounded-2xl bg-blue-50 p-3 text-blue-600"><UserCheck className="w-5 h-5" /></div>
-            <div>
-              <p className="font-semibold text-gray-900">Create Lead</p>
-              <p className="text-sm text-gray-500 mt-1">Capture a prospect without leaving this page.</p>
-            </div>
-          </button>
-          <button onClick={() => navigate('/agent/tasks')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
-            <div className="rounded-2xl bg-yellow-50 p-3 text-yellow-600"><Clock className="w-5 h-5" /></div>
-            <div>
-              <p className="font-semibold text-gray-900">View Tasks</p>
-              <p className="text-sm text-gray-500 mt-1">Check your follow-ups and reminders.</p>
-            </div>
-          </button>
-        </div>
-      </div>
-
       {/* ── Charts Row 1: Monthly Sales + Deal Status ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow-sm p-6">

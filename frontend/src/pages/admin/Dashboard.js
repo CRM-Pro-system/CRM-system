@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Users, TrendingUp, DollarSign, Target, Download, FileText, Settings, ArrowLeftRight } from 'lucide-react';
+import { Users, TrendingUp, DollarSign, Target, Download, FileText } from 'lucide-react';
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import DonutChart, { StageValueChart, ORANGE_GRADIENT_COLORS } from '../../components/charts/DonutChart';
 import { useAuth } from '../../context/AuthContext';
 import { dealsAPI, salesAPI, clientsAPI, usersAPI, tenantsAPI } from '../../services/api';
 import OnboardingWizard from '../../components/OnboardingWizard';
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
-
 const PERIODS = ['daily', 'weekly', 'monthly', 'yearly'];
 
 const StatCard = ({ icon: Icon, title, value }) => (
@@ -29,7 +27,6 @@ const AdminDashboard = () => {
   const [period, setPeriod] = useState('monthly');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const navigate = useNavigate();
 
   // Check onboarding status on mount
   useEffect(() => {
@@ -385,44 +382,6 @@ const AdminDashboard = () => {
         <StatCard icon={DollarSign} title="Sales (This Month)" value={`UGX ${Number(totalRevenue || 0).toLocaleString('en-UG')}`} />
         <StatCard icon={Users} title="Users (All Time)" value={totalUsersAllTime} />
         <StatCard icon={Target} title="Deals" value={dealsCount} />
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-        <div className="mb-5">
-          <h2 className="text-lg font-semibold text-gray-900">Quick actions</h2>
-          <p className="text-sm text-gray-500 mt-1">Run the top admin workflows from one place.</p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <button onClick={() => navigate('/admin/users')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
-            <div className="rounded-2xl bg-orange-50 p-3 text-orange-600"><Users className="w-5 h-5" /></div>
-            <div>
-              <p className="font-semibold text-gray-900">Manage Users</p>
-              <p className="text-sm text-gray-500 mt-1">Add, edit, or review platform accounts.</p>
-            </div>
-          </button>
-          <button onClick={() => navigate('/admin/reports')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
-            <div className="rounded-2xl bg-blue-50 p-3 text-blue-600"><FileText className="w-5 h-5" /></div>
-            <div>
-              <p className="font-semibold text-gray-900">View Reports</p>
-              <p className="text-sm text-gray-500 mt-1">Open sales and performance dashboards.</p>
-            </div>
-          </button>
-          <button onClick={() => navigate('/admin/settings')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
-            <div className="rounded-2xl bg-green-50 p-3 text-green-600"><Settings className="w-5 h-5" /></div>
-            <div>
-              <p className="font-semibold text-gray-900">Settings</p>
-              <p className="text-sm text-gray-500 mt-1">Update platform configuration quickly.</p>
-            </div>
-          </button>
-          <button onClick={() => navigate('/admin/bulk-operations')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
-            <div className="rounded-2xl bg-yellow-50 p-3 text-yellow-600"><ArrowLeftRight className="w-5 h-5" /></div>
-            <div>
-              <p className="font-semibold text-gray-900">Bulk Operations</p>
-              <p className="text-sm text-gray-500 mt-1">Perform large updates across the system.</p>
-            </div>
-          </button>
-        </div>
       </div>
 
       {/* Deals Won vs Lost */}

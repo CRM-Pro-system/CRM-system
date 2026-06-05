@@ -111,27 +111,6 @@ const SuperAdminDashboard = () => {
         <StatCard icon={TrendingUp} title="Total Clients" value={stats.totalClients} subtitle="Across all organizations" color="yellow" />
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Quick actions</h2>
-            <p className="text-sm text-gray-500 mt-1">Run common platform tasks without extra clicks.</p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button onClick={() => navigate('/superadmin/tenants')} className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition">
-              Manage Tenants
-            </button>
-            <button onClick={() => navigate('/admin/users')} className="px-4 py-2 rounded-lg border border-orange-200 text-orange-600 hover:bg-orange-50 transition">
-              View Users
-            </button>
-            <button onClick={() => navigate('/admin/reports')} className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition">
-              View Reports
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Tenant Status Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">

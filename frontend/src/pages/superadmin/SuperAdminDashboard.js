@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Users, Target, TrendingUp, ShieldCheck, AlertCircle, CheckCircle, Clock, ArrowRight, Settings, FileText, UserPlus } from 'lucide-react';
+import { Building2, Users, Target, TrendingUp, ShieldCheck, AlertCircle, CheckCircle, Clock, ArrowRight } from 'lucide-react';
 import { tenantsAPI, usersAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -208,44 +208,6 @@ const SuperAdminDashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-        <div className="mb-5">
-          <h2 className="text-lg font-semibold text-gray-900">Quick actions</h2>
-          <p className="text-sm text-gray-500 mt-1">Take control of tenant and user workflows quickly.</p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <button onClick={() => navigate('/superadmin/tenants')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
-            <div className="rounded-2xl bg-orange-50 p-3 text-orange-600"><Building2 className="w-5 h-5" /></div>
-            <div>
-              <p className="font-semibold text-gray-900">Manage Tenants</p>
-              <p className="text-sm text-gray-500 mt-1">Review and update tenant accounts.</p>
-            </div>
-          </button>
-          <button onClick={() => navigate('/admin/users')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
-            <div className="rounded-2xl bg-blue-50 p-3 text-blue-600"><Users className="w-5 h-5" /></div>
-            <div>
-              <p className="font-semibold text-gray-900">View Users</p>
-              <p className="text-sm text-gray-500 mt-1">Inspect platform user activity and roles.</p>
-            </div>
-          </button>
-          <button onClick={() => navigate('/admin/reports')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
-            <div className="rounded-2xl bg-green-50 p-3 text-green-600"><FileText className="w-5 h-5" /></div>
-            <div>
-              <p className="font-semibold text-gray-900">View Reports</p>
-              <p className="text-sm text-gray-500 mt-1">See revenue, usage and performance summaries.</p>
-            </div>
-          </button>
-          <button onClick={() => navigate('/admin/settings')} className="group flex flex-col items-start gap-4 rounded-3xl border border-gray-200 p-4 text-left hover:border-orange-300 transition">
-            <div className="rounded-2xl bg-yellow-50 p-3 text-yellow-600"><Settings className="w-5 h-5" /></div>
-            <div>
-              <p className="font-semibold text-gray-900">Settings</p>
-              <p className="text-sm text-gray-500 mt-1">Adjust global settings and tenant policies.</p>
-            </div>
-          </button>
-        </div>
-      </div>
-
       {/* Platform Stats — 4 spec-required cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Building2} title="Tenants" value={stats.total} subtitle="Organizations on the platform" color="orange" />

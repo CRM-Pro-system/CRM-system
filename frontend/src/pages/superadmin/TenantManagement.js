@@ -706,6 +706,10 @@ const TenantManagement = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (location?.state?.search) {
+      setSearch(location.state.search);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
     if (location?.state?.openCreate) {
       setShowCreateModal(true);
       navigate(location.pathname, { replace: true, state: {} });

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Plus, Search, Filter, Download, Mail, MapPin, Building, User, Star,
@@ -13,6 +14,8 @@ import ClientRegistrationForm from './ClientRegistrationForm';
 
 const Clients = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [clients, setClients] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -65,9 +68,20 @@ const Clients = () => {
   };
 
   useEffect(() => {
+    if (location?.state?.search) {
+      setSearchTerm(location.state.search);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    if (location?.state?.openCreate) {
+      setShowAddModal(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
+
+  useEffect(() => {
     if (!user) return;
     loadClients();
-  }, [user, filters, pagination.page, sortConfig]);
+  }, [user, filters, pagination.page, sortConfig, searchTerm]);
 
   const handleSort = (key) => {
     setSortConfig(prev => ({

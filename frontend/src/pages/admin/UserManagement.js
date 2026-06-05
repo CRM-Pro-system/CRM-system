@@ -18,6 +18,10 @@ const UserManagement = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (location?.state?.search) {
+      setSearchTerm(location.state.search);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
     if (location?.state?.openCreate) {
       setShowAddModal(true);
       navigate(location.pathname, { replace: true, state: {} });
