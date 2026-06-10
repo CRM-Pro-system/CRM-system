@@ -175,14 +175,14 @@ const Deals = () => {
         )
       );
 
-      await dealsAPI.update(dealId, { stage: newStage });
+      await dealsAPI.updateStatus(dealId, newStage);
       toast.success('Deal updated successfully');
 
       // Refresh data from server to ensure consistency
       loadDeals();
     } catch (err) {
       console.error('Error updating deal:', err);
-      toast.error('Failed to update deal');
+      toast.error(err.response?.data?.message || 'Failed to update deal stage');
       // Revert optimistic update on error
       loadDeals();
     }
