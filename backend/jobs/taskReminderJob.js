@@ -82,7 +82,7 @@ const sendTaskEmail = async ({ agent, client, task, isOverdue }) => {
       taskDescription: task.description || '',
       dueDate:         task.dueDate,
       isOverdue,
-      appUrl: process.env.APP_URL || 'https://crm-tool-ebon.vercel.app'
+      appUrl: process.env.APP_URL || 'https://crm-dbs.vercel.app'
     });
   } catch (err) {
     console.error('[TaskReminder] Email error:', err.message);
