@@ -347,7 +347,7 @@ export default function Leads() {
       }
     } catch (error) {
       console.error('Error updating lead:', error);
-      toast.error('Failed to update lead status');
+      toast.error(error.response?.data?.message || 'Failed to update lead status');
       fetchLeads(); // revert on error
     }
   };
