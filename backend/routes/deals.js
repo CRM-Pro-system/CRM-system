@@ -8,6 +8,47 @@ import { logAction } from '../utils/auditLog.js';
 
 const router = express.Router();
 
+const DEAL_STAGES = ['lead', 'qualification', 'proposal', 'negotiation', 'won', 'lost'];
+const STAGE_PROBABILITY = {
+  lead: 10,
+  qualification: 25,
+  proposal: 50,
+  negotiation: 75,
+  won: 100,
+  lost: 0
+};
+
+const idString = (value) => {
+  if (!value) return '';
+  return String(value._id || value);
+};
+
+const userCanAccessDeal = (req, deal) => {
+  if (req.user.role !== 'agent') return true;
+
+  const userId = String(req.user.userId);
+  const isPrimaryAgent = idString(deal.agent) === userId;
+  const isTeamMember = Array.isArray(deal.teamMembers) &&
+    deal.teamMembers.some((member) => idString(member) === userId);
+
+  return isPrimaryAgent || isTeamMember;
+};
+
+const agentDealAccessFilter = (userId) => ({
+  $or: [
+    { agent: userId },
+    { teamMembers: userId }
+  ]
+});
+
+const appendAndFilter = (query, filter) => {
+  if (!filter) return query;
+  return {
+    ...query,
+    $and: [...(query.$and || []), filter]
+  };
+};
+
 // Apply tenant-aware middleware to all routes
 router.use(tenantAuth);
 
@@ -17,11 +58,11 @@ router.get('/', async (req, res) => {
     const { page = 1, limit = 10, stage, client, agent, search, minValue, maxValue } = req.query;
 
     // Start with tenant-filtered query
-    let query = req.tenantQuery;
+    let query = { ...req.tenantQuery };
 
     // Agents can only see their own deals, or filter by specific agent if admin
     if (req.user.role === 'agent') {
-      query.agent = req.user.userId;
+      query = appendAndFilter(query, agentDealAccessFilter(req.user.userId));
     } else if (agent) {
       // Admin can filter by specific agent
       query.agent = agent;
@@ -38,10 +79,10 @@ router.get('/', async (req, res) => {
 
     // Search filter
     if (search) {
-      query.$or = [
+      query = appendAndFilter(query, { $or: [
         { title: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } }
-      ];
+      ] });
     }
 
     // Value range filters
@@ -82,11 +123,11 @@ router.get('/', async (req, res) => {
 router.get('/stats', async (req, res) => {
   try {
     // Start with tenant-filtered query
-    let query = req.tenantQuery;
+    let query = { ...req.tenantQuery };
 
     // Agents can only see stats for their own deals
     if (req.user.role === 'agent') {
-      query.agent = req.user.userId;
+      query = appendAndFilter(query, agentDealAccessFilter(req.user.userId));
     }
 
     const deals = await Deal.find(query);
@@ -133,7 +174,7 @@ router.get('/stats', async (req, res) => {
 // Get deal by ID
 router.get('/:id', async (req, res) => {
   try {
-    const deal = await Deal.findById(req.params.id)
+    const deal = await Deal.findOne({ _id: req.params.id, ...req.tenantQuery })
       .populate('client', 'name email phone')
       .populate('agent', 'name email')
       .populate('teamMembers', 'name email')
@@ -147,9 +188,7 @@ router.get('/:id', async (req, res) => {
     }
 
     // Check if user has permission to view this deal
-    const dealAgentId = deal.agent?._id?.toString() || deal.agent?.toString();
-    const currentUserId = req.user.userId?.toString();
-    if (req.user.role === 'agent' && dealAgentId !== currentUserId) {
+    if (!userCanAccessDeal(req, deal)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -220,17 +259,14 @@ router.post('/', [
 // Update deal
 router.put('/:id', async (req, res) => {
   try {
-    // Find deal without strict tenant filter first to check ownership
-    const deal = await Deal.findById(req.params.id).populate('client', 'name');
+    const deal = await Deal.findOne({ _id: req.params.id, ...req.tenantQuery }).populate('client', 'name');
 
     if (!deal) {
       return res.status(404).json({ message: 'Deal not found' });
     }
 
     // Check if user has permission to update this deal
-    const dealAgentId = deal.agent?._id?.toString() || deal.agent?.toString();
-    const currentUserId = req.user.userId?.toString();
-    if (req.user.role === 'agent' && dealAgentId !== currentUserId) {
+    if (!userCanAccessDeal(req, deal)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -240,15 +276,25 @@ router.put('/:id', async (req, res) => {
     if (req.body.stage && ['won', 'lost'].includes(req.body.stage) && !deal.closedAt) {
       req.body.closedAt = new Date();
     }
+    if (req.body.stage) {
+      if (!DEAL_STAGES.includes(req.body.stage)) {
+        return res.status(400).json({ message: 'Invalid deal stage' });
+      }
+      req.body.probability = STAGE_PROBABILITY[req.body.stage] ?? deal.probability;
+    }
 
     const updatedDeal = await Deal.findOneAndUpdate(
       { _id: req.params.id, ...req.tenantQuery }, 
       req.body, 
-      { new: true }
+      { new: true, runValidators: true }
     )
       .populate('client', 'name email phone')
       .populate('agent', 'name email')
       .populate('teamMembers', 'name email');
+
+    if (!updatedDeal) {
+      return res.status(404).json({ message: 'Deal not found' });
+    }
 
     // Create notification for admins based on the change
     try {
@@ -323,21 +369,26 @@ router.patch('/:id/status', async (req, res) => {
   try {
     const { status } = req.body;
 
-    const deal = await Deal.findById(req.params.id).populate('client', 'name');
+    const deal = await Deal.findOne({ _id: req.params.id, ...req.tenantQuery }).populate('client', 'name');
 
     if (!deal) {
       return res.status(404).json({ message: 'Deal not found' });
     }
 
     // Check if user has permission to update this deal
-    const dealAgentId = deal.agent?._id?.toString() || deal.agent?.toString();
-    const currentUserId = req.user.userId?.toString();
-    if (req.user.role === 'agent' && dealAgentId !== currentUserId) {
+    if (!userCanAccessDeal(req, deal)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
     const previousStage = deal.stage;
-    const updateData = { stage: status };
+    if (!DEAL_STAGES.includes(status)) {
+      return res.status(400).json({ message: 'Invalid deal stage' });
+    }
+
+    const updateData = {
+      stage: status,
+      probability: STAGE_PROBABILITY[status] ?? deal.probability
+    };
 
     // If closing the deal, set closedAt date
     if (['won', 'lost'].includes(status) && !deal.closedAt) {
@@ -347,10 +398,14 @@ router.patch('/:id/status', async (req, res) => {
     const updatedDeal = await Deal.findOneAndUpdate(
       { _id: req.params.id, ...req.tenantQuery }, 
       updateData, 
-      { new: true }
+      { new: true, runValidators: true }
     )
       .populate('client', 'name email phone')
       .populate('agent', 'name email');
+
+    if (!updatedDeal) {
+      return res.status(404).json({ message: 'Deal not found' });
+    }
 
     // Create notification for admins
     try {
@@ -407,16 +462,14 @@ router.patch('/:id/status', async (req, res) => {
 // Delete deal
 router.delete('/:id', async (req, res) => {
   try {
-    const deal = await Deal.findById(req.params.id);
+    const deal = await Deal.findOne({ _id: req.params.id, ...req.tenantQuery });
 
     if (!deal) {
       return res.status(404).json({ message: 'Deal not found' });
     }
 
     // Check if user has permission to delete this deal
-    const dealAgentId = deal.agent?._id?.toString() || deal.agent?.toString();
-    const currentUserId = req.user.userId?.toString();
-    if (req.user.role === 'agent' && dealAgentId !== currentUserId) {
+    if (!userCanAccessDeal(req, deal)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
