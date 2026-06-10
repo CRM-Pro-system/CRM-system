@@ -44,6 +44,7 @@ const app = express();
 const defaultOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
+  'https://crm-dbs.vercel.app',
   'https://crm-tool-ebon.vercel.app',
   'https://crm.xtreative.com',
   'https://www.crm.xtreative.com'
