@@ -444,7 +444,7 @@ const emailTemplates = {
 
               <div class="steps">
                 <h3>🚀 Getting Started:</h3>
-                <div class="step">1. Go to the login page: <a href="https://crm-system-brown-kappa.vercel.app/login">https://crm-system-brown-kappa.vercel.app/login</a></div>
+                <div class="step">1. Go to the login page: <a href="https://crm-dbs.vercel.app/login">https://crm-dbs.vercel.app/login</a></div>
                 <div class="step">2. Enter your email: <strong>${email}</strong></div>
                 <div class="step">3. Use the OTP above as your password</div>
                 <div class="step">4. You'll be prompted to create a new secure password</div>
@@ -456,7 +456,7 @@ const emailTemplates = {
               </div>
 
               <div style="text-align: center;">
-                <a href="https://crm-system-brown-kappa.vercel.app/login" class="button">🎯 Login to Your Dashboard</a>
+                <a href="https://crm-dbs.vercel.app/login" class="button">🎯 Login to Your Dashboard</a>
               </div>
 
               <div class="footer">
