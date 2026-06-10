@@ -111,7 +111,7 @@ const CreateTenantModal = ({ onClose, onCreated }) => {
               <div className="bg-white border-2 border-red-300 rounded-xl p-3 mt-2">
                 <p className="text-2xl font-mono font-bold text-center text-gray-900 tracking-widest">{success.otp}</p>
               </div>
-              <p className="text-xs text-red-500 mt-2">Login URL: https://crm-system-brown-kappa.vercel.app/login</p>
+              <p className="text-xs text-red-500 mt-2">Login URL: https://crm-dbs.vercel.app/login</p>
             </div>
           )}
 
