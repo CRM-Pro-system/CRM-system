@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Tenant from '../models/Tenant.js';
+import Subscription from '../models/Subscription.js';
 
 /**
  * Tenant-Aware Authentication Middleware
@@ -39,6 +40,7 @@ export const tenantAuth = async (req, res, next) => {
     // Load user with tenant information
     const user = await User.findById(decoded.userId)
       .populate('tenant')
+      .populate('customRole')
       .select('-password -otp');
 
     if (!user) {
@@ -56,11 +58,23 @@ export const tenantAuth = async (req, res, next) => {
       });
     }
 
-    // Handle Super Admin (no tenant restrictions)
-    if (user.role === 'superadmin') {
-      req.user = user;
-      req.tenant = null; // Super admin has access to all tenants
-      req.isSuperAdmin = true;
+    // Handle platform roles without tenant restrictions
+    if (user.role === 'superadmin' || user.role === 'manager') {
+      req.user = {
+        userId: user._id,
+        email: user.email,
+        role: user.role,
+        tenantId: null,
+        name: user.name
+      };
+      req.tenant = null;
+      req.isSuperAdmin = user.role === 'superadmin';
+      req.isPlatformManager = user.role === 'manager';
+      req.tenantQuery = {}; // Super admin sees all data
+      req.canAddUsers = () => true;
+      req.canAddClients = () => true;
+      req.canAddDeals = () => true;
+      req.updateTenantUsage = async () => {}; // No-op for super admin
       return next();
     }
 
@@ -80,6 +94,13 @@ export const tenantAuth = async (req, res, next) => {
       });
     }
 
+    if (user.tenant.metadata?.lockdownMode) {
+      return res.status(403).json({
+        message: 'Organization is in emergency lockdown mode. Please contact your administrator.',
+        code: 'TENANT_LOCKDOWN'
+      });
+    }
+
     // Check if trial has expired
     if (user.tenant.status === 'trial' && user.tenant.isTrialExpired) {
       return res.status(403).json({ 
@@ -89,10 +110,41 @@ export const tenantAuth = async (req, res, next) => {
     }
 
     // Add user and tenant context to request
-    req.user = user;
+    req.user = {
+      userId: user._id,
+      email: user.email,
+      role: user.role,
+      customRole: user.customRole,
+      tenantId: user.tenant._id,
+      name: user.name
+    };
     req.tenant = user.tenant;
     req.tenantId = user.tenant._id;
     req.isSuperAdmin = false;
+
+    // Tenant-scoped query filter helper
+    req.tenantQuery = { tenant: user.tenant._id };
+
+    // Usage check helpers
+    req.canAddUsers = () => user.tenant.canAddUser();
+    req.canAddClients = () => user.tenant.canAddClient();
+    req.canAddDeals = () => user.tenant.canAddDeal();
+
+    // Usage update helper
+    req.updateTenantUsage = async (resource, increment) => {
+      const fieldMap = {
+        users: 'usage.totalUsers',
+        clients: 'usage.totalClients',
+        deals: 'usage.totalDeals'
+      };
+      const field = fieldMap[resource];
+      if (field) {
+        await Tenant.findByIdAndUpdate(user.tenant._id, {
+          $inc: { [field]: increment },
+          'usage.lastActivity': new Date()
+        });
+      }
+    };
 
     next();
   } catch (error) {
@@ -179,7 +231,6 @@ export const requireFeature = (featureName) => {
     }
 
     try {
-      // Load tenant with subscription details
       const tenant = await Tenant.findById(req.tenantId).populate('subscription');
       
       if (!tenant) {
@@ -247,22 +298,22 @@ export const checkUsageLimit = (resourceType) => {
 
       switch (resourceType) {
         case 'users':
-          canAdd = tenant.canAddUser();
-          currentUsage = tenant.usage.totalUsers;
-          limit = tenant.settings.features.maxUsers;
+          currentUsage = tenant.usage.totalUsers || 0;
+          limit = tenant.subscription?.features?.maxUsers || tenant.settings?.features?.maxUsers || 250;
+          canAdd = currentUsage < limit;
           break;
         case 'clients':
-          canAdd = tenant.canAddClient();
-          currentUsage = tenant.usage.totalClients;
-          limit = tenant.settings.features.maxClients;
+          currentUsage = tenant.usage.totalClients || 0;
+          limit = tenant.subscription?.features?.maxClients || tenant.settings?.features?.maxClients || 1000;
+          canAdd = currentUsage < limit;
           break;
         case 'deals':
-          canAdd = tenant.canAddDeal();
-          currentUsage = tenant.usage.totalDeals;
-          limit = tenant.settings.features.maxDeals;
+          currentUsage = tenant.usage.totalDeals || 0;
+          limit = tenant.subscription?.features?.maxDeals || tenant.settings?.features?.maxDeals || 500;
+          canAdd = currentUsage < limit;
           break;
         default:
-          return next(); // Unknown resource type, allow through
+          return next();
       }
 
       if (!canAdd) {
@@ -292,8 +343,8 @@ export const checkUsageLimit = (resourceType) => {
  * Adds tenant filter to MongoDB queries automatically
  */
 export const addTenantFilter = (req, baseQuery = {}) => {
-  // Super admin can see all data (no tenant filter)
-  if (req.isSuperAdmin) {
+  // Platform roles can see all data (no tenant filter)
+  if (req.isSuperAdmin || req.isPlatformManager) {
     return baseQuery;
   }
 
@@ -321,3 +372,35 @@ export const addTenantData = (req, data = {}) => {
     tenant: req.tenantId
   };
 };
+
+/**
+ * Granular Permission Middleware
+ * 
+ * Ensures user has a specific permission string (e.g., 'clients:write')
+ * Admins automatically have all permissions.
+ */
+export const requirePermission = (requiredPermission) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required.' });
+    }
+
+    // Super admin and tenant admins have full access
+    if (req.isSuperAdmin || req.user.role === 'admin') {
+      return next();
+    }
+
+    // If user has a custom role, check its permissions array
+    if (req.user.customRole && Array.isArray(req.user.customRole.permissions)) {
+      if (req.user.customRole.permissions.includes(requiredPermission) || req.user.customRole.permissions.includes('*')) {
+        return next();
+      }
+    }
+
+    return res.status(403).json({ 
+      message: `Access denied. Missing permission: ${requiredPermission}`,
+      code: 'INSUFFICIENT_PERMISSION'
+    });
+  };
+};
+

@@ -1,8 +1,24 @@
 import rateLimit from 'express-rate-limit';
 
+const parseLimit = (value, fallback) => {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+export const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: parseLimit(process.env.LOGIN_RATE_LIMIT_MAX, 600),
+    message: {
+        message: 'Too many login attempts from this network, please try again after 15 minutes'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+});
+
 export const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Relaxed limit to avoiding blocking legit users during dev/test
+    max: parseLimit(process.env.AUTH_RATE_LIMIT_MAX, 200),
     message: {
         message: 'Too many requests from this IP, please try again after 15 minutes'
     },

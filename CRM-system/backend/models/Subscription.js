@@ -40,7 +40,7 @@ const subscriptionSchema = new mongoose.Schema({
     // User Limits
     maxUsers: {
       type: Number,
-      default: 5,
+      default: 250,
       min: [1, 'Must allow at least 1 user']
     },
     

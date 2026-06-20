@@ -21,11 +21,32 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  role: {
-    type: String,
-    enum: ['superadmin', 'admin', 'agent'],
-    default: 'agent'
-  },
+
+   role: {
+     type: String,
+     enum: ['superadmin', 'admin', 'manager', 'agent'],
+     default: 'agent'
+   },
+   customRole: {
+     type: mongoose.Schema.Types.ObjectId,
+     ref: 'Role',
+     default: null
+   },
+
+   // Target fields for performance tracking
+   monthlyTargetDeals: {
+     type: Number,
+     default: 0
+   },
+   monthlyTargetAmount: {
+     type: Number,
+     default: 0
+   },
+   monthlyTargetClients: {
+     type: Number,
+     default: 0
+   },
+
   nin: {
     type: String,
     trim: true,
@@ -80,10 +101,30 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  monthlySales: {
-    type: Number,
-    default: 0
-  },
+   monthlySales: {
+     type: Number,
+     default: 0
+   },
+   monthlySalesAmount: {
+     type: Number,
+     default: 0
+   },
+   monthlyClients: {
+     type: Number,
+     default: 0
+   },
+   monthlyTargetDeals: {
+     type: Number,
+     default: 0
+   },
+   monthlyTargetAmount: {
+     type: Number,
+     default: 0
+   },
+   monthlyTargetClients: {
+     type: Number,
+     default: 0
+   },
   monthlySalesAmount: {
     type: Number,
     default: 0
@@ -102,6 +143,16 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Tenant',
     default: null // null for superadmin users
+  },
+
+  // Department & Region (configurable per company)
+  department: {
+    type: String,
+    default: ''
+  },
+  region: {
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true
@@ -113,5 +164,9 @@ userSchema.pre('save', async function(next) {
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
+
+userSchema.index({ tenant: 1, role: 1, isActive: 1 });
+userSchema.index({ tenant: 1, createdAt: -1 });
+userSchema.index({ status: 1 });
 
 export default mongoose.model('User', userSchema);
