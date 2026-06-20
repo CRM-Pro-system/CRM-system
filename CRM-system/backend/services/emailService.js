@@ -22,9 +22,9 @@ const createTransporter = async () => {
     const secure = process.env.EMAIL_SECURE === 'true';
 
     const transportConfig = {
-      connectionTimeout: process.env.EMAIL_CONNECTION_TIMEOUT ? Number(process.env.EMAIL_CONNECTION_TIMEOUT) : 10000,
-      greetingTimeout: process.env.EMAIL_GREETING_TIMEOUT ? Number(process.env.EMAIL_GREETING_TIMEOUT) : 10000,
-      socketTimeout: process.env.EMAIL_SOCKET_TIMEOUT ? Number(process.env.EMAIL_SOCKET_TIMEOUT) : 15000,
+      connectionTimeout: process.env.EMAIL_CONNECTION_TIMEOUT ? Number(process.env.EMAIL_CONNECTION_TIMEOUT) : 30000,
+      greetingTimeout: process.env.EMAIL_GREETING_TIMEOUT ? Number(process.env.EMAIL_GREETING_TIMEOUT) : 30000,
+      socketTimeout: process.env.EMAIL_SOCKET_TIMEOUT ? Number(process.env.EMAIL_SOCKET_TIMEOUT) : 60000,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
@@ -35,20 +35,37 @@ const createTransporter = async () => {
       transportConfig.host = host;
       transportConfig.port = port || 587;
       transportConfig.secure = secure;
+      console.log(`📧 Email service configured with SMTP host: ${host}:${port || 587} (secure: ${secure})`);
     } else {
       transportConfig.service = service || 'gmail';
+      console.log(`📧 Email service configured with service: ${service || 'gmail'}`);
     }
+
+    console.log(`📧 Email user: ${process.env.EMAIL_USER}`);
+    console.log(`📧 Timeouts: connection=${transportConfig.connectionTimeout}ms, greeting=${transportConfig.greetingTimeout}ms, socket=${transportConfig.socketTimeout}ms`);
 
     cachedTransporter = nodemailer.createTransport(transportConfig);
     cachedConfigSummary = {
       provider: transportConfig.service || transportConfig.host || 'custom',
       user: process.env.EMAIL_USER
     };
+    
+    // Verify the connection
+    try {
+      await cachedTransporter.verify();
+      console.log('✅ Email transporter verified successfully');
+    } catch (verifyError) {
+      console.error('❌ Email transporter verification failed:', verifyError.message);
+      console.error('   This may cause email sending to fail. Please check your EMAIL credentials.');
+    }
+    
     logEmailConfig();
     return cachedTransporter;
   }
 
   // Fall back to Ethereal (auto-generate account when not supplied)
+  console.warn('⚠️  No EMAIL_USER or EMAIL_PASS found - falling back to Ethereal test account');
+  
   if (!cachedEtherealAccount) {
     if (process.env.ETHEREAL_USER && process.env.ETHEREAL_PASS) {
       cachedEtherealAccount = {
@@ -473,9 +490,11 @@ const emailTemplates = {
   }
 };
 
-// Send email function - FIXED: Proper template calling
+// Send email function - FIXED: Proper template calling with enhanced error handling
 export const sendEmail = async (to, templateName, templateData) => {
   try {
+    console.log(`📧 Attempting to send email to ${to} using template '${templateName}'`);
+    
     const transporter = await createTransporter();
     const template = emailTemplates[templateName];
 
@@ -493,17 +512,30 @@ export const sendEmail = async (to, templateName, templateData) => {
       html: emailContent.html
     };
 
+    console.log(`📤 Sending email from ${mailOptions.from} to ${to}`);
+    console.log(`📋 Subject: ${emailContent.subject}`);
 
     const result = await transporter.sendMail(mailOptions);
 
     const previewUrl = nodemailer.getTestMessageUrl(result);
     if (previewUrl) {
+      console.log(`✅ Email sent successfully! Preview: ${previewUrl}`);
+    } else {
+      console.log(`✅ Email sent successfully to ${to} (Message ID: ${result.messageId})`);
     }
 
     return { success: true, messageId: result.messageId, previewUrl };
   } catch (error) {
-    console.error('❌ Email sending error:', error);
-    return { success: false, error: error.message };
+    console.error('❌ Email sending error:', {
+      message: error.message,
+      code: error.code,
+      command: error.command,
+      response: error.response,
+      responseCode: error.responseCode,
+      to,
+      templateName
+    });
+    return { success: false, error: error.message, details: error };
   }
 };
 

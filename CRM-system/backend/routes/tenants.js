@@ -728,13 +728,24 @@ router.post('/', requireSuperAdmin, async (req, res) => {
       otp
     });
 
-    res.status(201).json({
+    console.log('📧 Email sending result:', emailResult);
+
+    const response = {
       message: 'Organization created successfully',
       tenant,
       admin: { name: companyAdminName, email, role: 'admin' },
-      emailSent: emailResult.success,
-      otp: emailResult.success ? undefined : otp
-    });
+      emailSent: emailResult.success
+    };
+
+    // If email failed, include OTP in response and log detailed error
+    if (!emailResult.success) {
+      console.error('❌ Failed to send welcome email:', emailResult.error);
+      response.otp = otp;
+      response.emailError = emailResult.error;
+      response.message = 'Organization created but email failed to send';
+    }
+
+    res.status(201).json(response);
   } catch (error) {
     console.error('Error creating tenant:', error);
     if (error.code === 11000) return res.status(400).json({ message: 'Organization with this name or email already exists' });
