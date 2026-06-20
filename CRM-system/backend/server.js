@@ -19,8 +19,19 @@ import { stockRoutes } from './routes/stock.js';
 import { notificationRoutes } from './routes/notifications.js';
 import { uploadRoutes } from './routes/upload.js';
 import { meetingRoutes } from './routes/meetings.js';
+import { settingsRoutes } from './routes/settings.js';
+import { tenantRoutes } from './routes/tenants.js';
+import { auditLogRoutes } from './routes/auditLogs.js';
+import { emailTemplateRoutes } from './routes/emailTemplates.js';
+import { scheduledExportRoutes } from './routes/scheduledExports.js';
+import { roleRoutes } from './routes/roles.js';
+import { dashboardRoutes } from './routes/dashboards.js';
+import { predictiveAnalyticsRoutes } from './routes/predictiveAnalytics.js';
+import { issueRoutes } from './routes/issues.js';
 import { testEmailConfig } from './services/emailService.js';
-
+import { startTaskReminderJob } from './jobs/taskReminderJob.js';
+import { startScheduledExportJob } from './jobs/scheduledExportJob.js';
+import Client from './models/Client.js';
 
 dotenv.config();
 
@@ -33,7 +44,9 @@ const app = express();
 const defaultOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
+  'https://crm-dbs.vercel.app',
   'https://crm-tool-ebon.vercel.app',
+  'https://crm-tool-indol.vercel.app',
   'https://crm.xtreative.com',
   'https://www.crm.xtreative.com'
 ];
@@ -81,12 +94,31 @@ if (!MONGODB_URI.startsWith('mongodb://') && !MONGODB_URI.startsWith('mongodb+sr
   process.exit(1);
 }
 
+const cleanupLegacyClientIndexes = async () => {
+  try {
+    const indexes = await Client.collection.indexes();
+    const legacyNinIndex = indexes.find((index) => index.name === 'nin_1');
+
+    if (legacyNinIndex) {
+      await Client.collection.dropIndex('nin_1');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Dropped legacy clients.nin_1 index');
+      }
+    }
+  } catch (error) {
+    if (error.codeName !== 'IndexNotFound' && process.env.NODE_ENV !== 'production') {
+      console.warn('Could not clean up legacy client indexes:', error.message);
+    }
+  }
+};
+
 mongoose.connect(MONGODB_URI, mongoOptions)
-  .then(() => {
+  .then(async () => {
     if (process.env.NODE_ENV !== 'production') {
       console.log('✅ MongoDB connected successfully');
       console.log('Database:', mongoose.connection.name);
     }
+    await cleanupLegacyClientIndexes();
   })
   .catch(err => {
     console.error('❌ MongoDB connection error:', err.message);
@@ -106,6 +138,15 @@ app.use('/api/stock', stockRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/meetings', meetingRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/tenants', tenantRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/email-templates', emailTemplateRoutes);
+app.use('/api/scheduled-exports', scheduledExportRoutes);
+app.use('/api/roles', roleRoutes);
+app.use('/api/dashboards', dashboardRoutes);
+app.use('/api/predictive-analytics', predictiveAnalyticsRoutes);
+app.use('/api/issues', issueRoutes);
 
 // Lightweight health/version endpoints for deployed debugging
 app.get('/api/health', (req, res) => {
@@ -266,4 +307,8 @@ app.listen(PORT, async () => {
 
   // Update rankings immediately on startup
   updateAgentRankings();
+
+  // Start task reminder cron job (runs every hour)
+  startTaskReminderJob();
+  startScheduledExportJob();
 });

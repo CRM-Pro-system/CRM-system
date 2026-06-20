@@ -3,41 +3,34 @@ import User from '../models/User.js';
 
 export const createNotification = async (data) => {
   try {
-    const { type, actorId, entityType, entityId, metadata = {} } = data;
+    const { type, actorId, entityType, entityId, metadata = {}, tenantId } = data;
 
-    // Find all admin users
-    const admins = await User.find({ role: 'admin' });
+    // Find admin users - scoped to tenant if tenantId provided
+    const adminQuery = { role: 'admin' };
+    if (tenantId) adminQuery.tenant = tenantId;
+    const admins = await User.find(adminQuery);
 
-    if (admins.length === 0) {
-      console.warn('No admin users found to send notifications');
-      return;
-    }
+    if (admins.length === 0) return;
 
-    // Get actor details
     const actor = await User.findById(actorId);
-    if (!actor) {
-      console.error('Actor not found for notification');
-      return;
-    }
+    if (!actor) return;
 
-    // Create notification messages based on type
     const notificationData = getNotificationData(type, actor, metadata);
 
-    // Create notifications for all admins
     const notifications = admins.map(admin => ({
       title: notificationData.title,
       message: notificationData.message,
-      type: type,
+      type,
       recipient: admin._id,
       actor: actorId,
-      entityType: entityType,
-      entityId: entityId,
-      metadata: metadata,
+      entityType,
+      entityId,
+      metadata,
+      tenant: tenantId || actor.tenant || null,
       priority: notificationData.priority || 'medium'
     }));
 
     await Notification.insertMany(notifications);
-
     return { success: true, count: notifications.length };
   } catch (error) {
     console.error('Error creating notification:', error);
