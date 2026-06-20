@@ -6,32 +6,20 @@ import Stock from '../models/Stock.js';
 import User from '../models/User.js';
 import { body, validationResult } from 'express-validator';
 import { createNotification } from '../utils/notifications.js';
+import { tenantAuth } from '../middleware/tenantAuth.js';
 
 const router = express.Router();
 
-// Middleware to get current user
-const getCurrentUser = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-
-    const jwt = await import('jsonwebtoken');
-    const decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Invalid token' });
-  }
-};
+// Apply tenant-aware middleware to all routes
+router.use(tenantAuth);
 
 // Get all sales (admin sees all, agents see their own)
-router.get('/', getCurrentUser, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 10, startDate, endDate, paymentMethod, status, customerName, agent } = req.query;
 
-    let query = {};
+    // Start with tenant-filtered query
+    let query = req.tenantQuery;
 
     // Agents can only see their own sales, or filter by specific agent if admin
     if (req.user.role === 'agent') {
@@ -66,6 +54,8 @@ router.get('/', getCurrentUser, async (req, res) => {
     const sales = await Sale.find(query)
       .populate('agent', 'name email')
       .populate('client', 'name email phone')
+      .populate('tasks.createdBy', 'name')
+      .populate('tasks.assignedTo', 'name')
       .sort({ saleDate: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -88,7 +78,7 @@ router.get('/', getCurrentUser, async (req, res) => {
 });
 
 // Get sales summary (daily, weekly, monthly)
-router.get('/summary', getCurrentUser, async (req, res) => {
+router.get('/summary', async (req, res) => {
   try {
     const { period = 'daily', agent } = req.query;
     const now = new Date();
@@ -104,7 +94,8 @@ router.get('/summary', getCurrentUser, async (req, res) => {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
-    let query = { saleDate: { $gte: startDate } };
+    // Start with tenant-filtered query and add date filter
+    let query = { ...req.tenantQuery, saleDate: { $gte: startDate } };
 
     // Agents can only see their own sales, or filter by specific agent if admin
     if (req.user.role === 'agent') {
@@ -136,11 +127,12 @@ router.get('/summary', getCurrentUser, async (req, res) => {
 });
 
 // Get sales statistics (admin only - sees all data)
-router.get('/stats', getCurrentUser, async (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
-    let query = {};
+    // Start with tenant-filtered query
+    let query = req.tenantQuery;
 
     // Apply date filters if provided
     if (startDate && endDate) {
@@ -151,7 +143,7 @@ router.get('/stats', getCurrentUser, async (req, res) => {
     }
 
     // Only filter by agent if not admin
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'admin' && req.user.role !== 'manager' && req.user.role !== 'superadmin') {
       query.agent = req.user.userId;
     }
 
@@ -237,10 +229,11 @@ router.get('/stats', getCurrentUser, async (req, res) => {
 
 // Create new sale
 router.post('/', [
-  getCurrentUser,
   body('customerName').trim().isLength({ min: 1 }).withMessage('Customer name is required'),
-  body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
-  body('paymentMethod').isIn(['cash', 'credit']).withMessage('Invalid payment method')
+  body('finalAmount').optional().isFloat({ min: 0.01 }).withMessage('Sale amount must be greater than 0'),
+  body('totalAmount').optional().isFloat({ min: 0.01 }).withMessage('Sale amount must be greater than 0'),
+  body('items').optional().isArray({ min: 1 }).withMessage('At least one item is required when items are provided'),
+  body('paymentMethod').optional().isIn(['cash', 'credit']).withMessage('Invalid payment method')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -249,39 +242,55 @@ router.post('/', [
       return res.status(400).json({ message: 'Validation errors', errors: errors.array() });
     }
 
-    const { customerName, customerEmail, customerPhone, items, paymentMethod, client, notes, dueDate } = req.body;
-
-    // Validate items before creating sale
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ message: 'At least one item is required' });
-    }
-
-    // Validate each item
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      if (!item.itemName || !item.itemName.trim()) {
-        return res.status(400).json({ message: `Item ${i + 1}: Item name is required` });
-      }
-      if (!item.quantity || item.quantity < 1) {
-        return res.status(400).json({ message: `Item ${i + 1}: Quantity must be at least 1` });
-      }
-      if (item.unitPrice === undefined || item.unitPrice === null || item.unitPrice < 0) {
-        return res.status(400).json({ message: `Item ${i + 1}: Unit price must be non-negative` });
-      }
-    }
-
-    // Create sale
-    const sale = new Sale({
+    const {
       customerName,
       customerEmail,
       customerPhone,
       items,
+      paymentMethod = 'cash',
+      client,
+      notes,
+      dueDate,
+      saleDate,
+      finalAmount,
+      totalAmount
+    } = req.body;
+    const saleAmount = Number(finalAmount ?? totalAmount ?? 0);
+
+    if ((!items || !Array.isArray(items) || items.length === 0) && saleAmount <= 0) {
+      return res.status(400).json({ message: 'Sale amount must be greater than 0' });
+    }
+
+    if (items && Array.isArray(items)) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (!item.itemName || !item.itemName.trim()) {
+          return res.status(400).json({ message: `Item ${i + 1}: Item name is required` });
+        }
+        if (!item.quantity || item.quantity < 1) {
+          return res.status(400).json({ message: `Item ${i + 1}: Quantity must be at least 1` });
+        }
+        if (item.unitPrice === undefined || item.unitPrice === null || item.unitPrice < 0) {
+          return res.status(400).json({ message: `Item ${i + 1}: Unit price must be non-negative` });
+        }
+      }
+    }
+
+    // Create sale with tenant assignment
+    const sale = new Sale({
+      customerName,
+      customerEmail,
+      customerPhone,
+      items: Array.isArray(items) ? items : [],
+      totalAmount: saleAmount,
+      finalAmount: saleAmount,
       paymentMethod,
       agent: req.user.userId,
+      tenant: req.user.tenantId,
       client: client || null,
       notes,
       dueDate: paymentMethod === 'credit' ? dueDate : null,
-      saleDate: new Date()
+      saleDate: saleDate ? new Date(saleDate) : new Date()
     });
 
     try {
@@ -295,7 +304,7 @@ router.post('/', [
     }
 
     // Update stock levels for each item
-    for (const item of items) {
+    for (const item of Array.isArray(items) ? items : []) {
       try {
         let stockItem = await Stock.findOne({ itemName: item.itemName });
         if (stockItem) {
@@ -336,7 +345,7 @@ router.post('/', [
       metadata: {
         customerName: sale.customerName,
         finalAmount: sale.finalAmount,
-        itemCount: items.length
+        itemCount: Array.isArray(items) ? items.length : 0
       }
     });
 
@@ -354,9 +363,10 @@ router.post('/', [
 });
 
 // Get single sale
-router.get('/:id', getCurrentUser, async (req, res) => {
+router.get('/:id([0-9a-fA-F]{24})', async (req, res) => {
   try {
-    let query = { _id: req.params.id };
+    // Start with tenant-filtered query
+    let query = { _id: req.params.id, ...req.tenantQuery };
 
     // Agents can only access their own sales
     if (req.user.role === 'agent') {
@@ -380,8 +390,9 @@ router.get('/:id', getCurrentUser, async (req, res) => {
 
 // Update sale (only for credit sales, agents can edit their own)
 router.put('/:id', [
-  getCurrentUser,
   body('customerName').optional().trim().isLength({ min: 1 }).withMessage('Customer name cannot be empty'),
+  body('finalAmount').optional().isFloat({ min: 0.01 }).withMessage('Sale amount must be greater than 0'),
+  body('totalAmount').optional().isFloat({ min: 0.01 }).withMessage('Sale amount must be greater than 0'),
   body('items').optional().isArray({ min: 1 }).withMessage('At least one item is required'),
   body('items.*.itemName').optional().trim().isLength({ min: 1 }).withMessage('Item name is required'),
   body('items.*.quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
@@ -394,7 +405,8 @@ router.put('/:id', [
       return res.status(400).json({ message: 'Validation errors', errors: errors.array() });
     }
 
-    let query = { _id: req.params.id };
+    // Start with tenant-filtered query
+    let query = { _id: req.params.id, ...req.tenantQuery };
 
     // Agents can only update their own sales
     if (req.user.role === 'agent') {
@@ -407,19 +419,23 @@ router.put('/:id', [
       return res.status(404).json({ message: 'Sale not found' });
     }
 
-    // Only allow editing credit sales
-    if (sale.paymentMethod !== 'credit') {
-      return res.status(400).json({ message: 'Only credit sales can be edited' });
-    }
-
-    const { customerName, customerEmail, customerPhone, items, notes, dueDate } = req.body;
+    const { customerName, customerEmail, customerPhone, items, notes, dueDate, saleDate, finalAmount, totalAmount, client } = req.body;
+    const saleAmount = Number(finalAmount ?? totalAmount ?? 0);
 
     if (customerName) sale.customerName = customerName;
-    if (customerEmail) sale.customerEmail = customerEmail;
-    if (customerPhone) sale.customerPhone = customerPhone;
+    if (customerEmail !== undefined) sale.customerEmail = customerEmail;
+    if (customerPhone !== undefined) sale.customerPhone = customerPhone;
     if (items) sale.items = items;
+    if (!items && saleAmount > 0) {
+      sale.items = [];
+      sale.totalAmount = saleAmount;
+      sale.discountAmount = 0;
+      sale.finalAmount = saleAmount;
+    }
     if (notes !== undefined) sale.notes = notes;
     if (dueDate) sale.dueDate = dueDate;
+    if (saleDate) sale.saleDate = new Date(saleDate);
+    if (client !== undefined) sale.client = client || null;
 
     await sale.save();
 
@@ -438,7 +454,6 @@ router.put('/:id', [
 
 // Record payment for credit sale
 router.post('/:id/payment', [
-  getCurrentUser,
   body('amount').isFloat({ min: 0.01 }).withMessage('Payment amount must be greater than 0'),
   body('paymentMethod').optional().isIn(['cash', 'bank_transfer', 'online']).withMessage('Invalid payment method'),
   body('cardNumber').if(body('paymentMethod').equals('bank_transfer')).notEmpty().withMessage('Card/Account number is required for bank transfers'),
@@ -451,7 +466,8 @@ router.post('/:id/payment', [
       return res.status(400).json({ message: 'Validation errors', errors: errors.array() });
     }
 
-    let query = { _id: req.params.id };
+    // Start with tenant-filtered query
+    let query = { _id: req.params.id, ...req.tenantQuery };
 
     // Agents can only access their own sales
     if (req.user.role === 'agent') {
@@ -462,10 +478,6 @@ router.post('/:id/payment', [
 
     if (!sale) {
       return res.status(404).json({ message: 'Sale not found' });
-    }
-
-    if (sale.paymentMethod !== 'credit') {
-      return res.status(400).json({ message: 'Only credit sales can receive payments' });
     }
 
     const { amount, paymentMethod = 'cash', notes, paymentDate, cardNumber, bankName, accountName } = req.body;
@@ -500,11 +512,12 @@ router.post('/:id/payment', [
 });
 
 // Get recent sales for dashboard
-router.get('/recent/list', getCurrentUser, async (req, res) => {
+router.get('/recent/list', async (req, res) => {
   try {
     const { limit = 5 } = req.query;
 
-    let query = {};
+    // Start with tenant-filtered query
+    let query = req.tenantQuery;
 
     // Agents can only see their own sales
     if (req.user.role === 'agent') {
@@ -524,3 +537,120 @@ router.get('/recent/list', getCurrentUser, async (req, res) => {
 });
 
 export { router as salesRoutes };
+
+
+// Add task to sale
+router.post('/:id/tasks', [
+  body('title').trim().isLength({ min: 1 }).withMessage('Title is required'),
+  body('dueDate').optional().isISO8601().withMessage('Valid due date required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    let query = { _id: req.params.id, ...req.tenantQuery };
+    if (req.user.role === 'agent') {
+      query.agent = req.user.userId;
+    }
+
+    const sale = await Sale.findOne(query);
+    if (!sale) {
+      return res.status(404).json({ message: 'Sale not found' });
+    }
+
+    const task = {
+      title: req.body.title,
+      subject: req.body.subject || 'Follow-up',
+      description: req.body.description || '',
+      dueDate: req.body.dueDate ? new Date(req.body.dueDate) : null,
+      dueTime: req.body.dueTime || '',
+      assignedTo: req.body.assignedTo || req.user.userId,
+      status: req.body.status || 'In progress',
+      priority: req.body.priority || 'Medium',
+      createdBy: req.user.userId,
+      createdAt: new Date()
+    };
+
+    sale.tasks.push(task);
+    await sale.save();
+
+    const updatedSale = await Sale.findById(sale._id)
+      .populate('tasks.createdBy', 'name')
+      .populate('tasks.assignedTo', 'name');
+
+    res.json({ message: 'Task added successfully', sale: updatedSale });
+  } catch (error) {
+    console.error('Error adding task:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Update task on sale
+router.put('/:id/tasks/:taskId', async (req, res) => {
+  try {
+    let query = { _id: req.params.id, ...req.tenantQuery };
+    if (req.user.role === 'agent') {
+      query.agent = req.user.userId;
+    }
+
+    const sale = await Sale.findOne(query);
+    if (!sale) {
+      return res.status(404).json({ message: 'Sale not found' });
+    }
+
+    const task = sale.tasks.id(req.params.taskId);
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
+    if (req.body.title) task.title = req.body.title;
+    if (req.body.subject) task.subject = req.body.subject;
+    if (req.body.description !== undefined) task.description = req.body.description;
+    if (req.body.dueDate) task.dueDate = new Date(req.body.dueDate);
+    if (req.body.dueTime !== undefined) task.dueTime = req.body.dueTime;
+    if (req.body.assignedTo) task.assignedTo = req.body.assignedTo;
+    if (req.body.status) task.status = req.body.status;
+    if (req.body.priority) task.priority = req.body.priority;
+
+    await sale.save();
+
+    const updatedSale = await Sale.findById(sale._id)
+      .populate('tasks.createdBy', 'name')
+      .populate('tasks.assignedTo', 'name');
+
+    res.json({ message: 'Task updated successfully', sale: updatedSale });
+  } catch (error) {
+    console.error('Error updating task:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Delete task from sale
+router.delete('/:id/tasks/:taskId', async (req, res) => {
+  try {
+    let query = { _id: req.params.id, ...req.tenantQuery };
+    if (req.user.role === 'agent') {
+      query.agent = req.user.userId;
+    }
+
+    const sale = await Sale.findOne(query);
+    if (!sale) {
+      return res.status(404).json({ message: 'Sale not found' });
+    }
+
+    const task = sale.tasks.id(req.params.taskId);
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
+    task.deleteOne();
+    await sale.save();
+
+    res.json({ message: 'Task deleted successfully', sale });
+  } catch (error) {
+    console.error('Error deleting task:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});

@@ -60,10 +60,18 @@ const saleSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
+  currency: {
+    type: String,
+    default: 'USD'
+  },
+  exchangeRate: {
+    type: Number,
+    default: 1
+  },
   paymentMethod: {
     type: String,
     enum: ['cash', 'credit'],
-    required: true
+    default: 'cash'
   },
   status: {
     type: String,
@@ -118,6 +126,43 @@ const saleSchema = new mongoose.Schema({
     bankName: String,
     accountName: String,
     notes: String
+  }],
+  // Tasks for this sale
+  tasks: [{
+    title: {
+      type: String,
+      required: true
+    },
+    subject: {
+      type: String,
+      enum: ['Call', 'Email', 'Meeting', 'Follow-up', 'Support', 'Other'],
+      default: 'Follow-up'
+    },
+    description: String,
+    dueDate: Date,
+    dueTime: String,
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    status: {
+      type: String,
+      enum: ['In progress', 'Completed', 'Waiting on someone else', 'Deferred'],
+      default: 'In progress'
+    },
+    priority: {
+      type: String,
+      enum: ['Low', 'Medium', 'Critical'],
+      default: 'Medium'
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
   }]
 }, {
   timestamps: true
@@ -130,7 +175,14 @@ saleSchema.pre('save', function(next) {
     let discountAmount = 0;
 
     if (!this.items || !Array.isArray(this.items) || this.items.length === 0) {
-      return next(new Error('At least one item is required'));
+      const amount = Number(this.finalAmount || this.totalAmount || 0);
+      if (amount <= 0) {
+        return next(new Error('Sale amount must be greater than 0'));
+      }
+      this.totalAmount = amount;
+      this.discountAmount = 0;
+      this.finalAmount = amount;
+      return next();
     }
 
     let hasInvalidItem = false;

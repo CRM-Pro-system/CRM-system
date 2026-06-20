@@ -9,22 +9,43 @@ import {
   Search,
   X,
   CheckCircle,
-  CreditCard
+  CreditCard,
+  ListTodo,
+  Calendar,
+  Clock,
+  AlertCircle
 } from 'lucide-react';
 
 const Sales = () => {
   const [sales, setSales] = useState([]);
   const [clients, setClients] = useState([]);
+  const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [loadingClients, setLoadingClients] = useState(false);
   const [clientSearchTerm, setClientSearchTerm] = useState('');
+  const [leadSearchTerm, setLeadSearchTerm] = useState('');
   const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [showLeadDropdown, setShowLeadDropdown] = useState(false);
   const [filteredClients, setFilteredClients] = useState([]);
+  const [filteredLeads, setFilteredLeads] = useState([]);
+  const [selectionMode, setSelectionMode] = useState('client'); // 'client' or 'lead'
+  const [selectedSale, setSelectedSale] = useState(null);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [taskForm, setTaskForm] = useState({
+    title: '',
+    subject: 'Follow-up',
+    description: '',
+    dueDate: '',
+    dueTime: '',
+    priority: 'Medium',
+    status: 'In progress'
+  });
 
   // Sale form state
   const [saleForm, setSaleForm] = useState({
     clientId: '',
+    leadId: '',
     customerName: '',
     customerEmail: '',
     customerPhone: '',
@@ -52,19 +73,29 @@ const Sales = () => {
     }
   };
 
-  // Load clients from database
-  const loadClients = async () => {
+  // Load clients and leads from database
+  const loadClientsAndLeads = async () => {
     try {
       setLoadingClients(true);
-      const response = await clientsAPI.getAll({ limit: 200 });
-      const fetchedClients = response.data?.clients || response.data || [];
-      setClients(fetchedClients);
-      setFilteredClients(fetchedClients);
+      const [clientsRes, leadsRes] = await Promise.all([
+        clientsAPI.getAll({ limit: 200 }),
+        clientsAPI.getAll({ status: 'prospect', limit: 500 })
+      ]);
+      
+      const fetchedClients = clientsRes.data?.clients || clientsRes.data || [];
+      const fetchedLeads = leadsRes.data?.clients || leadsRes.data || [];
+      
+      setClients(fetchedClients.filter(c => c.status !== 'prospect'));
+      setFilteredClients(fetchedClients.filter(c => c.status !== 'prospect'));
+      setLeads(fetchedLeads.filter(l => l.status === 'prospect'));
+      setFilteredLeads(fetchedLeads.filter(l => l.status === 'prospect'));
     } catch (error) {
-      console.error('Error loading clients:', error);
-      toast.error('Failed to load clients');
+      console.error('Error loading clients/leads:', error);
+      toast.error('Failed to load clients/leads');
       setClients([]);
       setFilteredClients([]);
+      setLeads([]);
+      setFilteredLeads([]);
     } finally {
       setLoadingClients(false);
     }
@@ -74,10 +105,10 @@ const Sales = () => {
     loadSales();
   }, []);
 
-  // Load clients when modal opens
+  // Load clients and leads when modal opens
   useEffect(() => {
     if (showModal) {
-      loadClients();
+      loadClientsAndLeads();
     }
   }, [showModal]);
 
@@ -96,17 +127,46 @@ const Sales = () => {
     }
   }, [clientSearchTerm, clients]);
 
+  // Filter leads based on search term
+  useEffect(() => {
+    if (leadSearchTerm.trim() === '') {
+      setFilteredLeads(leads);
+    } else {
+      const filtered = leads.filter(lead =>
+        (lead.contactName || lead.name)?.toLowerCase().includes(leadSearchTerm.toLowerCase()) ||
+        (lead.companyName || lead.company)?.toLowerCase().includes(leadSearchTerm.toLowerCase()) ||
+        lead.email?.toLowerCase().includes(leadSearchTerm.toLowerCase())
+      );
+      setFilteredLeads(filtered);
+    }
+  }, [leadSearchTerm, leads]);
+
   // Handle client selection
   const handleClientSelect = (client) => {
     setSaleForm({
       ...saleForm,
       clientId: client._id,
+      leadId: '',
       customerName: client.name,
       customerEmail: client.email || '',
       customerPhone: client.phone || ''
     });
     setClientSearchTerm(client.name);
     setShowClientDropdown(false);
+  };
+
+  // Handle lead selection
+  const handleLeadSelect = (lead) => {
+    setSaleForm({
+      ...saleForm,
+      leadId: lead._id,
+      clientId: lead._id,
+      customerName: lead.contactName || lead.name,
+      customerEmail: lead.companyEmail || lead.email || '',
+      customerPhone: lead.telephone || lead.phone || ''
+    });
+    setLeadSearchTerm(lead.contactName || lead.name || '');
+    setShowLeadDropdown(false);
   };
 
   // Handle client search change
@@ -125,17 +185,20 @@ const Sales = () => {
     }
   };
 
-  // Clear client selection
-  const clearClientSelection = () => {
+  // Clear client/lead selection
+  const clearSelection = () => {
     setSaleForm({
       ...saleForm,
       clientId: '',
+      leadId: '',
       customerName: '',
       customerEmail: '',
       customerPhone: ''
     });
     setClientSearchTerm('');
+    setLeadSearchTerm('');
     setShowClientDropdown(false);
+    setShowLeadDropdown(false);
   };
 
   // Handle item changes
@@ -216,8 +279,8 @@ const Sales = () => {
     e.preventDefault();
 
     // Validation
-    if (!saleForm.clientId || !saleForm.customerName.trim()) {
-      toast.error('Please select a client from the database');
+    if ((!saleForm.clientId && !saleForm.leadId) || !saleForm.customerName.trim()) {
+      toast.error('Please select a client or lead from the database');
       return;
     }
 
@@ -249,7 +312,7 @@ const Sales = () => {
         customerName: saleForm.customerName,
         customerEmail: saleForm.customerEmail || undefined,
         customerPhone: saleForm.customerPhone || undefined,
-        client: saleForm.clientId,
+        client: saleForm.clientId || saleForm.leadId,
         items: validItems.map(item => ({
           itemName: item.itemName.trim(),
           quantity: Number(item.quantity) || 1,
@@ -260,23 +323,32 @@ const Sales = () => {
         notes: saleForm.notes.trim() || undefined
       };
 
-
-
       console.log('Creating sale with data:', saleData);
-
-
 
       const response = await salesAPI.create(saleData);
 
-
-
       console.log('Sale created successfully:', response.data);
 
-      toast.success('Sale created successfully!');
+      // If this was a lead, auto-convert it to a contact
+      if (saleForm.leadId) {
+        try {
+          await clientsAPI.update(saleForm.leadId, {
+            status: 'active',
+            leadStatus: 'Converted'
+          });
+          toast.success('Sale created and lead converted to contact!');
+        } catch (conversionError) {
+          console.error('Lead conversion error:', conversionError);
+          toast.success('Sale created! (Lead conversion note: ' + (conversionError.message || 'check manually') + ')');
+        }
+      } else {
+        toast.success('Sale created successfully!');
+      }
 
       // Reset form
       setSaleForm({
         clientId: '',
+        leadId: '',
         customerName: '',
         customerEmail: '',
         customerPhone: '',
@@ -285,13 +357,14 @@ const Sales = () => {
         items: [{ itemName: '', quantity: 1, unitPrice: 0, discount: 0 }]
       });
       setClientSearchTerm('');
+      setLeadSearchTerm('');
       setShowClientDropdown(false);
+      setShowLeadDropdown(false);
       setShowModal(false);
 
       // Reload sales
       loadSales();
     } catch (error) {
-
       console.error('Error creating sale:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to create sale';
       toast.error(errorMsg);
@@ -303,6 +376,7 @@ const Sales = () => {
     setShowModal(false);
     setSaleForm({
       clientId: '',
+      leadId: '',
       customerName: '',
       customerEmail: '',
       customerPhone: '',
@@ -311,17 +385,70 @@ const Sales = () => {
       items: [{ itemName: '', quantity: 1, unitPrice: 0, discount: 0 }]
     });
     setClientSearchTerm('');
+    setLeadSearchTerm('');
     setShowClientDropdown(false);
+    setShowLeadDropdown(false);
+    setSelectionMode('client');
+  };
+
+  // Handle task modal open
+  const handleOpenTaskModal = (sale) => {
+    setSelectedSale(sale);
+    setTaskForm({
+      title: '',
+      subject: 'Follow-up',
+      description: '',
+      dueDate: '',
+      dueTime: '',
+      priority: 'Medium',
+      status: 'In progress'
+    });
+    setShowTaskModal(true);
+  };
+
+  // Handle task submission
+  const handleSubmitTask = async (e) => {
+    e.preventDefault();
+    
+    if (!taskForm.title.trim()) {
+      toast.error('Task title is required');
+      return;
+    }
+
+    try {
+      const taskData = {
+        title: taskForm.title.trim(),
+        subject: taskForm.subject,
+        description: taskForm.description.trim(),
+        dueDate: taskForm.dueDate || undefined,
+        dueTime: taskForm.dueTime || undefined,
+        priority: taskForm.priority,
+        status: taskForm.status
+      };
+
+      await salesAPI.addTask(selectedSale._id, taskData);
+      toast.success('Task added successfully!');
+      setShowTaskModal(false);
+      setTaskForm({
+        title: '',
+        subject: 'Follow-up',
+        description: '',
+        dueDate: '',
+        dueTime: '',
+        priority: 'Medium',
+        status: 'In progress'
+      });
+      loadSales(); // Reload to get updated tasks
+    } catch (error) {
+      console.error('Error adding task:', error);
+      toast.error(error.response?.data?.message || 'Failed to add task');
+    }
   };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Sales Management</h1>
-          <p className="text-gray-600 mt-1">Record and manage your sales transactions</p>
-        </div>
+      {/* Action Buttons */}
+      <div className="flex justify-end">
         <button
           onClick={() => setShowModal(true)}
           className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 font-medium transition-colors"
@@ -331,7 +458,7 @@ const Sales = () => {
         </button>
       </div>
 
-      {/* Sales List */}
+      {/* Sales List */}}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">Recent Sales</h2>
@@ -366,6 +493,9 @@ const Sales = () => {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
                   </th>
                 </tr>
               </thead>
@@ -408,6 +538,21 @@ const Sales = () => {
                         })
                         : 'N/A'}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => handleOpenTaskModal(sale)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition-colors"
+                        title="Add Task"
+                      >
+                        <ListTodo size={16} />
+                        Add Task
+                        {sale.tasks && sale.tasks.length > 0 && (
+                          <span className="ml-1 px-1.5 py-0.5 bg-blue-600 text-white text-xs rounded-full">
+                            {sale.tasks.length}
+                          </span>
+                        )}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -435,126 +580,288 @@ const Sales = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              {/* Client Selection */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Select Client from Database *
-                </label>
-                <div className="relative">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                      type="text"
-                      value={clientSearchTerm}
-                      onChange={(e) => handleClientSearchChange(e.target.value)}
-                      onFocus={() => setShowClientDropdown(true)}
-                      placeholder="Search clients by name, email, phone, or company..."
-                      className={`w-full pl-10 pr-10 py-2.5 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${saleForm.clientId ? 'border-green-300 bg-green-50' : 'border-gray-300'
-                        }`}
-                      required
-                    />
-                    {saleForm.clientId && (
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        <CheckCircle className="w-5 h-5 text-green-600" />
-                      </div>
-                    )}
-                    {clientSearchTerm && !saleForm.clientId && (
-                      <button
-                        type="button"
-                        onClick={clearClientSelection}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        <X size={18} />
-                      </button>
-                    )}
-                  </div>
+              {/* Client/Lead Toggle */}
+              <div className="flex items-center justify-center space-x-4 bg-gray-100 p-1 rounded-lg w-fit mx-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectionMode('client');
+                    clearSelection();
+                  }}
+                  className={`px-6 py-2 rounded-lg font-medium transition-all ${
+                    selectionMode === 'client'
+                      ? 'bg-orange-600 text-white shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Existing Clients
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectionMode('lead');
+                    clearSelection();
+                  }}
+                  className={`px-6 py-2 rounded-lg font-medium transition-all ${
+                    selectionMode === 'lead'
+                      ? 'bg-orange-600 text-white shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Leads (Auto-Convert)
+                </button>
+              </div>
 
-                  {/* Client Dropdown */}
-                  {showClientDropdown && (
-                    <>
-                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                        {loadingClients ? (
-                          <div className="px-4 py-3 text-sm text-gray-500 flex items-center">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500 mr-3"></div>
-                            Loading clients...
-                          </div>
-                        ) : filteredClients.length === 0 ? (
-                          <div className="px-4 py-3 text-sm text-gray-500">
-                            {clientSearchTerm.trim() === ''
-                              ? 'No clients found in database. Please add clients first.'
-                              : 'No clients found matching your search'}
-                          </div>
-                        ) : (
-                          <div className="py-1">
-                            {filteredClients.map((client) => (
-                              <div
-                                key={client._id}
-                                onClick={() => handleClientSelect(client)}
-                                className="px-4 py-3 hover:bg-orange-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <div className="font-medium text-gray-900">{client.name}</div>
-                                    <div className="text-sm text-gray-600 flex items-center space-x-4 mt-1">
-                                      {client.email && <span>{client.email}</span>}
-                                      {client.phone && <span>{client.phone}</span>}
+              {/* Client/Lead Selection */}
+              {selectionMode === 'client' ? (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Select Client from Database *
+                  </label>
+                  <div className="relative">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <input
+                        type="text"
+                        value={clientSearchTerm}
+                        onChange={(e) => {
+                          setClientSearchTerm(e.target.value);
+                          setShowClientDropdown(true);
+                        }}
+                        onFocus={() => setShowClientDropdown(true)}
+                        placeholder="Search clients by name, email, phone, or company..."
+                        className={`w-full pl-10 pr-10 py-2.5 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
+                          saleForm.clientId ? 'border-green-300 bg-green-50' : 'border-gray-300'
+                        }`}
+                        required
+                      />
+                      {saleForm.clientId && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                        </div>
+                      )}
+                      {clientSearchTerm && !saleForm.clientId && (
+                        <button
+                          type="button"
+                          onClick={clearSelection}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <X size={18} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Client Dropdown */}
+                    {showClientDropdown && (
+                      <>
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                          {loadingClients ? (
+                            <div className="px-4 py-3 text-sm text-gray-500 flex items-center">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500 mr-3"></div>
+                              Loading clients...
+                            </div>
+                          ) : filteredClients.length === 0 ? (
+                            <div className="px-4 py-3 text-sm text-gray-500">
+                              {clientSearchTerm.trim() === ''
+                                ? 'No clients found. Try selecting from Leads instead.'
+                                : 'No clients found matching your search'}
+                            </div>
+                          ) : (
+                            <div className="py-1">
+                              {filteredClients.map((client) => (
+                                <div
+                                  key={client._id}
+                                  onClick={() => handleClientSelect(client)}
+                                  className="px-4 py-3 hover:bg-orange-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <div className="font-medium text-gray-900">{client.name}</div>
+                                      <div className="text-sm text-gray-600 flex items-center space-x-4 mt-1">
+                                        {client.email && <span>{client.email}</span>}
+                                        {client.phone && <span>{client.phone}</span>}
+                                      </div>
+                                      {client.company && (
+                                        <div className="text-sm text-gray-500 mt-1">{client.company}</div>
+                                      )}
                                     </div>
-                                    {client.company && (
-                                      <div className="text-sm text-gray-500 mt-1">{client.company}</div>
-                                    )}
-                                  </div>
-                                  <span
-                                    className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${client.status === 'active'
-                                        ? 'bg-green-100 text-green-800'
-                                        : client.status === 'vip'
+                                    <span
+                                      className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                                        client.status === 'active'
+                                          ? 'bg-green-100 text-green-800'
+                                          : client.status === 'vip'
                                           ? 'bg-purple-100 text-purple-800'
                                           : 'bg-gray-100 text-gray-800'
                                       }`}
-                                  >
-                                    {client.status || 'prospect'}
-                                  </span>
+                                    >
+                                      {client.status || 'active'}
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      {/* Click outside to close */}
-                      <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setShowClientDropdown(false)}
-                      />
-                    </>
-                  )}
-                </div>
-
-                {/* Selected Client Info */}
-                {saleForm.clientId && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-green-900">Selected Client</p>
-                        <div className="mt-1 text-sm text-green-700">
-                          <p><strong>Name:</strong> {saleForm.customerName}</p>
-                          {saleForm.customerEmail && (
-                            <p><strong>Email:</strong> {saleForm.customerEmail}</p>
-                          )}
-                          {saleForm.customerPhone && (
-                            <p><strong>Phone:</strong> {saleForm.customerPhone}</p>
+                              ))}
+                            </div>
                           )}
                         </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={clearClientSelection}
-                        className="text-green-600 hover:text-green-800"
-                      >
-                        <X size={18} />
-                      </button>
-                    </div>
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setShowClientDropdown(false)}
+                        />
+                      </>
+                    )}
                   </div>
-                )}
-              </div>
+
+                  {/* Selected Client Info */}
+                  {saleForm.clientId && !saleForm.leadId && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-green-900">Selected Client</p>
+                          <div className="mt-1 text-sm text-green-700">
+                            <p><strong>Name:</strong> {saleForm.customerName}</p>
+                            {saleForm.customerEmail && (
+                              <p><strong>Email:</strong> {saleForm.customerEmail}</p>
+                            )}
+                            {saleForm.customerPhone && (
+                              <p><strong>Phone:</strong> {saleForm.customerPhone}</p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={clearSelection}
+                          className="text-green-600 hover:text-green-800"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Select Lead (Will Convert to Contact) *
+                  </label>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                    <p className="text-xs text-blue-800">
+                      💡 When you create a sale from a lead, the lead will automatically be converted to a contact.
+                    </p>
+                  </div>
+                  <div className="relative">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <input
+                        type="text"
+                        value={leadSearchTerm}
+                        onChange={(e) => {
+                          setLeadSearchTerm(e.target.value);
+                          setShowLeadDropdown(true);
+                        }}
+                        onFocus={() => setShowLeadDropdown(true)}
+                        placeholder="Search leads by name or company..."
+                        className={`w-full pl-10 pr-10 py-2.5 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
+                          saleForm.leadId ? 'border-green-300 bg-green-50' : 'border-gray-300'
+                        }`}
+                        required
+                      />
+                      {saleForm.leadId && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                        </div>
+                      )}
+                      {leadSearchTerm && !saleForm.leadId && (
+                        <button
+                          type="button"
+                          onClick={clearSelection}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <X size={18} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Lead Dropdown */}
+                    {showLeadDropdown && (
+                      <>
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                          {loadingClients ? (
+                            <div className="px-4 py-3 text-sm text-gray-500 flex items-center">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500 mr-3"></div>
+                              Loading leads...
+                            </div>
+                          ) : filteredLeads.length === 0 ? (
+                            <div className="px-4 py-3 text-sm text-gray-500">
+                              {leadSearchTerm.trim() === ''
+                                ? 'No leads found. Try selecting from Existing Clients.'
+                                : 'No leads found matching your search'}
+                            </div>
+                          ) : (
+                            <div className="py-1">
+                              {filteredLeads.map((lead) => (
+                                <div
+                                  key={lead._id}
+                                  onClick={() => handleLeadSelect(lead)}
+                                  className="px-4 py-3 hover:bg-orange-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <div className="font-medium text-gray-900">
+                                        {lead.contactName || lead.name}
+                                      </div>
+                                      <div className="text-sm text-gray-600 flex items-center space-x-4 mt-1">
+                                        {(lead.companyName || lead.company) && (
+                                          <span className="font-medium">{lead.companyName || lead.company}</span>
+                                        )}
+                                        {(lead.telephone || lead.phone) && (
+                                          <span>{lead.telephone || lead.phone}</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                                      {lead.rating || lead.leadStatus || 'Lead'}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setShowLeadDropdown(false)}
+                        />
+                      </>
+                    )}
+                  </div>
+
+                  {/* Selected Lead Info */}
+                  {saleForm.leadId && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-blue-900">Selected Lead (Will Convert)</p>
+                          <div className="mt-1 text-sm text-blue-700">
+                            <p><strong>Name:</strong> {saleForm.customerName}</p>
+                            {saleForm.customerEmail && (
+                              <p><strong>Email:</strong> {saleForm.customerEmail}</p>
+                            )}
+                            {saleForm.customerPhone && (
+                              <p><strong>Phone:</strong> {saleForm.customerPhone}</p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={clearSelection}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Items Section */}
               <div className="space-y-4">
@@ -732,6 +1039,214 @@ const Sales = () => {
                   className="px-6 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium transition-colors"
                 >
                   Create Sale
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Add Task Modal */}
+      {showTaskModal && selectedSale && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+          >
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center z-10">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Add Task</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  For sale: {selectedSale.customerName} - {formatCurrency(selectedSale.finalAmount)}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowTaskModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitTask} className="p-6 space-y-6">
+              {/* Task Title */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Task Title *
+                </label>
+                <input
+                  type="text"
+                  value={taskForm.title}
+                  onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g., Follow up on payment"
+                  required
+                />
+              </div>
+
+              {/* Subject */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Subject/Type
+                </label>
+                <select
+                  value={taskForm.subject}
+                  onChange={(e) => setTaskForm({ ...taskForm, subject: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                >
+                  <option value="Call">Call</option>
+                  <option value="Email">Email</option>
+                  <option value="Meeting">Meeting</option>
+                  <option value="Follow-up">Follow-up</option>
+                  <option value="Support">Support</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={taskForm.description}
+                  onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
+                  rows={3}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="Add task details..."
+                />
+              </div>
+
+              {/* Due Date and Time */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Calendar className="inline w-4 h-4 mr-1" />
+                    Due Date
+                  </label>
+                  <input
+                    type="date"
+                    value={taskForm.dueDate}
+                    onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Clock className="inline w-4 h-4 mr-1" />
+                    Due Time
+                  </label>
+                  <input
+                    type="time"
+                    value={taskForm.dueTime}
+                    onChange={(e) => setTaskForm({ ...taskForm, dueTime: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
+              {/* Priority and Status */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <AlertCircle className="inline w-4 h-4 mr-1" />
+                    Priority
+                  </label>
+                  <select
+                    value={taskForm.priority}
+                    onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Status
+                  </label>
+                  <select
+                    value={taskForm.status}
+                    onChange={(e) => setTaskForm({ ...taskForm, status: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  >
+                    <option value="In progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Waiting on someone else">Waiting on Someone Else</option>
+                    <option value="Deferred">Deferred</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Existing Tasks Display */}
+              {selectedSale.tasks && selectedSale.tasks.length > 0 && (
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                    Existing Tasks ({selectedSale.tasks.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {selectedSale.tasks.map((task, index) => (
+                      <div
+                        key={index}
+                        className="bg-gray-50 border border-gray-200 rounded-lg p-3"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">{task.title}</p>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-xs text-gray-600">{task.subject}</span>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  task.priority === 'Critical'
+                                    ? 'bg-red-100 text-red-800'
+                                    : task.priority === 'Medium'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-green-100 text-green-800'
+                                }`}
+                              >
+                                {task.priority}
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  task.status === 'Completed'
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-blue-100 text-blue-800'
+                                }`}
+                              >
+                                {task.status}
+                              </span>
+                            </div>
+                            {task.dueDate && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Due: {new Date(task.dueDate).toLocaleDateString()}
+                                {task.dueTime && ` at ${task.dueTime}`}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setShowTaskModal(false)}
+                  className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium transition-colors flex items-center gap-2"
+                >
+                  <ListTodo size={18} />
+                  Add Task
                 </button>
               </div>
             </form>
