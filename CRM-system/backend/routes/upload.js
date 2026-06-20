@@ -9,22 +9,7 @@ const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Middleware to get current user
-const getCurrentUser = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-
-    const jwt = await import('jsonwebtoken');
-    const decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Invalid token' });
-  }
-};
+import { tenantAuth } from '../middleware/tenantAuth.js';
 
 const uploadDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -81,7 +66,7 @@ const handleMulterError = (err, req, res, next) => {
   next();
 };
 
-router.post('/', getCurrentUser, (req, res, next) => {
+router.post('/', tenantAuth, (req, res, next) => {
   upload.single('file')(req, res, (err) => {
     if (err) {
       return handleMulterError(err, req, res, next);

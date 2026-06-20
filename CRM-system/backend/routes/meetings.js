@@ -1,19 +1,23 @@
 import express from 'express';
 import Meeting from '../models/Meeting.js';
 import mongoose from 'mongoose';
+import { tenantAuth } from '../middleware/tenantAuth.js';
 
 const router = express.Router();
+
+// Apply tenant-aware middleware to all routes
+router.use(tenantAuth);
 
 // Get all meetings
 router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 10, agent, client, status } = req.query;
     
-    // Build filter
-    const filter = {};
+    const filter = { ...req.tenantQuery };
     if (agent) filter.agent = new mongoose.Types.ObjectId(agent);
     if (client) filter.client = new mongoose.Types.ObjectId(client);
     if (status) filter.status = status;
+    if (req.user.role === 'agent') filter.agent = req.user.userId;
     
     const meetings = await Meeting.find(filter)
       .populate('agent', 'name email')
@@ -45,8 +49,7 @@ router.get('/agent/:agentId', async (req, res) => {
     const { agentId } = req.params;
     const { page = 1, limit = 10, status } = req.query;
     
-    // Build filter
-    const filter = { agent: new mongoose.Types.ObjectId(agentId) };
+    const filter = { agent: new mongoose.Types.ObjectId(agentId), ...req.tenantQuery };
     if (status) filter.status = status;
     
     const meetings = await Meeting.find(filter)
@@ -96,7 +99,8 @@ router.post('/', async (req, res) => {
   try {
     const meetingData = {
       ...req.body,
-      agent: req.user?.id || req.body.agent // Use authenticated user or provided agent
+      tenant: req.user.tenantId,
+      agent: req.body.agent || req.user.userId
     };
     
     // Auto-generate Google Meet link if location is Google Meet and no link provided
@@ -140,8 +144,8 @@ router.put('/:id', async (req, res) => {
       updateData.googleMeetLink = undefined;
     }
     
-    const meeting = await Meeting.findByIdAndUpdate(
-      req.params.id,
+    const meeting = await Meeting.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery },
       updateData,
       { new: true, runValidators: true }
     ).populate('agent', 'name email')
@@ -161,7 +165,7 @@ router.put('/:id', async (req, res) => {
 // Delete meeting
 router.delete('/:id', async (req, res) => {
   try {
-    const meeting = await Meeting.findByIdAndDelete(req.params.id);
+    const meeting = await Meeting.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
     
     if (!meeting) {
       return res.status(404).json({ message: 'Meeting not found' });
@@ -181,11 +185,14 @@ router.get('/upcoming/list', async (req, res) => {
     
     const filter = {
       scheduledTime: { $gte: new Date() },
-      status: 'scheduled'
+      status: 'scheduled',
+      ...req.tenantQuery
     };
     
     if (agentId) {
       filter.agent = new mongoose.Types.ObjectId(agentId);
+    } else if (req.user.role === 'agent') {
+      filter.agent = req.user.userId;
     }
     
     const meetings = await Meeting.find(filter)

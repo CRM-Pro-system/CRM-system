@@ -3,36 +3,66 @@ import express from 'express';
 import Deal from '../models/Deal.js';
 import { body, validationResult } from 'express-validator';
 import { createNotification } from '../utils/notifications.js';
+import { tenantAuth } from '../middleware/tenantAuth.js';
+import { logAction } from '../utils/auditLog.js';
 
 const router = express.Router();
 
-// Middleware to get current user
-const getCurrentUser = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-
-    const jwt = await import('jsonwebtoken');
-    const decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Invalid token' });
-  }
+const DEAL_STAGES = ['lead', 'qualification', 'proposal', 'negotiation', 'won', 'lost'];
+const STAGE_PROBABILITY = {
+  lead: 10,
+  qualification: 25,
+  proposal: 50,
+  negotiation: 75,
+  won: 100,
+  lost: 0
 };
 
+const idString = (value) => {
+  if (!value) return '';
+  return String(value._id || value);
+};
+
+const userCanAccessDeal = (req, deal) => {
+  if (req.user.role !== 'agent') return true;
+
+  const userId = String(req.user.userId);
+  const isPrimaryAgent = idString(deal.agent) === userId;
+  const isTeamMember = Array.isArray(deal.teamMembers) &&
+    deal.teamMembers.some((member) => idString(member) === userId);
+
+  return isPrimaryAgent || isTeamMember;
+};
+
+const agentDealAccessFilter = (userId) => ({
+  $or: [
+    { agent: userId },
+    { teamMembers: userId }
+  ]
+});
+
+const appendAndFilter = (query, filter) => {
+  if (!filter) return query;
+  return {
+    ...query,
+    $and: [...(query.$and || []), filter]
+  };
+};
+
+// Apply tenant-aware middleware to all routes
+router.use(tenantAuth);
+
 // Get all deals (admin sees all, agents see their own)
-router.get('/', getCurrentUser, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 10, stage, client, agent, search, minValue, maxValue } = req.query;
 
-    let query = {};
+    // Start with tenant-filtered query
+    let query = { ...req.tenantQuery };
 
     // Agents can only see their own deals, or filter by specific agent if admin
     if (req.user.role === 'agent') {
-      query.agent = req.user.userId;
+      query = appendAndFilter(query, agentDealAccessFilter(req.user.userId));
     } else if (agent) {
       // Admin can filter by specific agent
       query.agent = agent;
@@ -49,10 +79,10 @@ router.get('/', getCurrentUser, async (req, res) => {
 
     // Search filter
     if (search) {
-      query.$or = [
+      query = appendAndFilter(query, { $or: [
         { title: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } }
-      ];
+      ] });
     }
 
     // Value range filters
@@ -90,13 +120,14 @@ router.get('/', getCurrentUser, async (req, res) => {
 });
 
 // Get deal statistics
-router.get('/stats', getCurrentUser, async (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
-    let query = {};
+    // Start with tenant-filtered query
+    let query = { ...req.tenantQuery };
 
     // Agents can only see stats for their own deals
     if (req.user.role === 'agent') {
-      query.agent = req.user.userId;
+      query = appendAndFilter(query, agentDealAccessFilter(req.user.userId));
     }
 
     const deals = await Deal.find(query);
@@ -141,9 +172,9 @@ router.get('/stats', getCurrentUser, async (req, res) => {
 });
 
 // Get deal by ID
-router.get('/:id', getCurrentUser, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const deal = await Deal.findById(req.params.id)
+    const deal = await Deal.findOne({ _id: req.params.id, ...req.tenantQuery })
       .populate('client', 'name email phone')
       .populate('agent', 'name email')
       .populate('teamMembers', 'name email')
@@ -157,7 +188,7 @@ router.get('/:id', getCurrentUser, async (req, res) => {
     }
 
     // Check if user has permission to view this deal
-    if (req.user.role === 'agent' && deal.agent.toString() !== req.user.userId) {
+    if (!userCanAccessDeal(req, deal)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -169,7 +200,7 @@ router.get('/:id', getCurrentUser, async (req, res) => {
 });
 
 // Create new deal
-router.post('/', getCurrentUser, [
+router.post('/', [
   body('title').notEmpty().withMessage('Title is required'),
   body('value').isNumeric().withMessage('Value must be a number'),
   body('client').notEmpty().withMessage('Client is required')
@@ -180,13 +211,26 @@ router.post('/', getCurrentUser, [
       return res.status(400).json({ errors: errors.array() });
     }
 
+    // Check usage limits
+    if (!req.canAddDeals()) {
+      return res.status(403).json({ 
+        message: 'Deal limit reached for your subscription plan',
+        limit: req.tenant.subscription?.features?.maxDeals || 0
+      });
+    }
+
     const dealData = {
       ...req.body,
+      tenant: req.user.tenantId,
       agent: req.user.role === 'agent' ? req.user.userId : req.body.agent
     };
 
     const deal = new Deal(dealData);
     await deal.save();
+
+    // Update tenant usage
+    await req.updateTenantUsage('deals', 1);
+    await logAction(req, 'CREATE_DEAL', `Created deal ${dealData.title}`, { entityType: 'Deal', entityId: deal._id });
 
     const populatedDeal = await Deal.findById(deal._id)
       .populate('client', 'name email phone')
@@ -213,17 +257,16 @@ router.post('/', getCurrentUser, [
 });
 
 // Update deal
-router.put('/:id', getCurrentUser, async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
-    const deal = await Deal.findById(req.params.id)
-      .populate('client', 'name');
+    const deal = await Deal.findOne({ _id: req.params.id, ...req.tenantQuery }).populate('client', 'name');
 
     if (!deal) {
       return res.status(404).json({ message: 'Deal not found' });
     }
 
     // Check if user has permission to update this deal
-    if (req.user.role === 'agent' && deal.agent.toString() !== req.user.userId) {
+    if (!userCanAccessDeal(req, deal)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -233,11 +276,25 @@ router.put('/:id', getCurrentUser, async (req, res) => {
     if (req.body.stage && ['won', 'lost'].includes(req.body.stage) && !deal.closedAt) {
       req.body.closedAt = new Date();
     }
+    if (req.body.stage) {
+      if (!DEAL_STAGES.includes(req.body.stage)) {
+        return res.status(400).json({ message: 'Invalid deal stage' });
+      }
+      req.body.probability = STAGE_PROBABILITY[req.body.stage] ?? deal.probability;
+    }
 
-    const updatedDeal = await Deal.findByIdAndUpdate(req.params.id, req.body, { new: true })
+    const updatedDeal = await Deal.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery }, 
+      req.body, 
+      { new: true, runValidators: true }
+    )
       .populate('client', 'name email phone')
       .populate('agent', 'name email')
       .populate('teamMembers', 'name email');
+
+    if (!updatedDeal) {
+      return res.status(404).json({ message: 'Deal not found' });
+    }
 
     // Create notification for admins based on the change
     try {
@@ -308,33 +365,47 @@ router.put('/:id', getCurrentUser, async (req, res) => {
 });
 
 // Update deal status
-router.patch('/:id/status', getCurrentUser, async (req, res) => {
+router.patch('/:id/status', async (req, res) => {
   try {
     const { status } = req.body;
 
-    const deal = await Deal.findById(req.params.id)
-      .populate('client', 'name');
+    const deal = await Deal.findOne({ _id: req.params.id, ...req.tenantQuery }).populate('client', 'name');
 
     if (!deal) {
       return res.status(404).json({ message: 'Deal not found' });
     }
 
     // Check if user has permission to update this deal
-    if (req.user.role === 'agent' && deal.agent.toString() !== req.user.userId) {
+    if (!userCanAccessDeal(req, deal)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
     const previousStage = deal.stage;
-    const updateData = { stage: status };
+    if (!DEAL_STAGES.includes(status)) {
+      return res.status(400).json({ message: 'Invalid deal stage' });
+    }
+
+    const updateData = {
+      stage: status,
+      probability: STAGE_PROBABILITY[status] ?? deal.probability
+    };
 
     // If closing the deal, set closedAt date
     if (['won', 'lost'].includes(status) && !deal.closedAt) {
       updateData.closedAt = new Date();
     }
 
-    const updatedDeal = await Deal.findByIdAndUpdate(req.params.id, updateData, { new: true })
+    const updatedDeal = await Deal.findOneAndUpdate(
+      { _id: req.params.id, ...req.tenantQuery }, 
+      updateData, 
+      { new: true, runValidators: true }
+    )
       .populate('client', 'name email phone')
       .populate('agent', 'name email');
+
+    if (!updatedDeal) {
+      return res.status(404).json({ message: 'Deal not found' });
+    }
 
     // Create notification for admins
     try {
@@ -389,20 +460,22 @@ router.patch('/:id/status', getCurrentUser, async (req, res) => {
 });
 
 // Delete deal
-router.delete('/:id', getCurrentUser, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const deal = await Deal.findById(req.params.id);
+    const deal = await Deal.findOne({ _id: req.params.id, ...req.tenantQuery });
 
     if (!deal) {
       return res.status(404).json({ message: 'Deal not found' });
     }
 
     // Check if user has permission to delete this deal
-    if (req.user.role === 'agent' && deal.agent.toString() !== req.user.userId) {
+    if (!userCanAccessDeal(req, deal)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    await Deal.findByIdAndDelete(req.params.id);
+    await Deal.findOneAndDelete({ _id: req.params.id, ...req.tenantQuery });
+    await req.updateTenantUsage('deals', -1);
+    await logAction(req, 'DELETE_DEAL', `Deleted deal ${deal.title}`, { entityType: 'Deal', entityId: deal._id });
     res.json({ message: 'Deal deleted successfully' });
   } catch (error) {
     console.error('Error deleting deal:', error);
