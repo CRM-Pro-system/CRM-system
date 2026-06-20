@@ -1,5 +1,6 @@
 // pages/agent/Deals.js
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Plus, 
@@ -16,24 +17,25 @@ import {
   AlertCircle
 } from 'lucide-react';
 import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip as ReTooltip,
   ResponsiveContainer,
   BarChart,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
-  Legend
+  Legend,
+  Tooltip as ReTooltip
 } from 'recharts';
+import DonutChart from '../../components/charts/DonutChart';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { dealsAPI, clientsAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
 const Deals = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [deals, setDeals] = useState([]);
   const [clients, setClients] = useState([]);
   const [stats, setStats] = useState(null);
@@ -102,6 +104,13 @@ const Deals = () => {
     }
   }, [showCreateModal]);
 
+  useEffect(() => {
+    if (location?.state?.openCreate) {
+      setShowCreateModal(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
+
   const loadDeals = async () => {
     try {
       setError(null);
@@ -166,14 +175,14 @@ const Deals = () => {
         )
       );
 
-      await dealsAPI.update(dealId, { stage: newStage });
+      await dealsAPI.updateStatus(dealId, newStage);
       toast.success('Deal updated successfully');
 
       // Refresh data from server to ensure consistency
       loadDeals();
     } catch (err) {
       console.error('Error updating deal:', err);
-      toast.error('Failed to update deal');
+      toast.error(err.response?.data?.message || 'Failed to update deal stage');
       // Revert optimistic update on error
       loadDeals();
     }
@@ -280,12 +289,8 @@ const Deals = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Deals</h1>
-          <p className="text-gray-600 mt-1">Track your sales pipeline and deal progress</p>
-        </div>
+      {/* Quick Add Button */}
+      <div className="flex justify-end">
         <button 
           onClick={() => setShowCreateModal(true)}
           className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2"
@@ -594,10 +599,10 @@ const DealsTableView = ({ deals, onUpdateStage, onDeleteDeal, formatUGX }) => {
                     <div className="w-16 bg-gray-200 rounded-full h-2">
                       <div 
                         className="bg-green-500 h-2 rounded-full" 
-                        style={{ width: `${deal.probability || 0}%` }}
+                        style={{ width: `${STAGE_PROBABILITY[deal.stage] ?? deal.probability ?? 0}%` }}
                       ></div>
                     </div>
-                    <span className="text-sm text-gray-600">{deal.probability || 0}%</span>
+                    <span className="text-sm text-gray-600">{STAGE_PROBABILITY[deal.stage] ?? deal.probability ?? 0}%</span>
                   </div>
                 </td>
                 <td className="px-6 py-4">
@@ -624,31 +629,60 @@ const DealsTableView = ({ deals, onUpdateStage, onDeleteDeal, formatUGX }) => {
 
 // Kanban View Component
 const DealsKanbanView = ({ deals, onUpdateStage, formatUGX }) => {
-  // Pipeline should only show active stages
   const stages = ['lead', 'qualification', 'proposal', 'negotiation'];
-  
+
+  const handleDragEnd = (result) => {
+    const { destination, source, draggableId } = result;
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId) return;
+    onUpdateStage(draggableId, destination.droppableId);
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
-      {stages.map(stage => (
-        <div key={stage} className="bg-gray-50 rounded-xl p-4">
-          <h3 className="font-semibold text-gray-900 mb-4 capitalize">{stage}</h3>
-          <div className="space-y-3">
-            {deals.filter(d => d.stage === stage).map(deal => (
-              <div key={deal._id} className="bg-white rounded-lg p-3 shadow-sm">
-                <p className="font-medium text-sm text-gray-900">{deal.title}</p>
-                <p className="text-xs text-gray-600">{formatUGX(deal.value)}</p>
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {stages.map((stage) => {
+          const stageDeals = deals.filter((d) => d.stage === stage);
+          return (
+            <div key={stage} className="bg-gray-50 rounded-xl p-4 min-h-[280px]">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900 capitalize">{stage}</h3>
+                <span className="text-xs font-medium bg-white px-2 py-1 rounded-full text-gray-600">{stageDeals.length}</span>
               </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
+              <Droppable droppableId={stage}>
+                {(provided) => (
+                  <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-3 min-h-[200px]">
+                    {stageDeals.map((deal, index) => (
+                      <Draggable key={deal._id} draggableId={String(deal._id)} index={index}>
+                        {(dragProvided, snapshot) => (
+                          <div
+                            ref={dragProvided.innerRef}
+                            {...dragProvided.draggableProps}
+                            {...dragProvided.dragHandleProps}
+                            className={`bg-white rounded-lg p-3 shadow-sm border border-gray-100 ${snapshot.isDragging ? 'ring-2 ring-orange-300 shadow-lg' : ''}`}
+                          >
+                            <p className="font-medium text-sm text-gray-900">{deal.title}</p>
+                            <p className="text-xs text-gray-600 mt-1">{formatUGX(deal.value)}</p>
+                            {deal.client?.name && (
+                              <p className="text-xs text-gray-500 mt-1 truncate">{deal.client.name}</p>
+                            )}
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </div>
+          );
+        })}
+      </div>
+    </DragDropContext>
   );
 };
 
 // Charts View Component
-const PIE_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7a45', '#a28fd0', '#f87171'];
-
 const DealsChartsView = ({ stats, formatUGX }) => {
   if (!stats || !stats.stageStats) {
     return (
@@ -679,23 +713,15 @@ const DealsChartsView = ({ stats, formatUGX }) => {
         </div>
 
         <div className="p-4 bg-gray-50 rounded-lg">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Deals by Stage</h4>
-          {pieData.length > 0 ? (
-            <div style={{ width: '100%', height: 220 }}>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <ReTooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="text-gray-500 text-sm text-center py-8">No stage data</div>
-          )}
+          <DonutChart
+            data={pieData}
+            title="Deals by Stage"
+            height={220}
+            innerRadius={50}
+            outerRadius={75}
+            showLegend={false}
+            emptyMessage="No stage data"
+          />
         </div>
 
         <div className="p-4 bg-gray-50 rounded-lg">
@@ -744,6 +770,16 @@ const DealsChartsView = ({ stats, formatUGX }) => {
 };
 
 // Create Deal Modal Component
+// Auto-calculate probability from stage per spec
+const STAGE_PROBABILITY = {
+  lead: 10,
+  qualification: 25,
+  proposal: 50,
+  negotiation: 75,
+  won: 100,
+  lost: 0,
+};
+
 const CreateDealModal = ({ onClose, onSubmit, clients, onClientSearch, error }) => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
@@ -753,7 +789,8 @@ const CreateDealModal = ({ onClose, onSubmit, clients, onClientSearch, error }) 
     client: '',
     agent: user?._id || user?.id || '',
     stage: 'lead',
-    probability: 0,
+    dealType: 'new',
+    probability: STAGE_PROBABILITY['lead'],
     expectedCloseDate: '',
   });
   const [clientSearch, setClientSearch] = useState('');
@@ -783,7 +820,8 @@ const CreateDealModal = ({ onClose, onSubmit, clients, onClientSearch, error }) 
       await onSubmit({
         ...formData,
         value: parseFloat(formData.value),
-        probability: parseInt(formData.probability) || 0,
+        probability: STAGE_PROBABILITY[formData.stage] ?? 0,
+        dealType: formData.dealType,
         expectedCloseDate: formData.expectedCloseDate || null
       });
     } catch (err) {
@@ -904,7 +942,14 @@ const CreateDealModal = ({ onClose, onSubmit, clients, onClientSearch, error }) 
               </label>
               <select
                 value={formData.stage}
-                onChange={(e) => setFormData(prev => ({ ...prev, stage: e.target.value }))}
+                onChange={(e) => {
+                  const stage = e.target.value;
+                  setFormData(prev => ({
+                    ...prev,
+                    stage,
+                    probability: STAGE_PROBABILITY[stage] ?? prev.probability
+                  }));
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               >
                 <option value="lead">Lead</option>
@@ -913,20 +958,39 @@ const CreateDealModal = ({ onClose, onSubmit, clients, onClientSearch, error }) 
                 <option value="negotiation">Negotiation</option>
               </select>
             </div>
-            
-            {/* Probability */}
+
+            {/* Deal Type — Existing vs New (spec requirement) */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Probability (%)
+                Deal Type
               </label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={formData.probability}
-                onChange={(e) => setFormData(prev => ({ ...prev, probability: e.target.value }))}
+              <select
+                value={formData.dealType}
+                onChange={(e) => setFormData(prev => ({ ...prev, dealType: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              />
+              >
+                <option value="new">New Business</option>
+                <option value="existing">Existing Client</option>
+              </select>
+            </div>
+
+            {/* Probability — auto-calculated, read-only display */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Probability (%) — auto-calculated
+              </label>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 bg-gray-100 rounded-lg px-3 py-2 text-gray-700 font-semibold">
+                  {formData.probability}%
+                </div>
+                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-orange-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${formData.probability}%` }}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Set automatically based on stage</p>
             </div>
             
             {/* Expected Close Date */}

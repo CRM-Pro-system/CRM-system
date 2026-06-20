@@ -35,27 +35,28 @@ export const AuthProvider = ({ children }) => {
 
       if (storedToken && storedUser) {
         try {
-          // User already set from initial state, just validate in background
-          try {
-            const response = await authAPI.getMe();
-            const userData = response.data;
-            setUser(userData);
-            localStorage.setItem('user', JSON.stringify(userData));
-          } catch (validationError) {
-            // If validation fails, keep the stored session
-            console.warn('Token validation failed, but keeping session for user experience');
+          const response = await authAPI.getMe();
+          const userData = response.data;
+          setUser(userData);
+          localStorage.setItem('user', JSON.stringify(userData));
+        } catch (validationError) {
+          // Token is expired or invalid - clear session and redirect to login
+          const status = validationError.response?.status;
+          if (status === 401) {
+            console.warn('Session expired, clearing login state');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('tenantId');
+            localStorage.removeItem('tenantName');
+            setToken(null);
+            setUser(null);
+          } else if (status === 403) {
+            console.warn('Session is valid but access is forbidden:', validationError.response?.data?.message);
           }
-        } catch (parseError) {
-          console.error('Failed to parse stored user data, clearing session');
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          setToken(null);
-          setUser(null);
         }
       }
     };
 
-    // Run validation in background without blocking
     initializeAuth();
 
     // Set up periodic token refresh (every 30 minutes)
@@ -106,18 +107,28 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await authAPI.login({ email, password });
+      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+      const response = await authAPI.login({ email: normalizedEmail, password });
       const { token: newToken, user: userData, requiresPasswordChange } = response.data;
 
+      // Store tenant info alongside user
+      const userWithTenant = {
+        ...userData,
+        tenant: userData.tenant || null
+      };
+
       localStorage.setItem('token', newToken);
-      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('user', JSON.stringify(userWithTenant));
+      if (userData.tenant) {
+        localStorage.setItem('tenantId', userData.tenant.id || userData.tenant._id);
+        localStorage.setItem('tenantName', userData.tenant.name);
+      }
       setToken(newToken);
-      setUser(userData);
+      setUser(userWithTenant);
 
       return {
-        
         success: true,
-        user: userData,
+        user: userWithTenant,
         requiresPasswordChange: requiresPasswordChange || false
       };
     } catch (error) {
@@ -129,11 +140,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    // Clear localStorage first to ensure clean state
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('tenantId');
+    localStorage.removeItem('tenantName');
 
-    // Then notify the server
     authAPI.logout().finally(() => {
       setToken(null);
       setUser(null);

@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -10,13 +10,23 @@ const Login = lazy(() => import('./pages/Login'));
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AgentDashboard = lazy(() => import('./pages/agent/Dashboard'));
 const Clients = lazy(() => import('./pages/agent/Clients'));
+const Leads = lazy(() => import('./pages/agent/Leads'));
+const Contacts = lazy(() => import('./pages/agent/Contacts'));
 const Deals = lazy(() => import('./pages/agent/Deals'));
 const Schedules = lazy(() => import('./pages/agent/Schedules'));
+const Tasks = lazy(() => import('./pages/agent/Tasks'));
+const Issues = lazy(() => import('./pages/agent/Issues'));
 const Sales = lazy(() => import('./pages/agent/Sales'));
 const SalesManagement = lazy(() => import('./pages/agent/SalesManagement'));
+const Notes = lazy(() => import('./pages/agent/Notes'));
 const UserManagement = lazy(() => import('./pages/admin/UserManagement'));
 const Reports = lazy(() => import('./pages/admin/Reports'));
 const Settings = lazy(() => import('./pages/admin/Settings'));
+const SuperAdminDashboardFull = lazy(() => import('./pages/superadmin/SuperAdminDashboard'));
+const TenantManagement = lazy(() => import('./pages/superadmin/TenantManagement'));
+const BulkOperations = lazy(() => import('./pages/admin/BulkOperations'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const PredictiveAnalytics = lazy(() => import('./pages/PredictiveAnalytics'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
@@ -30,29 +40,39 @@ const PageLoader = () => (
 
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const { user } = useAuth();
+  const location = useLocation();
 
-  // Use cached user from localStorage for instant rendering
-  if (!user) {
-    const cachedUser = localStorage.getItem('user');
-    if (!cachedUser) {
-      return <Navigate to="/login" replace />;
-    }
+  const isDashboardRoute = ['/superadmin', '/admin', '/agent', '/dashboard'].includes(location.pathname);
+
+  const cachedUser = user || (() => {
+    try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
+  })();
+
+  if (!cachedUser) return <Navigate to="/login" replace />;
+
+  // Superadmin can access everything
+  if (cachedUser.role === 'superadmin') {
+    return <Layout showHeaderActions={!isDashboardRoute}>{children}</Layout>;
   }
 
-  if (allowedRoles.length > 0 && user && !allowedRoles.includes(user.role)) {
-    const redirectPath = user.role === 'admin' ? '/admin' : '/agent';
-    return <Navigate to={redirectPath} replace />;
+  if (allowedRoles.length > 0 && !allowedRoles.includes(cachedUser.role)) {
+    const redirectPath = cachedUser.role === 'admin' || cachedUser.role === 'manager' ? '/admin' : '/agent';
+    return <Layout showHeaderActions={!isDashboardRoute}><Navigate to={redirectPath} replace /></Layout>;
   }
 
-  return <Layout>{children}</Layout>;
+  return <Layout showHeaderActions={!isDashboardRoute}>{children}</Layout>;
 };
 
 const PublicRoute = ({ children }) => {
   const { user } = useAuth();
 
-  // Use cached user from localStorage for instant rendering
-  if (user) {
-    const redirectPath = user.role === 'admin' ? '/admin' : '/agent';
+  const cachedUser = user || (() => {
+    try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
+  })();
+
+  if (cachedUser) {
+    if (cachedUser.role === 'superadmin') return <Navigate to="/superadmin" replace />;
+    const redirectPath = cachedUser.role === 'admin' || cachedUser.role === 'manager' ? '/admin' : '/agent';
     return <Navigate to={redirectPath} replace />;
   }
 
@@ -83,25 +103,42 @@ function App() {
                   </PublicRoute>
                 } />
 
+                {/* Super Admin Routes */}
+                <Route path="/superadmin" element={
+                  <ProtectedRoute allowedRoles={['superadmin']}>
+                    <SuperAdminDashboardFull />
+                  </ProtectedRoute>
+                } />
+                <Route path="/superadmin/tenants" element={
+                  <ProtectedRoute allowedRoles={['superadmin']}>
+                    <TenantManagement />
+                  </ProtectedRoute>
+                } />
+
                 {/* Admin Routes */}
                 <Route path="/admin" element={
-                  <ProtectedRoute allowedRoles={['admin']}>
+                  <ProtectedRoute allowedRoles={['admin', 'manager']}>
                     <AdminDashboard />
                   </ProtectedRoute>
                 } />
                 <Route path="/admin/users" element={
-                  <ProtectedRoute allowedRoles={['admin']}>
+                  <ProtectedRoute allowedRoles={['admin', 'manager']}>
                     <UserManagement />
                   </ProtectedRoute>
                 } />
                 <Route path="/admin/reports" element={
-                  <ProtectedRoute allowedRoles={['admin']}>
+                  <ProtectedRoute allowedRoles={['admin', 'manager']}>
                     <Reports />
                   </ProtectedRoute>
                 } />
                 <Route path="/admin/settings" element={
-                  <ProtectedRoute allowedRoles={['admin']}>
+                  <ProtectedRoute allowedRoles={['admin', 'manager']}>
                     <Settings />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/bulk-operations" element={
+                  <ProtectedRoute allowedRoles={['admin', 'manager', 'superadmin']}>
+                    <BulkOperations />
                   </ProtectedRoute>
                 } />
 
@@ -121,6 +158,16 @@ function App() {
                     <Clients />
                   </ProtectedRoute>
                 } />
+                <Route path="/agent/leads" element={
+                  <ProtectedRoute allowedRoles={['agent']}>
+                    <Leads />
+                  </ProtectedRoute>
+                } />
+                <Route path="/agent/contacts" element={
+                  <ProtectedRoute allowedRoles={['agent']}>
+                    <Contacts />
+                  </ProtectedRoute>
+                } />
                 <Route path="/agent/deals" element={
                   <ProtectedRoute allowedRoles={['agent']}>
                     <Deals />
@@ -134,6 +181,35 @@ function App() {
                 <Route path="/agent/sales" element={
                   <ProtectedRoute allowedRoles={['agent']}>
                     <SalesManagement />
+                  </ProtectedRoute>
+                } />
+                <Route path="/agent/tasks" element={
+                  <ProtectedRoute allowedRoles={['agent']}>
+                    <Tasks />
+                  </ProtectedRoute>
+                } />
+<Route path="/agent/issues" element={
+                   <ProtectedRoute allowedRoles={['agent']}>
+                     <Issues />
+                   </ProtectedRoute>
+                 } />
+                 <Route path="/agent/notes" element={
+                   <ProtectedRoute allowedRoles={['agent']}>
+                     <Notes />
+                   </ProtectedRoute>
+                 } />
+
+                {/* Dashboard Route - Available to all authenticated users */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } />
+
+                {/* Predictive Analytics Route - Available to admin and manager */}
+                <Route path="/predictive-analytics" element={
+                  <ProtectedRoute allowedRoles={['admin', 'manager']}>
+                    <PredictiveAnalytics />
                   </ProtectedRoute>
                 } />
 

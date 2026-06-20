@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   X, 
-  Upload, 
   User, 
   Users,
   FileText,
@@ -16,20 +15,19 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const [uploadedFiles, setUploadedFiles] = useState([]);
 
   const [formData, setFormData] = useState({
     name: '',
+    title: '',
     gender: '',
-    nin: '',
-    idType: 'national_id',
     email: '',
     phone: '',
     address: '',
     city: '',
     state: '',
     postalCode: '',
-    country: '',
+    country: 'Uganda',
+    region: '',
     company: '',
     position: '',
     industry: '',
@@ -61,10 +59,10 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
 
     if (step === 1) {
       if (!formData.name.trim()) newErrors.name = 'Full name is required';
-      if (!formData.nin.trim()) newErrors.nin = 'NIN is required';
       if (!formData.email.trim()) newErrors.email = 'Email is required';
       else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
       if (!formData.phone.trim()) newErrors.phone = 'Phone number is required';
+      else if (!formData.phone.startsWith('+256')) newErrors.phone = 'Phone must start with +256';
     }
 
     setErrors(newErrors);
@@ -136,19 +134,6 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
     }));
   };
 
-  const handleFileUpload = (event) => {
-    const files = Array.from(event.target.files);
-    const newFiles = files.map(file => ({
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      preview: URL.createObjectURL(file)
-    }));
-    setUploadedFiles(prev => [...prev, ...newFiles]);
-    
-    toast.success('Document uploaded successfully');
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -162,8 +147,10 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
       return;
     }
 
+    const currentUserId = user?.id || user?._id;
+
     // Check if user is authenticated
-    if (!user?.id) {
+    if (!currentUserId) {
       toast.error('Your session has expired. Please log in again.');
       // Optionally redirect to login
       setTimeout(() => {
@@ -179,11 +166,9 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
-        nin: formData.nin,
-        agent: user.id,
+        agent: currentUserId,
         
         // Basic optional fields
-        idType: formData.idType,
         status: formData.status,
         priority: formData.priority,
         engagementScore: formData.engagementScore,
@@ -195,9 +180,11 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
 
       // Add optional fields only if they have values
       if (formData.gender) submissionData.gender = formData.gender;
+      if (formData.title) submissionData.title = formData.title;
       if (formData.company) submissionData.company = formData.company;
       if (formData.position) submissionData.position = formData.position;
       if (formData.industry) submissionData.industry = formData.industry;
+      if (formData.region) submissionData.region = formData.region;
       if (formData.address) submissionData.address = formData.address;
       if (formData.city) submissionData.city = formData.city;
       if (formData.state) submissionData.state = formData.state;
@@ -208,14 +195,16 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
       toast.success('Client registered successfully! 🎉');
       onSuccess();
     } catch (error) {
-      if (error.response?.status === 401 || error.response?.status === 403) {
+      if (error.response?.status === 401) {
         toast.error('Your session has expired. Please log in again.');
         setTimeout(() => {
           window.location.href = '/login';
         }, 2000);
+      } else if (error.response?.status === 403) {
+        toast.error(error.response?.data?.message || 'You do not have permission to register this client.');
       } else if (error.response?.data?.message) {
         if (error.response.data.message.includes('already exists')) {
-          toast.error('A client with this NIN already exists');
+          toast.error(error.response.data.message);
         } else if (error.response.data.errors) {
           error.response.data.errors.forEach(err => toast.error(err));
         } else {
@@ -310,6 +299,27 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Title
+                    </label>
+                    <select
+                      value={formData.title}
+                      onChange={(e) => handleInputChange('title', e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    >
+                      <option value="">Select Title</option>
+                      <option value="Mr">Mr</option>
+                      <option value="Mrs">Mrs</option>
+                      <option value="Ms">Ms</option>
+                      <option value="Miss">Miss</option>
+                      <option value="Dr">Dr</option>
+                      <option value="Prof">Prof</option>
+                      <option value="Rev">Rev</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Full Name *
                     </label>
                     <input
@@ -346,40 +356,6 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      NIN (National Identification Number) *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.nin}
-                      onChange={(e) => handleInputChange('nin', e.target.value)}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
-                        errors.nin ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                      placeholder="Enter NIN"
-                    />
-                    {errors.nin && (
-                      <p className="text-red-500 text-sm mt-1">{errors.nin}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      ID Type *
-                    </label>
-                    <select
-                      value={formData.idType}
-                      onChange={(e) => handleInputChange('idType', e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    >
-                      <option value="national_id">National ID</option>
-                      <option value="passport">Passport</option>
-                      <option value="drivers_license">Driver's License</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Email Address *
                     </label>
                     <input
@@ -407,7 +383,7 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
                       className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
                         errors.phone ? 'border-red-300' : 'border-gray-300'
                       }`}
-                      placeholder="+1 (555) 123-4567"
+                      placeholder="+256 7XX XXX XXX"
                     />
                     {errors.phone && (
                       <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
@@ -415,45 +391,6 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
                   </div>
                 </div>
 
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Upload ID Document
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    Upload ID document for reference (optional)
-                  </p>
-                  <input
-                    type="file"
-                    onChange={handleFileUpload}
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    className="hidden"
-                    id="document-upload"
-                  />
-                  <label
-                    htmlFor="document-upload"
-                    className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors cursor-pointer inline-block"
-                  >
-                    Choose Document
-                  </label>
-                </div>
-
-                {uploadedFiles.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-gray-900">Uploaded Documents:</h4>
-                    {uploadedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <FileText className="w-5 h-5 text-gray-400" />
-                          <span className="text-sm text-gray-700">{file.name}</span>
-                        </div>
-                        <span className="text-xs text-gray-500">
-                          {(file.size / 1024 / 1024).toFixed(2)} MB
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </motion.div>
             )}
 
@@ -492,15 +429,55 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
 
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Industry/Sector
+                      Sector / Industry
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={formData.industry}
                       onChange={(e) => handleInputChange('industry', e.target.value)}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      placeholder="Industry or sector"
-                    />
+                    >
+                      <option value="">Select Sector</option>
+                      <option value="IT">IT & Technology</option>
+                      <option value="Agriculture">Agriculture</option>
+                      <option value="Finance">Finance & Banking</option>
+                      <option value="Healthcare">Healthcare</option>
+                      <option value="Education">Education</option>
+                      <option value="Real Estate">Real Estate</option>
+                      <option value="Manufacturing">Manufacturing</option>
+                      <option value="Retail">Retail & Trade</option>
+                      <option value="Logistics">Logistics & Transport</option>
+                      <option value="Hospitality">Hospitality & Tourism</option>
+                      <option value="Construction">Construction</option>
+                      <option value="Energy">Energy & Utilities</option>
+                      <option value="Telecommunications">Telecommunications</option>
+                      <option value="Media">Media & Entertainment</option>
+                      <option value="NGO">NGO / Non-Profit</option>
+                      <option value="Government">Government & Public Sector</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Region
+                    </label>
+                    <select
+                      value={formData.region}
+                      onChange={(e) => handleInputChange('region', e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    >
+                      <option value="">Select Region</option>
+                      <option value="Central">Central</option>
+                      <option value="East">East</option>
+                      <option value="West">West</option>
+                      <option value="North">North</option>
+                      <option value="South">South</option>
+                      <option value="North East">North East</option>
+                      <option value="North West">North West</option>
+                      <option value="South East">South East</option>
+                      <option value="South West">South West</option>
+                      <option value="International">International</option>
+                    </select>
                   </div>
                 </div>
 
@@ -785,7 +762,7 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
                         value={formData.emergencyContact.relationship}
                         onChange={(e) => handleInputChange('emergencyContact.relationship', e.target.value)}
                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        placeholder="Relationship to client"
+                        placeholder="e.g., Spouse, Parent"
                       />
                     </div>
                     <div className="md:col-span-2">

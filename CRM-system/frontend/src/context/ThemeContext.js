@@ -2,6 +2,24 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const ThemeContext = createContext();
 
+export const ACCENT_PRESETS = [
+  { id: 'orange', label: 'Orange', color: '#f97316' },
+  { id: 'amber', label: 'Amber', color: '#d97706' },
+  { id: 'brown', label: 'Brown', color: '#92400e' },
+  { id: 'blue', label: 'Blue', color: '#2563eb' },
+  { id: 'emerald', label: 'Emerald', color: '#059669' },
+  { id: 'purple', label: 'Purple', color: '#7c3aed' },
+  { id: 'rose', label: 'Rose', color: '#e11d48' },
+  { id: 'slate', label: 'Slate', color: '#475569' },
+];
+
+const DEFAULT_THEME = {
+  primaryColor: '#f97316',
+  accentPreset: 'orange',
+  sidebarStyle: 'expanded',
+  mode: 'light',
+};
+
 export const useTheme = () => {
   const context = useContext(ThemeContext);
   if (!context) {
@@ -11,85 +29,89 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState({
-    primaryColor: '#ff8c00',
-    sidebarStyle: 'expanded',
-    mode: 'light' // light or dark
-  });
+  const [theme, setTheme] = useState(DEFAULT_THEME);
 
-  // Load theme from localStorage on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('crm_theme');
     if (savedTheme) {
       try {
         const parsedTheme = JSON.parse(savedTheme);
-        setTheme(parsedTheme);
-        applyTheme(parsedTheme);
+        const merged = { ...DEFAULT_THEME, ...parsedTheme };
+        setTheme(merged);
+        applyTheme(merged);
       } catch (error) {
         console.error('Failed to parse saved theme:', error);
       }
+    } else {
+      applyTheme(DEFAULT_THEME);
     }
   }, []);
 
-  // Apply theme to CSS variables and document
   const applyTheme = (themeConfig) => {
     const root = document.documentElement;
     const body = document.body;
+    const primary = themeConfig.primaryColor || DEFAULT_THEME.primaryColor;
 
-    // Set CSS custom properties for primary color
-    root.style.setProperty('--primary-color', themeConfig.primaryColor);
-    root.style.setProperty('--primary-hover', adjustColor(themeConfig.primaryColor, -20));
+    root.style.setProperty('--primary-color', primary);
+    root.style.setProperty('--primary-hover', adjustColor(primary, -20));
+    root.style.setProperty('--primary-light', adjustColor(primary, 40));
+    root.style.setProperty('--primary-ring', `${primary}66`);
+    root.style.setProperty('--workspace-bg', `color-mix(in srgb, ${primary} 7%, #f9fafb)`);
+    root.style.setProperty('--workspace-sidebar', primary);
+    root.style.setProperty('--workspace-sidebar-hover', adjustColor(primary, -20));
 
-    // Apply dark mode if needed
     if (themeConfig.mode === 'dark') {
       root.classList.add('dark');
       body.classList.add('dark');
+      root.style.setProperty('--workspace-bg', `color-mix(in srgb, ${primary} 10%, #111827)`);
     } else {
       root.classList.remove('dark');
       body.classList.remove('dark');
     }
   };
 
-  // Helper function to adjust color brightness
   const adjustColor = (color, amount) => {
     const usePound = color[0] === '#';
     const col = usePound ? color.slice(1) : color;
-
     const num = parseInt(col, 16);
     let r = (num >> 16) + amount;
-    let g = (num >> 8 & 0x00FF) + amount;
-    let b = (num & 0x0000FF) + amount;
-
+    let g = ((num >> 8) & 0x00ff) + amount;
+    let b = (num & 0x0000ff) + amount;
     r = r > 255 ? 255 : r < 0 ? 0 : r;
     g = g > 255 ? 255 : g < 0 ? 0 : g;
     b = b > 255 ? 255 : b < 0 ? 0 : b;
-
-    return (usePound ? '#' : '') + (r << 16 | g << 8 | b).toString(16);
+    return (usePound ? '#' : '') + (r << 16 | g << 8 | b).toString(16).padStart(6, '0');
   };
 
-  // Update theme and save to localStorage
   const updateTheme = (newTheme) => {
     const updatedTheme = { ...theme, ...newTheme };
+    if (newTheme.accentPreset) {
+      const preset = ACCENT_PRESETS.find((p) => p.id === newTheme.accentPreset);
+      if (preset) updatedTheme.primaryColor = preset.color;
+    }
+    if (newTheme.primaryColor && !newTheme.accentPreset) {
+      const match = ACCENT_PRESETS.find((p) => p.color.toLowerCase() === newTheme.primaryColor.toLowerCase());
+      updatedTheme.accentPreset = match?.id || 'custom';
+    }
     setTheme(updatedTheme);
     localStorage.setItem('crm_theme', JSON.stringify(updatedTheme));
     applyTheme(updatedTheme);
   };
 
-  // Reset theme to default
-  const resetTheme = () => {
-    const defaultTheme = {
-      primaryColor: '#ff8c00',
-      sidebarStyle: 'expanded',
-      mode: 'light'
-    };
-    updateTheme(defaultTheme);
+  const setAccentPreset = (presetId) => {
+    const preset = ACCENT_PRESETS.find((p) => p.id === presetId);
+    if (preset) updateTheme({ accentPreset: presetId, primaryColor: preset.color });
   };
+
+  const resetTheme = () => updateTheme(DEFAULT_THEME);
 
   const value = {
     theme,
     updateTheme,
+    setAccentPreset,
     resetTheme,
-    applyTheme
+    applyTheme,
+    accentPresets: ACCENT_PRESETS,
   };
 
   return (
@@ -98,12 +120,3 @@ export const ThemeProvider = ({ children }) => {
     </ThemeContext.Provider>
   );
 };
-
-
-
-
-
-
-
-
-

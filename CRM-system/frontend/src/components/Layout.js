@@ -1,26 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Users,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  User,
-  Target,
-  Calendar,
-  Home,
-  PieChart,
-  UserPlus,
-  Bell,
-  TrendingUp,
-  ChevronDown
-} from 'lucide-react';
+   Users,
+   Settings,
+   LogOut,
+   X,
+   Target,
+   Calendar,
+   Home,
+   PieChart,
+   UserPlus,
+   TrendingUp,
+   Building2,
+   ShieldCheck,
+   ArrowLeftRight,
+   Zap,
+   UserCheck,
+   BookUser,
+   ListTodo,
+   AlertTriangle,
+ } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { notificationsAPI } from '../services/api';
 import NotificationCenter from './NotificationCenter';
 import ProfileModal from './ProfileModal';
 import LogoutModal from './LogoutModal';
+import QuickActionModal from './QuickActionModal';
+import Taskbar from './Taskbar';
 import logo from '../assets/logo.png';
 
 const Layout = ({ children }) => {
@@ -28,31 +34,22 @@ const Layout = ({ children }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  const isAdmin = user?.role === 'admin';
-
-  // Load unread notifications count for admin with periodic polling
+  const isAdmin = user?.role === 'admin' || user?.role === 'manager';
+  const isSuperAdmin = user?.role === 'superadmin';
+  // Load unread notifications for all authenticated roles
   useEffect(() => {
-    if (isAdmin) {
-      loadUnreadNotifications();
-
-      // Poll for new notifications every 30 seconds
-      const interval = setInterval(() => {
-        loadUnreadNotifications();
-      }, 30000);
-
-      return () => clearInterval(interval);
-    }
-  }, [isAdmin]);
+    loadUnreadNotifications();
+    const interval = setInterval(() => { loadUnreadNotifications(); }, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const loadUnreadNotifications = async () => {
-    if (!isAdmin) return;
-
     try {
       const response = await notificationsAPI.getUnreadCount();
       setUnreadNotifications(response.data.count || 0);
@@ -61,67 +58,83 @@ const Layout = ({ children }) => {
     }
   };
 
-  const adminNavItems = [
+  const superAdminNavSections = [
     {
-      path: '/admin',
-      icon: Home,
-      label: 'Dashboard',
-
+      title: 'Platform',
+      items: [
+        { path: '/dashboard', icon: PieChart, label: 'Dashboard', description: 'Platform insights and tenant summaries at a glance.' },
+        { path: '/superadmin', icon: ShieldCheck, label: 'Command Center', description: 'Super admin control center for platform operations.' },
+        { path: '/superadmin/tenants', icon: Building2, label: 'Tenants', description: 'View and manage tenant organizations from one place.' },
+      ],
     },
     {
-      path: '/admin/users',
-      icon: UserPlus,
-      label: 'User Management',
-
+      title: 'Organization',
+      items: [
+        { path: '/admin', icon: Home, label: 'Admin View', description: 'Switch to the admin dashboard for organization-level management.' },
+        { path: '/admin/users', icon: UserPlus, label: 'User Management', description: 'Manage users, roles, and access across the organization.' },
+        { path: '/admin/settings', icon: Settings, label: 'Settings', description: 'Update application and account settings.' },
+      ],
     },
     {
-      path: '/admin/reports',
-      icon: PieChart,
-      label: 'Reports',
-
-    },
-    {
-      path: '/admin/settings',
-      icon: Settings,
-      label: 'Settings',
-
+      title: 'Reports',
+      items: [
+        { path: '/admin/reports', icon: PieChart, label: 'Reports', description: 'Generate and review reports for performance and activity.' },
+      ],
     },
   ];
 
-  const agentNavItems = [
+  const adminNavSections = [
     {
-      path: '/agent',
-      icon: Home,
-      label: 'Dashboard',
-
+      title: 'Workspace',
+      items: [
+        { path: '/admin', icon: PieChart, label: 'Dashboard', description: 'Your organization summary with quick access to key metrics.' },
+        { path: '/admin/users', icon: UserPlus, label: 'User Management', description: 'Manage users, roles, and permissions for your team.' },
+        { path: '/predictive-analytics', icon: Zap, label: 'Predictive Analytics', description: 'Use AI insights to make smarter decisions and forecasts.' },
+      ],
     },
     {
-      path: '/agent/clients',
-      icon: Users,
-      label: 'Clients',
-
+      title: 'Operations',
+      items: [
+        { path: '/admin/bulk-operations', icon: ArrowLeftRight, label: 'Bulk Operations', description: 'Execute bulk tasks quickly and efficiently.' },
+        { path: '/admin/settings', icon: Settings, label: 'Settings', description: 'Update account preferences and system settings.' },
+      ],
     },
     {
-      path: '/agent/deals',
-      icon: Target,
-      label: 'Deals',
-
-    },
-    {
-      path: '/agent/sales',
-      icon: TrendingUp,
-      label: 'Sales',
-
-    },
-    {
-      path: '/agent/schedules',
-      icon: Calendar,
-      label: 'Schedules',
-
+      title: 'Reports',
+      items: [
+        { path: '/admin/reports', icon: PieChart, label: 'Reports', description: 'Review performance and activity reports across the business.' },
+      ],
     },
   ];
 
-  const navItems = isAdmin ? adminNavItems : agentNavItems;
+const agentNavSections = [
+    {
+      title: 'Workspace',
+      items: [
+        { path: '/agent',            icon: PieChart,   label: 'Dashboard', description: 'Your sales dashboard with performance and activity summaries.' },
+        { path: '/agent/leads',      icon: UserCheck,  label: 'Leads', description: 'Track and manage sales leads in one place.' },
+        { path: '/agent/clients',    icon: Users,      label: 'Clients & Organizations', description: 'View your client list and manage customer relationships.' },
+        { path: '/agent/contacts',   icon: BookUser,   label: 'Contacts', description: 'Manage your contact directory and communication details.' },
+        { path: '/agent/deals',      icon: Target,     label: 'Sales Pipeline', description: 'Review and progress your current deals.' },
+        { path: '/agent/sales',      icon: TrendingUp, label: 'Sales', description: 'Track sales performance and revenue results.' },
+      ],
+    },
+    {
+      title: 'Activities',
+      items: [
+        { path: '/agent/schedules',  icon: Calendar,   label: 'Calendar', description: 'Manage your meetings and calendar events.' },
+        { path: '/agent/tasks',      icon: ListTodo,   label: 'Tasks', description: 'Track tasks and stay on top of daily work items.' },
+        { path: '/agent/issues',     icon: AlertTriangle, label: 'Issues', description: 'Manage issues and support requests efficiently.' },
+      ],
+    },
+ ];
+
+  const navSections = isSuperAdmin ? superAdminNavSections : isAdmin ? adminNavSections : agentNavSections;
+  const navItems = navSections.flatMap(section => section.items);
+  const roleTitle = isSuperAdmin ? 'Platform Admin' : isAdmin ? 'Tenant Admin' : 'Sales Agent';
+  const roleSubtitle = isSuperAdmin ? 'Platform Control' : isAdmin ? 'Company Control' : 'Sales Workspace';
+  const userInitial = (user?.name || user?.email || 'U').trim().charAt(0).toUpperCase();
+  const displayRole = isSuperAdmin ? 'Super Admin' : isAdmin ? 'Admin' : 'Agent';
 
   const handleLogout = () => {
     setShowLogoutModal(true);
@@ -133,82 +146,114 @@ const Layout = ({ children }) => {
     setShowLogoutModal(false);
   };
 
+  const getActiveNavItem = () => {
+    const exactMatch = navItems.find(item => item.path === location.pathname);
+    if (exactMatch) return exactMatch;
+    return navItems.find(item => item.path !== '/' && location.pathname.startsWith(item.path)) || { label: 'Dashboard' };
+  };
+
+  const activeNavItem = getActiveNavItem();
+
   const NavItem = ({ item, isActive, onClick }) => {
     const Icon = item.icon;
     return (
       <Link
         to={item.path}
         onClick={onClick}
-        className={`flex items-center space-x-4 px-4 py-3 rounded-xl text-sm font-medium transition-all group ${isActive
-            ? 'bg-orange-700 text-white shadow-md'
-            : 'text-white hover:bg-orange-500/90'
+        className={`flex items-center space-x-3 px-3 py-3 rounded-2xl text-sm font-medium transition-all group ${isActive
+            ? 'bg-orange-300/95 text-white shadow-lg shadow-orange-950/20'
+            : 'text-white/95 hover:bg-white/10'
           }`}
       >
-        <div className={`p-2 rounded-lg ${isActive
-            ? 'bg-orange-800 text-white'
-            : 'bg-orange-600/20 text-white'
-          }`}>
-          <Icon className="w-4 h-4" />
-        </div>
+        <Icon className="w-5 h-5 shrink-0 text-white" strokeWidth={2} />
         <div className="flex-1 min-w-0">
           <div className="font-medium text-white">{item.label}</div>
-          <div className="text-xs text-white/90 mt-1">{item.description}</div>
         </div>
-        {isActive && (
-          <div className="w-2 h-2 bg-white rounded-full"></div>
-        )}
       </Link>
     );
   };
 
-  return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Desktop Sidebar - Always Visible */}
-      <div className="hidden lg:flex lg:flex-shrink-0">
-        <div className="w-64 flex flex-col bg-orange-600 shadow-xl border-r border-orange-700 text-white">
-          {/* Header */}
-          <div className="flex items-center justify-between h-16 px-6 border-b border-orange-700">
-            <div className="flex items-center space-x-3">
-              <img src={logo} alt="Logo" className="w-10 h-10 object-contain" />
-              <div>
-                <span className="text-xl font-bold text-white">CRM</span>
-              </div>
-            </div>
-          </div>
+  const SidebarHeader = () => (
+    <div className="flex items-center justify-between px-6 py-5 border-b border-white/15">
+      <div className="flex items-center space-x-4 min-w-0">
+        <div className="w-14 h-14 rounded-2xl bg-orange-300/45 flex items-center justify-center shadow-lg shadow-orange-950/15 shrink-0">
+          <img
+            src={user?.tenant?.logo || user?.tenant?.settings?.logo || logo}
+            alt="Logo"
+            className="w-8 h-8 object-contain"
+          />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-xl font-bold text-white leading-tight truncate">{roleTitle}</h2>
+          <p className="text-xs font-medium tracking-[0.18em] uppercase text-white/85 mt-1">{roleSubtitle}</p>
+        </div>
+      </div>
+    </div>
+  );
 
-          {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-            {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
+  const SidebarNav = ({ onItemClick }) => (
+    <nav className="flex-1 px-3 py-6 overflow-y-auto">
+      {navSections.map((section, index) => (
+        <div key={section.title} className={index > 0 ? 'mt-8 border-t border-white/10 pt-6' : ''}>
+          <p className="px-3 pb-3 text-xs font-bold uppercase tracking-wide text-white">
+            {section.title}
+          </p>
+          <div className="space-y-1.5">
+            {section.items.map((item) => {
+              const isActive = location.pathname === item.path || (
+                item.path !== '/admin' &&
+                item.path !== '/agent' &&
+                item.path !== '/superadmin' &&
+                location.pathname.startsWith(item.path)
+              );
               return (
                 <NavItem
                   key={item.path}
                   item={item}
                   isActive={isActive}
-                  onClick={() => { }}
+                  onClick={onItemClick}
                 />
               );
             })}
-          </nav>
-
-          {/* Footer */}
-          <div className="border-t border-orange-700 p-6 space-y-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-white text-opacity-90">Status</span>
-              <span className="flex items-center space-x-1">
-                <div className={`w-2 h-2 rounded-full ${user?.status === 'online' ? 'bg-green-400' : 'bg-gray-400'}`}></div>
-                <span className="text-white font-medium capitalize">{user?.status || 'offline'}</span>
-              </span>
-            </div>
-
-            <button
-              onClick={handleLogout}
-              className="flex items-center space-x-3 w-full px-4 py-3 rounded-lg text-sm font-medium text-white hover:bg-orange-700 transition-colors group"
-            >
-              <LogOut className="w-4 h-4 text-white" />
-              <span>Sign Out</span>
-            </button>
           </div>
+        </div>
+      ))}
+    </nav>
+  );
+
+  const SidebarFooter = ({ mobile = false }) => (
+    <div className="border-t border-white/15 p-4">
+      <div className="flex items-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-300 text-white font-bold shadow-lg shadow-orange-950/15">
+          {userInitial}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-base font-semibold text-white">{user?.name || 'Admin'}</p>
+          <p className="text-sm text-white/85">{displayRole}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (mobile) setSidebarOpen(false);
+            handleLogout();
+          }}
+          className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/20 text-white transition hover:bg-white/10"
+          title="Sign out"
+        >
+          <LogOut className="w-5 h-5" />
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--workspace-bg)' }}>
+      {/* Desktop Sidebar - Always Visible */}
+      <div className="hidden lg:flex lg:flex-shrink-0">
+        <div className="w-72 flex flex-col shadow-xl border-r border-white/15 text-white bg-gradient-to-b from-orange-500 via-orange-600 to-orange-800">
+          <SidebarHeader />
+          <SidebarNav onItemClick={() => {}} />
+          <SidebarFooter />
         </div>
       </div>
 
@@ -220,7 +265,7 @@ const Layout = ({ children }) => {
               className="fixed inset-0 bg-gray-600 bg-opacity-75"
               onClick={() => setSidebarOpen(false)}
             />
-            <div className="relative flex-1 flex flex-col max-w-xs w-full bg-orange-600 shadow-xl text-white">
+            <div className="relative flex-1 flex flex-col max-w-xs w-full shadow-xl text-white bg-gradient-to-b from-orange-500 via-orange-600 to-orange-800">
               <div className="absolute top-0 right-0 -mr-12 pt-2">
                 <button
                   className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
@@ -229,59 +274,9 @@ const Layout = ({ children }) => {
                   <X className="h-6 w-6 text-white" />
                 </button>
               </div>
-              <div className="flex-1 h-0 overflow-y-auto">
-                {/* Mobile Header */}
-                <div className="flex items-center h-16 px-6 border-b border-orange-700 bg-orange-600 text-white">
-                  <div className="flex items-center space-x-3">
-                    <svg className="w-10 h-10" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M125 93L175 43L175 143L125 93Z" fill="white" />
-                      <path d="M75 93L125 43L125 143L75 93Z" fill="white" />
-                      <path d="M75 93L25 143L125 143L75 93Z" fill="white" />
-                      <path d="M125 93L125 43L25 143L125 143Z" fill="white" />
-                    </svg>
-                    <div>
-                      <span className="text-xl font-bold text-white">CRM</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Mobile Navigation */}
-                <nav className="px-4 py-6 space-y-2">
-                  {navItems.map((item) => {
-                    const isActive = location.pathname === item.path;
-                    return (
-                      <NavItem
-                        key={item.path}
-                        item={item}
-                        isActive={isActive}
-                        onClick={() => setSidebarOpen(false)}
-                      />
-                    );
-                  })}
-                </nav>
-              </div>
-
-              {/* Mobile Footer */}
-              <div className="border-t border-orange-700 p-6 space-y-4 text-white">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-white text-opacity-90">Status</span>
-                  <span className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                    <span className="text-white font-medium">Online</span>
-                  </span>
-                </div>
-
-                <button
-                  onClick={() => {
-                    setSidebarOpen(false);
-                    handleLogout();
-                  }}
-                  className="flex items-center space-x-3 w-full px-4 py-3 rounded-lg text-sm font-medium text-white hover:bg-orange-700 transition-colors group"
-                >
-                  <LogOut className="w-4 h-4 text-white" />
-                  <span>Sign Out</span>
-                </button>
-              </div>
+              <SidebarHeader />
+              <SidebarNav onItemClick={() => setSidebarOpen(false)} />
+              <SidebarFooter mobile />
             </div>
           </div>
         </div>
@@ -289,104 +284,51 @@ const Layout = ({ children }) => {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white shadow-sm border-b border-gray-200">
-          <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center">
-              {/* Mobile menu button - Only show on mobile */}
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-500"
-              >
-                <Menu className="w-6 h-6" />
-              </button>
-
-              <div className="ml-2 sm:ml-4 lg:ml-0">
-                <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold text-gray-900 truncate">
-                  {navItems.find(item => item.path === location.pathname)?.label || 'Dashboard'}
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">
-                  {navItems.find(item => item.path === location.pathname)?.description || 'Welcome to CRM Pro'}
-                </p>
-              </div>
+        <main className="flex-1 overflow-auto" style={{ backgroundColor: 'var(--workspace-bg)' }}>
+          <Taskbar
+            onOpenNotifications={() => setShowNotifications(true)}
+            onOpenQuickActions={() => setShowQuickActions(true)}
+            onOpenProfile={() => setShowProfileModal(true)}
+            onMenuClick={() => setSidebarOpen(true)}
+            unreadNotifications={unreadNotifications}
+          />
+          <div className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-4">
+            <div className="space-y-2">
+              <h1 className="text-2xl font-semibold text-gray-900">{activeNavItem.label}</h1>
+              <p className="text-sm text-gray-600 max-w-3xl">{activeNavItem.description || 'Welcome to CRM Pro — your central workspace.'}</p>
             </div>
-
-            <div className="flex items-center space-x-3 sm:space-x-4">
-              {isAdmin && (
-                <button
-                  onClick={() => setShowNotifications(true)}
-                  className="p-2 text-gray-400 hover:text-gray-500 relative transition-colors"
-                  title="Notifications"
-                >
-                  <Bell className="w-5 h-5" />
-                  {unreadNotifications > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                      {unreadNotifications > 99 ? '99+' : unreadNotifications}
-                    </span>
-                  )}
-                </button>
-              )}
-
-              {/* Profile Photo - Clickable */}
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    setShowProfileModal(true);
-                  }}
-                  className="p-1 rounded-full hover:bg-gray-100 transition-colors group"
-                  title="View Profile"
-                >
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-orange-500 flex items-center justify-center overflow-hidden border-2 border-orange-500 cursor-pointer hover:border-orange-600 transition-colors">
-                    {user?.profileImage || user?.photo ? (
-                      <img
-                        src={user.profileImage || user.photo}
-                        alt={user?.name || 'Profile'}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                    )}
-                  </div>
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <main className="flex-1 overflow-auto bg-gray-50">
-          <div className="p-3 sm:p-4 md:p-6 lg:p-8">
             {children}
           </div>
         </main>
       </div>
 
-      {/* Notification Center - Only for admins */}
-      {isAdmin && (
-        <NotificationCenter
-          isOpen={showNotifications}
-          onClose={() => {
-            setShowNotifications(false);
-            // Refresh unread count when closing
-            loadUnreadNotifications();
-          }}
-        />
-      )}
+      <NotificationCenter
+        isOpen={showNotifications}
+        onClose={() => {
+          setShowNotifications(false);
+          loadUnreadNotifications();
+        }}
+      />
 
       {/* Profile Modal */}
       <ProfileModal
         isOpen={showProfileModal}
-        onClose={() => {
-          setShowProfileModal(false);
-          setShowUserMenu(false);
-        }}
+        onClose={() => setShowProfileModal(false)}
       />
 
-      {/* Logout Modal */}
-      <LogoutModal
-        isOpen={showLogoutModal}
-        onClose={() => setShowLogoutModal(false)}
-        onConfirm={confirmLogout}
-      />
-    </div>
+{/* Logout Modal */}
+       <LogoutModal
+         isOpen={showLogoutModal}
+         onClose={() => setShowLogoutModal(false)}
+         onConfirm={confirmLogout}
+       />
+
+       {/* Quick Action Modal */}
+       <QuickActionModal
+         isOpen={showQuickActions}
+         onClose={() => setShowQuickActions(false)}
+       />
+     </div>
   );
 };
 

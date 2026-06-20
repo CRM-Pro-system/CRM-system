@@ -421,44 +421,40 @@ const Reports = () => {
   };
 
   const getSortedAgents = () => {
-    return detailedData.agents.map((agent) => {
-      // Get agent's sales using agent._id or by matching agent object
+    return detailedData.agents.filter(agent => agent && agent._id).map((agent) => {
+      const agentId = agent._id?.toString();
+
       const agentSales = detailedData.sales.filter(s => {
-        if (typeof s.agent === 'object') {
-          return s.agent._id === agent._id;
+        if (!s.agent) return false;
+        if (typeof s.agent === 'object' && s.agent !== null) {
+          return s.agent._id?.toString() === agentId;
         }
-        return s.agent === agent._id;
+        return s.agent?.toString() === agentId;
       });
-      
-      // Calculate revenue
-      const agentRevenue = agentSales.reduce((sum, s) => {
-        const amount = Number(s.finalAmount || s.totalAmount || 0);
-        return sum + amount;
-      }, 0);
-      
-      // Get agent's deals using agent._id or by matching agent object
+
+      const agentRevenue = agentSales.reduce((sum, s) => sum + Number(s.finalAmount || s.totalAmount || 0), 0);
+
       const agentDeals = detailedData.deals.filter(d => {
-        if (typeof d.agent === 'object') {
-          return d.agent._id === agent._id;
+        if (!d.agent) return false;
+        if (typeof d.agent === 'object' && d.agent !== null) {
+          return d.agent._id?.toString() === agentId;
         }
-        return d.agent === agent._id;
+        return d.agent?.toString() === agentId;
       });
-      
-      // Calculate deals won and lost
+
       const agentDealsWon = agentDeals.filter(d => d.stage === 'won').length;
       const agentDealsLost = agentDeals.filter(d => d.stage === 'lost').length;
-      
-      // Get agent's clients
+
       const agentClients = detailedData.clients.filter(c => {
-        if (typeof c.agent === 'object') {
-          return c.agent._id === agent._id;
+        if (!c.agent) return false;
+        if (typeof c.agent === 'object' && c.agent !== null) {
+          return c.agent._id?.toString() === agentId;
         }
-        return c.agent === agent._id;
+        return c.agent?.toString() === agentId;
       });
-      
-      // Calculate conversion rate
+
       const conversionRate = agentDeals.length > 0 ? ((agentDealsWon / agentDeals.length) * 100).toFixed(1) : 0;
-      
+
       return {
         ...agent,
         sales: agentSales,
@@ -469,7 +465,7 @@ const Reports = () => {
         clients: agentClients,
         conversionRate: parseFloat(conversionRate)
       };
-    }).sort((a, b) => b.dealsWon - a.dealsWon); // Sort by deals won (best performers first)
+    }).sort((a, b) => b.dealsWon - a.dealsWon);
   };
 
   const toggleRowExpand = (weekStart) => {
@@ -568,69 +564,61 @@ const Reports = () => {
 
   return (
     <div className="space-y-6 pb-10 bg-gray-50 min-h-screen p-6" id="reports-container">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Sales Reports</h1>
-          <p className="text-gray-500 text-sm mt-1">Deals, Sales, and Performance Analytics</p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Export Buttons */}
-          <div className="flex gap-2">
-            <button
-              onClick={handlePDFDownload}
-              className="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 text-sm"
-              title="Export full report with graphs and tables as PDF"
-            >
-              <Download className="w-4 h-4" />
-              Download PDF
-            </button>
-            <button
-              onClick={handleExportCSV}
-              className="px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-2 text-sm"
-              title="Export sales, agents, and deals tables as CSV"
-            >
-              <FileText className="w-4 h-4" />
-              Export CSV
-            </button>
-          </div>
-
-          {/* Quick Filters */}
-          <div className="flex space-x-1 bg-white p-1 rounded-lg border border-gray-200">
-            <button onClick={() => setPeriod('thisMonth')} className="px-3 py-1 text-xs font-medium hover:bg-orange-50 hover:text-orange-600 rounded">Month</button>
-            <button onClick={() => setPeriod('lastMonth')} className="px-3 py-1 text-xs font-medium hover:bg-orange-50 hover:text-orange-600 rounded">Last Month</button>
-            <button onClick={() => setPeriod('thisYear')} className="px-3 py-1 text-xs font-medium hover:bg-orange-50 hover:text-orange-600 rounded">Year</button>
-          </div>
-
-          {/* Date Range */}
-          <div className="flex items-center space-x-2 bg-white rounded-lg px-3 py-2 border border-gray-200">
-            <input
-              type="date"
-              value={filters.start}
-              onChange={e => setFilters({ ...filters, start: e.target.value })}
-              className="px-3 py-1 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-orange-500"
-              placeholder="Start Date"
-            />
-            <span className="text-gray-400">to</span>
-            <input
-              type="date"
-              value={filters.end}
-              onChange={e => setFilters({ ...filters, end: e.target.value })}
-              className="px-3 py-1 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-orange-500"
-              placeholder="End Date"
-            />
-          </div>
-
-          {/* Refresh Button */}
+      {/* Export Controls */}
+      <div className="flex justify-end items-center gap-2">
+        <div className="flex gap-2">
           <button
-            onClick={loadReports}
-            className="p-2 bg-white rounded-lg border border-gray-200 hover:bg-gray-50"
-            title="Refresh Data"
+            onClick={handlePDFDownload}
+            className="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 text-sm"
+            title="Export full report with graphs and tables as PDF"
           >
-            <RefreshCw className="w-5 h-5 text-gray-500" />
+            <Download className="w-4 h-4" />
+            Download PDF
+          </button>
+          <button
+            onClick={handleExportCSV}
+            className="px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-2 text-sm"
+            title="Export sales, agents, and deals tables as CSV"
+          >
+            <FileText className="w-4 h-4" />
+            Export CSV
           </button>
         </div>
+
+        {/* Quick Filters */}
+        <div className="flex space-x-1 bg-white p-1 rounded-lg border border-gray-200">
+          <button onClick={() => setPeriod('thisMonth')} className="px-3 py-1 text-xs font-medium hover:bg-orange-50 hover:text-orange-600 rounded">Month</button>
+          <button onClick={() => setPeriod('lastMonth')} className="px-3 py-1 text-xs font-medium hover:bg-orange-50 hover:text-orange-600 rounded">Last Month</button>
+          <button onClick={() => setPeriod('thisYear')} className="px-3 py-1 text-xs font-medium hover:bg-orange-50 hover:text-orange-600 rounded">Year</button>
+        </div>
+
+        {/* Date Range */}
+        <div className="flex items-center space-x-2 bg-white rounded-lg px-3 py-2 border border-gray-200">
+          <input
+            type="date"
+            value={filters.start}
+            onChange={e => setFilters({ ...filters, start: e.target.value })}
+            className="px-3 py-1 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            placeholder="Start Date"
+          />
+          <span className="text-gray-400">to</span>
+          <input
+            type="date"
+            value={filters.end}
+            onChange={e => setFilters({ ...filters, end: e.target.value })}
+            className="px-3 py-1 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            placeholder="End Date"
+          />
+        </div>
+
+        {/* Refresh Button */}
+        <button
+          onClick={loadReports}
+          className="p-2 bg-white rounded-lg border border-gray-200 hover:bg-gray-50"
+          title="Refresh Data"
+        >
+          <RefreshCw className="w-5 h-5 text-gray-500" />
+        </button>
       </div>
 
       {/* Summary Cards Row - Single Row */}

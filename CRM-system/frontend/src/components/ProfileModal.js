@@ -1,15 +1,15 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, User, Mail, Camera, Lock, Moon, Sun, Upload } from 'lucide-react';
+import { X, User, Mail, Camera, Lock, Moon, Sun, Upload, Palette } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, ACCENT_PRESETS } from '../context/ThemeContext';
 import { authAPI, usersAPI, uploadAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
 const ProfileModal = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
-  const { theme, updateTheme } = useTheme();
+  const { theme, updateTheme, setAccentPreset } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -52,7 +52,7 @@ const ProfileModal = ({ isOpen, onClose }) => {
       console.log('File details:', { name: file.name, type: file.type, size: file.size });
       
       // Upload file first
-      const uploadResponse = await uploadAPI.uploadFile(formData);
+      const uploadResponse = await uploadAPI.uploadFile(file);
       
       if (!uploadResponse || !uploadResponse.data) {
         throw new Error('Invalid response from upload server');
@@ -167,11 +167,7 @@ const ProfileModal = ({ isOpen, onClose }) => {
                     src={photoPreview || user.profileImage || user.photo}
                     alt={user?.name}
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // If image fails to load, show default icon
-                      e.target.style.display = 'none';
-                      e.target.parentElement.innerHTML = '<svg class="w-16 h-16 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>';
-                    }}
+                    onError={(e) => { e.target.style.display = 'none'; }}
                   />
                 ) : (
                   <User className="w-16 h-16 text-orange-500" />
@@ -263,6 +259,30 @@ const ProfileModal = ({ isOpen, onClose }) => {
                 </div>
               </div>
             </button>
+
+            {/* Workspace accent color */}
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-3 mb-3">
+                <Palette className="w-5 h-5 text-orange-500" />
+                <span className="font-medium text-gray-900">Workspace accent</span>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">Pick a color for buttons, highlights, and accents. Works with light or dark mode.</p>
+              <div className="flex flex-wrap gap-2">
+                {ACCENT_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => setAccentPreset(preset.id)}
+                    title={preset.label}
+                    className={`h-9 w-9 rounded-full border-2 transition-transform hover:scale-110 ${
+                      theme.accentPreset === preset.id ? 'border-gray-900 ring-2 ring-offset-2 ring-gray-400' : 'border-white shadow'
+                    }`}
+                    style={{ backgroundColor: preset.color }}
+                    aria-label={preset.label}
+                  />
+                ))}
+              </div>
+            </div>
 
             {/* Change Password */}
             <button

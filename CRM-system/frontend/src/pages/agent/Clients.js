@@ -1,45 +1,27 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Plus,
-  Search,
-  Filter,
-  Download,
-  Mail,
-  MapPin,
-  Building,
-  User,
-  Star,
-  Calendar,
-  Edit,
-  Trash2,
-  Eye,
-  Users,
-  FileText,
-  Tag,
-  MessageCircle,
-  ChevronDown,
-  ChevronUp,
-  X,
-  Globe,
-  Briefcase,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Award,
-  MessageSquare
+  Plus, Search, Filter, Download, Mail, MapPin, Building, User, Star,
+  Calendar, Edit, Trash2, Eye, Users, FileText, Tag, MessageCircle,
+  ChevronDown, ChevronUp, X, Globe, Briefcase, AlertCircle, CheckCircle,
+  Clock, Award, MessageSquare, Send
 } from 'lucide-react';
-import { clientsAPI } from '../../services/api';
+import { clientsAPI, emailTemplatesAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext'; 
 import toast from 'react-hot-toast';
 import ClientRegistrationForm from './ClientRegistrationForm';
 
 const Clients = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [clients, setClients] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailClient, setEmailClient] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
@@ -86,9 +68,20 @@ const Clients = () => {
   };
 
   useEffect(() => {
+    if (location?.state?.search) {
+      setSearchTerm(location.state.search);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    if (location?.state?.openCreate) {
+      setShowAddModal(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
+
+  useEffect(() => {
     if (!user) return;
     loadClients();
-  }, [user, filters, pagination.page, sortConfig]);
+  }, [user, filters, pagination.page, sortConfig, searchTerm]);
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
@@ -189,6 +182,34 @@ const Clients = () => {
       toast.success('Clients exported successfully');
     } catch (error) {
       toast.error('Failed to export clients');
+    }
+  };
+
+  const handleExportClientsPDF = async () => {
+    try {
+      toast.loading('Generating PDF...', { id: 'pdf-export' });
+
+      const params = {
+        search: searchTerm || undefined,
+        status: filters.status || undefined,
+      };
+
+      const response = await clientsAPI.exportPDF(params);
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url  = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href     = url;
+      link.download = `clients-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('PDF exported successfully', { id: 'pdf-export' });
+    } catch (error) {
+      toast.error('Failed to export PDF', { id: 'pdf-export' });
+      console.error('PDF export error:', error);
     }
   };
 
@@ -366,10 +387,6 @@ const Clients = () => {
                 <div className="bg-white border border-gray-200 rounded-lg p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Details</h3>
                   <div className="space-y-3">
-                    <div>
-                      <span className="text-sm text-gray-600">NIN</span>
-                      <p className="text-gray-900 font-medium">{client.nin}</p>
-                    </div>
                     {client.dateOfBirth && (
                       <div>
                         <span className="text-sm text-gray-600">Date of Birth</span>
@@ -699,13 +716,8 @@ const Clients = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Client Management</h1>
-          <p className="text-gray-600 mt-1">Manage your client relationships and contacts</p>
-        </div>
-        <div className="flex items-center space-x-3">
+      {/* Action Buttons */}
+      <div className="flex justify-end flex-wrap gap-3">
           {selectedClients.length > 0 && (
             <button
               onClick={handleBulkDelete}
@@ -715,22 +727,28 @@ const Clients = () => {
               <span>Delete Selected ({selectedClients.length})</span>
             </button>
           )}
-          <button
-            onClick={handleExportClients}
-            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            <span>Export</span>
-          </button>
+           <button
+             onClick={handleExportClients}
+             className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+           >
+             <Download className="w-4 h-4" />
+             <span>Export CSV</span>
+           </button>
+           <button
+             onClick={handleExportClientsPDF}
+             className="flex items-center space-x-2 px-4 py-2 border border-blue-300 rounded-lg text-blue-700 hover:bg-blue-50 transition-colors"
+           >
+             <FileText className="w-4 h-4" />
+             <span>Export PDF</span>
+           </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="bg-orange-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-orange-600 transition-colors"
           >
             <Plus className="w-5 h-5" />
             <span>Add Client</span>
-          </button>
-        </div>
-      </div>
+        </button>
+    </div>
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -801,7 +819,7 @@ const Clients = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search clients by name, email, company, or NIN..."
+                placeholder="Search clients by name, email, company, or phone..."
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -1014,43 +1032,67 @@ const Clients = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
-                        {(client.phone || client.email) && (
+<div className="flex items-center space-x-2">
+                          {(client.phone || client.email) && (
+                            <button
+                              onClick={() => {
+                                if (client.phone) {
+                                  window.open(`https://wa.me/${client.phone.replace(/\D/g, '')}?text=Hello ${client.name}, this is regarding our recent conversation.`, '_blank');
+                                } else if (client.email) {
+                                  window.open(`mailto:${client.email}?subject=Follow-up&body=Hello ${client.name},`, '_blank');
+                                }
+                              }}
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
+                              aria-label={`WhatsApp ${client.name}`}
+                              title="WhatsApp"
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => handleViewProfile(client._id)} 
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" 
+                            aria-label={`View ${client.name}`}
+                            title="View Profile"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => {
-                              if (client.phone) {
-                                window.open(`https://wa.me/${client.phone.replace(/\D/g, '')}?text=Hello ${client.name}, this is regarding our recent conversation.`, '_blank');
-                              } else if (client.email) {
-                                window.open(`mailto:${client.email}?subject=Follow-up&body=Hello ${client.name},`, '_blank');
-                              }
+                              // Pre-fill schedule with client info
+                              const params = new URLSearchParams({
+                                clientId: client._id,
+                                clientName: client.name,
+                                clientPhone: client.phone,
+                                clientEmail: client.email
+                              });
+                              window.location.href = `/agent/schedules?${params.toString()}`;
                             }}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
-                            aria-label={`WhatsApp ${client.name}`}
-                            title="WhatsApp"
+                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg"
+                            aria-label={`Schedule with ${client.name}`}
+                            title="Create Schedule"
                           >
-                            <MessageSquare className="w-4 h-4" />
+                            <Calendar className="w-4 h-4" />
                           </button>
-                        )}
-                        <button 
-                          onClick={() => handleViewProfile(client._id)} 
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" 
-                          aria-label={`View ${client.name}`}
-                          title="View Profile"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => handleEditClient(client)} 
-                          className="p-2 text-gray-500 hover:text-gray-700 rounded-lg" 
-                          aria-label={`Edit ${client.name}`}
-                          title="Edit"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleDeleteClient(client._id, client.name)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" aria-label={`Delete ${client.name}`}>
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                          <button
+                            onClick={() => { setEmailClient(client); setShowEmailModal(true); }}
+                            className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg"
+                            title="Send Email"
+                          >
+                            <Mail className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleEditClient(client)} 
+                            className="p-2 text-gray-500 hover:text-gray-700 rounded-lg" 
+                            aria-label={`Edit ${client.name}`}
+                            title="Edit"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDeleteClient(client._id, client.name)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" aria-label={`Delete ${client.name}`}>
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                     </td>
                   </motion.tr>
                 ))
@@ -1109,6 +1151,15 @@ const Clients = () => {
         </div>
       )}
 
+      {/* Send Email Modal */}
+      {showEmailModal && emailClient && (
+        <SendEmailModal
+          client={emailClient}
+          onClose={() => { setShowEmailModal(false); setEmailClient(null); }}
+          onSent={() => { setShowEmailModal(false); setEmailClient(null); loadClients(); }}
+        />
+      )}
+
       {/* Add Client Modal */}
       {showAddModal && (
         <ClientRegistrationForm
@@ -1141,6 +1192,140 @@ const Clients = () => {
           }}
         />
       )}
+    </div>
+  );
+};
+
+const SendEmailModal = ({ client, onClose, onSent }) => {
+  const [form, setForm] = useState({ subject: '', message: '' });
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const res = await emailTemplatesAPI.getAll();
+        setTemplates((res.data.templates || []).filter(t => t.isActive !== false && t.category === 'client'));
+      } catch {
+        setTemplates([]);
+      }
+    };
+    loadTemplates();
+  }, []);
+
+  const renderTemplateText = (text = '') => {
+    const replacements = {
+      clientName: client.name || '',
+      clientEmail: client.email || '',
+      clientCompany: client.company || '',
+      agentName: 'your CRM team',
+      companyName: 'our company'
+    };
+    return text.replace(/\{\{(\w+)\}\}/g, (_, key) => replacements[key] || '');
+  };
+
+  const handleTemplateChange = (templateId) => {
+    setSelectedTemplate(templateId);
+    const template = templates.find(item => String(item._id) === String(templateId));
+    if (!template) return;
+    setForm({
+      subject: renderTemplateText(template.subject),
+      message: renderTemplateText(template.body)
+    });
+  };
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    if (!form.subject.trim() || !form.message.trim()) {
+      toast.error('Subject and message are required');
+      return;
+    }
+    try {
+      setSending(true);
+      await clientsAPI.sendEmail(client._id, form);
+      toast.success(`Email sent to ${client.name} successfully!`);
+      onSent();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to send email');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg"
+      >
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Send Email</h2>
+            <p className="text-sm text-gray-500 mt-0.5">To: {client.name} ({client.email})</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+        <form onSubmit={handleSend} className="p-6 space-y-4">
+          {templates.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Template</label>
+              <select
+                value={selectedTemplate}
+                onChange={e => handleTemplateChange(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="">Write manually</option>
+                {templates.map(template => (
+                  <option key={template._id} value={template._id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Subject *</label>
+            <input
+              type="text"
+              value={form.subject}
+              onChange={e => setForm({ ...form, subject: e.target.value })}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+              placeholder="e.g. Follow-up on our meeting"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Message *</label>
+            <textarea
+              rows={6}
+              value={form.message}
+              onChange={e => setForm({ ...form, message: e.target.value })}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+              placeholder={`Dear ${client.name},\n\nWrite your message here...`}
+            />
+          </div>
+          <div className="flex space-x-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={sending}
+              className="flex-1 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium flex items-center justify-center space-x-2 disabled:opacity-50"
+            >
+              <Send className="w-4 h-4" />
+              <span>{sending ? 'Sending...' : 'Send Email'}</span>
+            </button>
+          </div>
+        </form>
+      </motion.div>
     </div>
   );
 };

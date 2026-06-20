@@ -1,0 +1,91 @@
+
+      --------------------------------------
+      Error Stack:: "AxiosError: Request failed with status code 401\n\tat Pe (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:353380)\n\tat IncomingMessage.<anonymous> (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:365250)\n\tat IncomingMessage.emit (node:events:531:35)\n\tat IncomingMessage.emit (node:domain:489:12)\n\tat endReadableNT (node:internal/streams/readable:1698:12)\n\tat process.processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      Error Message:: "Request failed with status code 401"
+      Error Name:: "AxiosError"
+      Request ID:: 30a6e6d1-033d-4255-adb0-04714452a371
+      
+      Env:: release
+      API Route:: /api/v1/copilot/migration_scope
+      API Response Message:: Invalid token
+      API Response Error Type:: unauthorized
+
+      Timestamp:: Mon, 11 May 2026 06:14:54 GMT
+      Extension Version:: 2.8.4
+      --------------------------------------
+    
+      --------------------------------------
+      Error Stack:: "Error: Please set up the FDK path to proceed, you can set up the path from settings.\n\tat t.FdkHelper.getfdkPathFromConfig (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:252948)\n\tat t.FdkHelper.runInBackground (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:254395)\n\tat t.FdkHelper.getFdkVersion (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:250091)\n\tat v.getFdkVersion (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:321507)\n\tat v.resolveWebviewView (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:295998)\n\tat process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n\tat async sP.$resolveWebviewView (file:///c:/Users/THINKPAD/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/workbench/api/node/extensionHostProcess.js:639:116321)"
+      Error Message:: "Please set up the FDK path to proceed, you can set up the path from settings."
+      Error Name:: "Error"
+      
+      
+      
+      
+      
+      
+
+      Timestamp:: Mon, 11 May 2026 06:14:54 GMT
+      Extension Version:: 2.8.4
+      --------------------------------------
+    
+      --------------------------------------
+      Error Stack:: "AxiosError: Request failed with status code 401\n\tat Pe (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:353380)\n\tat v.<anonymous> (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:364594)\n\tat v.emit (node:events:531:35)\n\tat v.emit (node:domain:489:12)\n\tat v._processResponse (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:60388)\n\tat ClientRequest._onNativeResponse (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:55460)\n\tat Object.onceWrapper (node:events:634:26)\n\tat ClientRequest.emit (node:events:531:35)\n\tat ClientRequest.emit (node:domain:489:12)\n\tat HTTPParser.parserOnIncomingClient (node:_http_client:780:27)\n\tat HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)\n\tat TLSSocket.socketOnData (node:_http_client:615:22)\n\tat TLSSocket.emit (node:events:519:28)\n\tat TLSSocket.emit (node:domain:489:12)\n\tat addChunk (node:internal/streams/readable:561:12)\n\tat readableAddChunkPushByteMode (node:internal/streams/readable:512:3)\n\tat Readable.push (node:internal/streams/readable:392:5)\n\tat TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23)\n\tat TLSWrap.callbackTrampoline (node:internal/async_hooks:130:17)"
+      Error Message:: "Request failed with status code 401"
+      Error Name:: "AxiosError"
+      Request ID:: 925d7787-7dad-44ac-a20f-abd8a1416102
+      
+      Env:: release
+      API Route:: /api/v1/copilot/completions/platform/3
+      
+      
+
+      Timestamp:: Mon, 11 May 2026 06:16:06 GMT
+      Extension Version:: 2.8.4
+      --------------------------------------
+    
+      --------------------------------------
+      Error Stack:: "AxiosError: Request failed with status code 401\n\tat Pe (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:353380)\n\tat v.<anonymous> (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:364594)\n\tat v.emit (node:events:531:35)\n\tat v.emit (node:domain:489:12)\n\tat v._processResponse (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:60388)\n\tat ClientRequest._onNativeResponse (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:55460)\n\tat Object.onceWrapper (node:events:634:26)\n\tat ClientRequest.emit (node:events:531:35)\n\tat ClientRequest.emit (node:domain:489:12)\n\tat HTTPParser.parserOnIncomingClient (node:_http_client:780:27)\n\tat HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)\n\tat TLSSocket.socketOnData (node:_http_client:615:22)\n\tat TLSSocket.emit (node:events:519:28)\n\tat TLSSocket.emit (node:domain:489:12)\n\tat addChunk (node:internal/streams/readable:561:12)\n\tat readableAddChunkPushByteMode (node:internal/streams/readable:512:3)\n\tat Readable.push (node:internal/streams/readable:392:5)\n\tat TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23)\n\tat TLSWrap.callbackTrampoline (node:internal/async_hooks:130:17)"
+      Error Message:: "Request failed with status code 401"
+      Error Name:: "AxiosError"
+      Request ID:: 925d7787-7dad-44ac-a20f-abd8a1416102
+      
+      Env:: release
+      API Route:: /api/v1/copilot/completions/platform/3
+      
+      
+
+      Timestamp:: Mon, 11 May 2026 06:16:06 GMT
+      Extension Version:: 2.8.4
+      --------------------------------------
+    
+      --------------------------------------
+      Error Stack:: "AxiosError: Request failed with status code 401\n\tat Pe (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:353380)\n\tat IncomingMessage.<anonymous> (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:365250)\n\tat IncomingMessage.emit (node:events:521:24)\n\tat IncomingMessage.emit (node:domain:489:12)\n\tat endReadableNT (node:internal/streams/readable:1729:12)\n\tat process.processTicksAndRejections (node:internal/process/task_queues:90:21)"
+      Error Message:: "Request failed with status code 401"
+      Error Name:: "AxiosError"
+      Request ID:: 73c5cc46-a3bf-4f55-8d7a-eb1bd1cc173b
+      
+      Env:: release
+      API Route:: /api/v1/copilot/migration_scope
+      API Response Message:: Invalid token
+      API Response Error Type:: unauthorized
+
+      Timestamp:: Sat, 20 Jun 2026 09:54:41 GMT
+      Extension Version:: 2.8.4
+      --------------------------------------
+    
+      --------------------------------------
+      Error Stack:: "Error: Please set up the FDK path to proceed, you can set up the path from settings.\n\tat t.FdkHelper.getfdkPathFromConfig (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:252948)\n\tat t.FdkHelper.runInBackground (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:254395)\n\tat t.FdkHelper.getFdkVersion (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:250091)\n\tat v.getFdkVersion (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:321507)\n\tat v.resolveWebviewView (c:\\Users\\THINKPAD\\.vscode\\extensions\\freshworksmarketplace.freddy-copilot-2.8.4\\dist\\extension.js:2:295998)\n\tat process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n\tat async dP.$resolveWebviewView (file:///c:/Users/THINKPAD/AppData/Local/Programs/Microsoft%20VS%20Code/6928394f91/resources/app/out/vs/workbench/api/node/extensionHostProcess.js:673:116863)"
+      Error Message:: "Please set up the FDK path to proceed, you can set up the path from settings."
+      Error Name:: "Error"
+      
+      
+      
+      
+      
+      
+
+      Timestamp:: Sat, 20 Jun 2026 09:54:41 GMT
+      Extension Version:: 2.8.4
+      --------------------------------------
+    
