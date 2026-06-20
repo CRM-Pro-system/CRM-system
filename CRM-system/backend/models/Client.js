@@ -9,13 +9,11 @@ const clientSchema = new mongoose.Schema({
   },
   gender: {
     type: String,
-    enum: ['male', 'female', 'other', 'prefer_not_to_say'],
+    enum: ['male', 'female', 'other', 'prefer_not_to_say', ''],
     default: ''
   },
   nin: {
     type: String,
-    unique: true,
-    sparse: true, // Allow multiple null values
     trim: true
   },
   idType: {
@@ -145,12 +143,19 @@ const clientSchema = new mongoose.Schema({
     type: [
       {
         title: String,
+        subject: { type: String, default: 'Call', enum: ['Call', 'Support', 'Follow-up', 'Meeting', 'Review', 'Other'] },
         description: { type: String, default: '' },
         dueDate: Date,
         dueTime: String,
+        status: { type: String, default: 'pending', enum: ['pending', 'in_progress', 'completed', 'waiting', 'deferred'] },
+        priority: { type: String, default: 'Medium', enum: ['Low', 'Medium', 'Critical'] },
         completed: { type: Boolean, default: false },
+        contactPerson: { type: String, default: '' },
         assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-        createdAt: { type: Date, default: Date.now }
+        createdAt: { type: Date, default: Date.now },
+        // Reminder tracking — prevents duplicate reminder emails/notifications
+        reminderSent: { type: Boolean, default: false },
+        overdueSent:  { type: Boolean, default: false }
       }
     ],
     default: []
@@ -187,24 +192,30 @@ const clientSchema = new mongoose.Schema({
   contacts: {
     type: [{
       name: String,
-      position: {
-        type: String,
-        default: ''
-      },
-      email: {
-        type: String,
-        default: ''
-      },
-      phone: {
-        type: String,
-        default: ''
-      },
-      isPrimary: {
-        type: Boolean,
-        default: false
-      }
+      position: { type: String, default: '' },
+      email:    { type: String, default: '' },
+      phone:    { type: String, default: '' },
+      birthday: { type: Date,   default: null },
+      reportingLine: { type: String, default: '' },
+      isPrimary: { type: Boolean, default: false }
     }],
     default: []
+  },
+
+  // Lead-specific fields (used when status = prospect)
+  contactName: { type: String, default: '' },
+  telephone:   { type: String, default: '' },
+  companyName: { type: String, default: '' },
+  companyEmail:{ type: String, default: '' },
+  leadStatus: {
+    type: String,
+    enum: ['New', 'Contacted', 'Unqualified', 'Qualified', 'Converted', ''],
+    default: 'New'
+  },
+  rating: {
+    type: String,
+    enum: ['Cold', 'Warm', 'Hot', ''],
+    default: 'Cold'
   }
 }, {
   timestamps: true
@@ -214,7 +225,6 @@ const clientSchema = new mongoose.Schema({
 clientSchema.index({ agent: 1 }); // Fast agent lookups
 clientSchema.index({ email: 1 }); // Fast email lookups
 clientSchema.index({ status: 1 }); // Fast status filtering
-clientSchema.index({ nin: 1 }); // Fast NIN lookups
 clientSchema.index({ createdAt: -1 }); // Fast date-based sorting
 clientSchema.index({ tenant: 1 }); // Fast tenant-based filtering
 clientSchema.index({ tenant: 1, agent: 1 }); // Compound index for tenant + agent queries
