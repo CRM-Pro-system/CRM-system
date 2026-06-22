@@ -47,7 +47,6 @@ const UserManagement = () => {
     phone: '',
     role: 'agent',
     customRole: '',
-    nin: '',
     department: '',
     customDepartment: '',
     region: ''
@@ -87,14 +86,13 @@ const UserManagement = () => {
 
   const handleExportCSV = () => {
     try {
-      const headers = ['Name', 'Email', 'Phone', 'Role', 'Status', 'NIN', 'Performance Score', 'Total Deals', 'Successful Deals', 'Total Sales Amount', 'Joined Date'];
+      const headers = ['Name', 'Email', 'Phone', 'Role', 'Status', 'Performance Score', 'Total Deals', 'Successful Deals', 'Total Sales Amount', 'Joined Date'];
       const rows = filteredUsers.map(u => [
         u.name || '',
         u.email || '',
         u.phone || '',
         u.role || '',
         u.isActive === false ? 'Inactive' : u.isFirstLogin ? 'Pending' : 'Active',
-        u.nin || '',
         u.performanceScore || 0,
         u.totalDeals || 0,
         u.successfulDeals || 0,
@@ -164,10 +162,6 @@ const UserManagement = () => {
 
      if (newUser.phone && !/^\+?[\d\s-()]+$/.test(newUser.phone)) {
        errors.phone = 'Phone number is invalid';
-     }
-
-     if (newUser.nin && newUser.nin.trim().length < 6) {
-       errors.nin = 'NIN must be at least 6 characters';
      }
 
      if (!newUser.role) {
