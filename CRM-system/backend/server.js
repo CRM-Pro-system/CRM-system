@@ -40,6 +40,9 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Enable trust proxy for Render deployment
+app.set('trust proxy', true);
+
 // CORS configuration with environment support
 const defaultOrigins = [
   'http://localhost:3000',
