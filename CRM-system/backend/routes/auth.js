@@ -80,25 +80,41 @@ router.post('/login', loginLimiter, async (req, res) => {
     let isMatch = false;
     const hasStoredPassword = typeof user.password === 'string' && user.password.length > 0;
 
+    console.log(`🔐 Login attempt for ${normalizedEmail}:`, {
+      isFirstLogin: user.isFirstLogin,
+      hasOTP: !!user.otp,
+      hasPassword: hasStoredPassword,
+      otpExpired: user.otpExpires ? (new Date() > user.otpExpires) : null
+    });
+
     // For first login, check against OTP field (may be hashed)
     if (user.isFirstLogin && user.otp) {
       // OTP may be hashed - try bcrypt first, then plain text
       try {
         isMatch = await bcrypt.compare(password, user.otp);
-      } catch (e) {}
+        if (isMatch) console.log('✅ OTP matched (from otp field)');
+      } catch (e) {
+        console.log('❌ Error comparing OTP:', e.message);
+      }
       // Fallback: plain text comparison for direct OTP storage
       if (!isMatch && password === user.otp) {
         isMatch = true;
+        console.log('✅ OTP matched (plain text)');
       }
       // Also check password field for hashed OTP
       if (!isMatch && hasStoredPassword) {
         try {
           isMatch = await bcrypt.compare(password, user.password);
-        } catch (e) {}
+          if (isMatch) console.log('✅ OTP matched (from password field)');
+        } catch (e) {
+          console.log('❌ Error comparing password:', e.message);
+        }
       }
     } else if (hasStoredPassword) {
       // For subsequent logins, use bcrypt comparison
       isMatch = await bcrypt.compare(password, user.password);
+      if (isMatch) console.log('✅ Password matched');
+      else console.log('❌ Password did not match');
     } else {
       // If the user has no stored password and is not using OTP, reject safely
       try {
