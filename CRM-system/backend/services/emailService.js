@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import axios from 'axios';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -9,6 +10,45 @@ let cachedEtherealAccount = null;
 
 const logEmailConfig = () => {
   if (!cachedConfigSummary) return;
+};
+
+// Brevo API email sending
+const sendEmailViaBrevoAPI = async (to, subject, html) => {
+  const apiKey = process.env.BREVO_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error('BREVO_API_KEY not configured');
+  }
+
+  try {
+    const response = await axios.post(
+      'https://api.brevo.com/v3/smtp/email',
+      {
+        sender: {
+          email: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@crm.com',
+          name: 'CRM System'
+        },
+        to: [{ email: to }],
+        subject: subject,
+        htmlContent: html
+      },
+      {
+        headers: {
+          'api-key': apiKey,
+          'Content-Type': 'application/json',
+          'accept': 'application/json'
+        }
+      }
+    );
+
+    return {
+      success: true,
+      messageId: response.data.messageId
+    };
+  } catch (error) {
+    console.error('❌ Brevo API error:', error.response?.data || error.message);
+    throw error;
+  }
 };
 
 const createTransporter = async () => {
@@ -495,7 +535,6 @@ export const sendEmail = async (to, templateName, templateData) => {
   try {
     console.log(`📧 Attempting to send email to ${to} using template '${templateName}'`);
     
-    const transporter = await createTransporter();
     const template = emailTemplates[templateName];
 
     if (!template) {
@@ -504,6 +543,17 @@ export const sendEmail = async (to, templateName, templateData) => {
 
     // Call the template function with the data
     const emailContent = template(templateData);
+
+    // Check if Brevo API is available
+    if (process.env.BREVO_API_KEY) {
+      console.log('📤 Sending via Brevo API');
+      const result = await sendEmailViaBrevoAPI(to, emailContent.subject, emailContent.html);
+      console.log(`✅ Email sent successfully via Brevo API to ${to} (Message ID: ${result.messageId})`);
+      return result;
+    }
+
+    // Fallback to SMTP
+    const transporter = await createTransporter();
 
     const mailOptions = {
       from: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'florencenamukisa08@gmail.com',
@@ -530,7 +580,7 @@ export const sendEmail = async (to, templateName, templateData) => {
       message: error.message,
       code: error.code,
       command: error.command,
-      response: error.response,
+      response: error.response?.data || error.response,
       responseCode: error.responseCode,
       to,
       templateName
