@@ -7,7 +7,8 @@
     "start": "node server.js",
     "setup": "node setup.js",
     "sync:atlas": "node sync-to-atlas.js",
-    "ensure:admin": "node ensure-admin.js"
+    "ensure:admin": "node ensure-admin.js",
+    "create:superadmin": "node create-superadmin.js"
   },
   "dependencies": {
     "@twilio/voice-sdk": "^2.18.3",
