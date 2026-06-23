@@ -194,7 +194,7 @@ const UserManagement = () => {
       setShowSuccessModal(true);
 
       setShowAddModal(false);
-      setNewUser({ name: '', email: '', phone: '', role: isSuperAdmin ? 'manager' : 'agent', customRole: '', nin: '', department: '', customDepartment: '', region: '' });
+      setNewUser({ name: '', email: '', phone: '', role: isSuperAdmin ? 'manager' : 'agent', customRole: '', department: '', customDepartment: '', region: '' });
       setFormErrors({});
       loadUsers();
     } catch (error) {
@@ -316,7 +316,6 @@ const UserManagement = () => {
       const payload = {
         name: editUser.name,
         phone: editUser.phone,
-        nin: editUser.nin,
         isActive: editUser.isActive,
         status: editUser.status,
         customRole: editUser.customRole || null,
@@ -483,7 +482,7 @@ return (
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => {
-                    setNewUser({ name: '', email: '', phone: '', role: isSuperAdmin ? 'manager' : 'agent', nin: '' });
+                    setNewUser({ name: '', email: '', phone: '', role: isSuperAdmin ? 'manager' : 'agent' });
                     setShowAddModal(true);
                   }}
                   className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-2.5 rounded-xl flex items-center space-x-2 hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25"
@@ -919,7 +918,7 @@ return (
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => {
-                    setNewUser({ name: '', email: '', phone: '', role: isSuperAdmin ? 'manager' : 'agent', nin: '' });
+                    setNewUser({ name: '', email: '', phone: '', role: isSuperAdmin ? 'manager' : 'agent' });
                     setShowAddModal(true);
                   }}
                   className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-xl inline-flex items-center space-x-2 hover:from-orange-600 hover:to-orange-700 shadow-lg shadow-orange-500/25"
@@ -1003,8 +1002,6 @@ return (
                           <p className="text-sm text-gray-900">{detailsUser.phone || 'Not provided'}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500 mb-1">NIN</p>
-                          <p className="text-sm text-gray-900">{detailsUser.nin || 'Not provided'}</p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-500 mb-1">Role</p>
@@ -1258,28 +1255,6 @@ return (
                      </select>
                    </div>
                  )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    National ID (NIN)
-                  </label>
-                  <input
-                    type="text"
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${
-                      formErrors.nin ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                    }`}
-                    placeholder="Enter national ID number"
-                    value={newUser.nin}
-                    onChange={(e) => setNewUser({ ...newUser, nin: e.target.value })}
-                  />
-                  {formErrors.nin && (
-                    <p className="text-red-500 text-sm mt-1 flex items-center">
-                      <AlertCircle className="w-4 h-4 mr-1" />
-                      {formErrors.nin}
-                    </p>
-                  )}
-                </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
                   <select
@@ -1442,14 +1417,6 @@ return (
                   />
                 </div>
                 
-<div>
-                   <label className="block text-sm font-medium text-gray-700 mb-2">NIN</label>
-                   <input
-                     value={editUser.nin || ''}
-                     onChange={(e) => setEditUser({ ...editUser, nin: e.target.value })}
-                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                   />
-                 </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
