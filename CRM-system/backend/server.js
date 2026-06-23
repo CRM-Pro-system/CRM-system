@@ -117,10 +117,10 @@ const cleanupLegacyClientIndexes = async () => {
 
 mongoose.connect(MONGODB_URI, mongoOptions)
   .then(async () => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('✅ MongoDB connected successfully');
-      console.log('Database:', mongoose.connection.name);
-    }
+    console.log('✅ MongoDB connected successfully');
+    console.log('📊 Database:', mongoose.connection.name);
+    console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
+    
     await cleanupLegacyClientIndexes();
   })
   .catch(err => {
@@ -293,14 +293,18 @@ const updateAgentRankings = async () => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => {
+  console.log(`🚀 Server running on port ${PORT}`);
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Login URL: http://localhost:${PORT}`);
+    console.log(`🔗 Login URL: http://localhost:${PORT}`);
   }
 
-  // Test email configuration in development only
-  if (process.env.TEST_EMAIL_ON_STARTUP === 'true' && process.env.NODE_ENV !== 'production') {
-    await testEmailConfig();
+  // Test email configuration on startup
+  console.log('📧 Testing email configuration...');
+  const emailConfigured = await testEmailConfig();
+  if (emailConfigured) {
+    console.log('✅ Email service is ready');
+  } else {
+    console.log('❌ Email service configuration failed - check your EMAIL_ environment variables');
   }
 
   await createDefaultAdmin();
