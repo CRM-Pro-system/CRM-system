@@ -6,6 +6,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import Layout from './components/Layout';
 
 // Lazy load pages for better performance
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 const Login = lazy(() => import('./pages/Login'));
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AgentDashboard = lazy(() => import('./pages/agent/Dashboard'));
@@ -213,8 +214,8 @@ function App() {
                   </ProtectedRoute>
                 } />
 
-                <Route path="/" element={<Navigate to="/login" replace />} />
-                <Route path="*" element={<Navigate to="/login" replace />} />
+                <Route path="/" element={<LandingPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
 
