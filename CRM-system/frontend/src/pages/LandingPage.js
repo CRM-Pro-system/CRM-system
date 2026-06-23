@@ -55,7 +55,7 @@ const LandingPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-orange-50/30 to-gray-50 overflow-hidden relative">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-orange-50/30 to-gray-50 overflow-x-hidden relative">
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -147,39 +147,44 @@ const LandingPage = () => {
           </motion.div>
         </div>
 
-        {/* Floating Feature Cards */}
+        {/* Floating Feature Cards - Slide in from Right */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto mb-16">
           {features.map((feature, index) => (
             <motion.div
               key={index}
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 + index * 0.1, type: "spring", stiffness: 100 }}
-              whileHover={{ y: -15, rotateY: 5, rotateX: 5 }}
+              initial={{ opacity: 0, x: 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ 
+                delay: 0.3 + index * 0.2, 
+                type: "spring", 
+                stiffness: 100,
+                damping: 15
+              }}
+              whileHover={{ y: -15, scale: 1.02 }}
               className="group relative"
-              style={{ transformStyle: "preserve-3d" }}
             >
               {/* Glow effect */}
-              <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-red-500 rounded-3xl blur-xl opacity-0 group-hover:opacity-30 transition-opacity duration-500" />
+              <div className="absolute -inset-1 bg-gradient-to-r from-orange-400 to-orange-600 rounded-3xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500" />
               
               {/* Floating animation */}
               <motion.div
                 animate={{ y: [0, -10, 0] }}
                 transition={{ duration: 3 + index * 0.5, repeat: Infinity, ease: "easeInOut" }}
-                className="relative p-8 backdrop-blur-xl bg-white/70 border border-white/60 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300"
+                className="relative p-8 backdrop-blur-2xl bg-gradient-to-br from-orange-50/80 via-white/70 to-orange-50/60 border border-orange-200/60 rounded-3xl shadow-2xl hover:shadow-orange-200/50 transition-all duration-300"
               >
                 <motion.div
                   whileHover={{ rotate: 360, scale: 1.2 }}
                   transition={{ duration: 0.6 }}
-                  className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg"
+                  className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-orange-500/30"
                 >
                   <feature.icon className="w-8 h-8 text-white" />
                 </motion.div>
                 <h3 className="text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
-                <p className="text-gray-600 leading-relaxed">{feature.description}</p>
+                <p className="text-gray-700 leading-relaxed">{feature.description}</p>
                 
-                {/* Decorative corner */}
-                <div className="absolute top-4 right-4 w-20 h-20 bg-gradient-to-br from-orange-500/10 to-transparent rounded-full blur-2xl" />
+                {/* Orange decorative corner */}
+                <div className="absolute top-4 right-4 w-24 h-24 bg-gradient-to-br from-orange-400/20 to-transparent rounded-full blur-2xl" />
+                <div className="absolute bottom-4 left-4 w-16 h-16 bg-gradient-to-tl from-orange-300/20 to-transparent rounded-full blur-xl" />
               </motion.div>
             </motion.div>
           ))}

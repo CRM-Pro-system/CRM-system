@@ -214,7 +214,11 @@ function App() {
                   </ProtectedRoute>
                 } />
 
-                <Route path="/" element={<LandingPage />} />
+                <Route path="/" element={
+                  <PublicRoute>
+                    <LandingPage />
+                  </PublicRoute>
+                } />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
