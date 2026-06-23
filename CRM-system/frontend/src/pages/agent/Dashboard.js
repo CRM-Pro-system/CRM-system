@@ -466,7 +466,29 @@ title="Follow-up Task Status"
                         <div className="flex items-center gap-1">
                           {client.phone && (
                             <button
-                              onClick={() => window.open(`https://wa.me/${client.phone.replace(/\D/g,'')}?text=Hello ${client.name}`, '_blank')}
+                              onClick={() => {
+                                let number = client.phone.trim();
+                                // Remove all non-digit characters except leading +
+                                number = number.replace(/[^\d+]/g, '');
+                                
+                                // Ensure number starts with + or country code
+                                if (!number.startsWith('+')) {
+                                  if (number.startsWith('256')) {
+                                    number = '+' + number;
+                                  } else if (number.startsWith('0')) {
+                                    number = '+256' + number.substring(1);
+                                  } else if (/^[7-9]\d{8}$/.test(number)) {
+                                    number = '+256' + number;
+                                  } else {
+                                    toast.error('Invalid phone number format');
+                                    return;
+                                  }
+                                }
+                                
+                                // Remove + for WhatsApp URL
+                                const cleanNumber = number.replace('+', '');
+                                window.open(`https://wa.me/${cleanNumber}?text=Hello ${client.name}`, '_blank');
+                              }}
                               className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"
                               title="WhatsApp"
                             >
@@ -483,9 +505,18 @@ title="Follow-up Task Status"
                             </button>
                           )}
                           <button
-                            onClick={() => window.location.href = '/agent/clients'}
+                            onClick={async () => {
+                              try {
+                                const response = await clientsAPI.getById(client._id);
+                                // Create a temporary modal to view client details
+                                const event = new CustomEvent('openClientDetails', { detail: response.data });
+                                window.dispatchEvent(event);
+                              } catch (error) {
+                                toast.error('Failed to load client details');
+                              }
+                            }}
                             className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
-                            title="View in Clients"
+                            title="View Client Details"
                           >
                             <Eye className="w-4 h-4" />
                           </button>

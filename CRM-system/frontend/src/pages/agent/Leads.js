@@ -253,10 +253,29 @@ export default function Leads() {
 
   // WhatsApp — opens wa.me link
   const handleWhatsApp = (lead) => {
-    const number = (lead.telephone || lead.phone || '').replace(/\D/g, '');
+    let number = (lead.telephone || lead.phone || '').trim();
     if (!number) return toast.error('No phone number on this lead');
+    
+    // Remove all non-digit characters except leading +
+    number = number.replace(/[^\d+]/g, '');
+    
+    // Ensure number starts with + or country code
+    if (!number.startsWith('+')) {
+      if (number.startsWith('256')) {
+        number = '+' + number;
+      } else if (number.startsWith('0')) {
+        number = '+256' + number.substring(1);
+      } else if (/^[7-9]\d{8}$/.test(number)) {
+        number = '+256' + number;
+      } else {
+        return toast.error('Invalid phone number format. Use +256XXXXXXXXX or 0XXXXXXXXX');
+      }
+    }
+    
+    // Remove + for WhatsApp URL (wa.me expects number without +)
+    const cleanNumber = number.replace('+', '');
     const name = lead.contactName || lead.name || '';
-    window.open(`https://wa.me/${number}?text=Hello ${name}, I wanted to follow up with you.`, '_blank');
+    window.open(`https://wa.me/${cleanNumber}?text=Hello ${name}, I wanted to follow up with you.`, '_blank');
   };
 
   // Notes — inline note modal

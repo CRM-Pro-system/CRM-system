@@ -1037,7 +1037,27 @@ const Clients = () => {
                             <button
                               onClick={() => {
                                 if (client.phone) {
-                                  window.open(`https://wa.me/${client.phone.replace(/\D/g, '')}?text=Hello ${client.name}, this is regarding our recent conversation.`, '_blank');
+                                  let number = client.phone.trim();
+                                  // Remove all non-digit characters except leading +
+                                  number = number.replace(/[^\d+]/g, '');
+                                  
+                                  // Ensure number starts with + or country code
+                                  if (!number.startsWith('+')) {
+                                    if (number.startsWith('256')) {
+                                      number = '+' + number;
+                                    } else if (number.startsWith('0')) {
+                                      number = '+256' + number.substring(1);
+                                    } else if (/^[7-9]\d{8}$/.test(number)) {
+                                      number = '+256' + number;
+                                    } else {
+                                      toast.error('Invalid phone number format');
+                                      return;
+                                    }
+                                  }
+                                  
+                                  // Remove + for WhatsApp URL
+                                  const cleanNumber = number.replace('+', '');
+                                  window.open(`https://wa.me/${cleanNumber}?text=Hello ${client.name}, this is regarding our recent conversation.`, '_blank');
                                 } else if (client.email) {
                                   window.open(`mailto:${client.email}?subject=Follow-up&body=Hello ${client.name},`, '_blank');
                                 }

@@ -621,19 +621,16 @@ const Reports = () => {
         </button>
       </div>
 
-      {/* Summary Cards Row - Single Row */}
+      {/* Summary Cards Row - Optimized */}
       {(() => {
         const stats = calculateSummaryStats();
         return (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-8">
-            <SummaryCard title="Total Sales" value={stats.totalSales} icon={ShoppingBag} />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
             <SummaryCard title="Revenue" value={formatCurrency(stats.totalRevenue)} icon={DollarSign} />
-            <SummaryCard title="Cash Sales" value={formatCurrency(stats.cashSalesAmount)} subValue={`${stats.cashSalesCount} sales`} icon={Banknote} />
-            <SummaryCard title="Credit Sales" value={formatCurrency(stats.creditSalesAmount)} subValue={`${stats.creditSalesCount} sales`} icon={CreditCard} />
+            <SummaryCard title="Total Sales" value={stats.totalSales} icon={ShoppingBag} />
             <SummaryCard title="Deals Won" value={stats.dealsWon} icon={CheckCircle} />
             <SummaryCard title="Deals Lost" value={stats.dealsLost} icon={XCircle} />
             <SummaryCard title="Clients Met" value={stats.clientsMet} icon={Users} />
-            <SummaryCard title="Avg Rev/Deal" value={formatCurrency(stats.avgRevenuePerDealWon)} icon={TrendingUp} />
           </div>
         );
       })()}

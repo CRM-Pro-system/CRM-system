@@ -202,9 +202,28 @@ export default function Contacts() {
   };
 
   const handleWhatsApp = (contact) => {
-    const num = (contact.phone || contact.telephone || '').replace(/\D/g, '');
-    if (!num) return toast.error('No phone number for this contact');
-    window.open(`https://wa.me/${num}?text=Hello ${contact.name},`, '_blank');
+    let number = (contact.phone || contact.telephone || '').trim();
+    if (!number) return toast.error('No phone number for this contact');
+    
+    // Remove all non-digit characters except leading +
+    number = number.replace(/[^\d+]/g, '');
+    
+    // Ensure number starts with + or country code
+    if (!number.startsWith('+')) {
+      if (number.startsWith('256')) {
+        number = '+' + number;
+      } else if (number.startsWith('0')) {
+        number = '+256' + number.substring(1);
+      } else if (/^[7-9]\d{8}$/.test(number)) {
+        number = '+256' + number;
+      } else {
+        return toast.error('Invalid phone number format. Use +256XXXXXXXXX or 0XXXXXXXXX');
+      }
+    }
+    
+    // Remove + for WhatsApp URL (wa.me expects number without +)
+    const cleanNumber = number.replace('+', '');
+    window.open(`https://wa.me/${cleanNumber}?text=Hello ${contact.name},`, '_blank');
   };
 
   // ── Stats ────────────────────────────────────────────────────────────────────
