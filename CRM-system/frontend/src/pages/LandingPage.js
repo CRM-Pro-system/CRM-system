@@ -147,44 +147,57 @@ const LandingPage = () => {
           </motion.div>
         </div>
 
-        {/* Floating Feature Cards - Slide in from Right */}
+        {/* Crystal Glassmorphic Feature Cards - Slide in from Right */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto mb-16">
           {features.map((feature, index) => (
             <motion.div
               key={index}
-              initial={{ opacity: 0, x: 100 }}
-              animate={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, x: 150, scale: 0.8 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
               transition={{ 
-                delay: 0.3 + index * 0.2, 
+                delay: 0.4 + index * 0.2, 
                 type: "spring", 
-                stiffness: 100,
-                damping: 15
+                stiffness: 80,
+                damping: 12
               }}
-              whileHover={{ y: -15, scale: 1.02 }}
+              whileHover={{ y: -10, scale: 1.03 }}
               className="group relative"
             >
-              {/* Glow effect */}
-              <div className="absolute -inset-1 bg-gradient-to-r from-orange-400 to-orange-600 rounded-3xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500" />
+              {/* Outer glow */}
+              <div className="absolute -inset-0.5 bg-gradient-to-br from-orange-400/40 via-orange-500/30 to-orange-600/40 rounded-3xl blur-lg opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
               
-              {/* Floating animation */}
+              {/* Crystal glass card */}
               <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 3 + index * 0.5, repeat: Infinity, ease: "easeInOut" }}
-                className="relative p-8 backdrop-blur-2xl bg-gradient-to-br from-orange-50/80 via-white/70 to-orange-50/60 border border-orange-200/60 rounded-3xl shadow-2xl hover:shadow-orange-200/50 transition-all duration-300"
+                animate={{ y: [0, -8, 0] }}
+                transition={{ duration: 4 + index * 0.3, repeat: Infinity, ease: "easeInOut" }}
+                className="relative p-8 rounded-3xl overflow-hidden"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.25)',
+                  backdropFilter: 'blur(20px) saturate(180%)',
+                  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                  border: '1px solid rgba(255, 255, 255, 0.4)',
+                  boxShadow: '0 8px 32px 0 rgba(251, 146, 60, 0.15)',
+                }}
               >
+                {/* Shine effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent opacity-50" />
+                
+                {/* Icon */}
                 <motion.div
-                  whileHover={{ rotate: 360, scale: 1.2 }}
+                  whileHover={{ rotate: 360, scale: 1.15 }}
                   transition={{ duration: 0.6 }}
-                  className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-orange-500/30"
+                  className="relative w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center mb-6 shadow-2xl shadow-orange-500/40"
                 >
                   <feature.icon className="w-8 h-8 text-white" />
                 </motion.div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
-                <p className="text-gray-700 leading-relaxed">{feature.description}</p>
                 
-                {/* Orange decorative corner */}
-                <div className="absolute top-4 right-4 w-24 h-24 bg-gradient-to-br from-orange-400/20 to-transparent rounded-full blur-2xl" />
-                <div className="absolute bottom-4 left-4 w-16 h-16 bg-gradient-to-tl from-orange-300/20 to-transparent rounded-full blur-xl" />
+                {/* Content */}
+                <h3 className="relative text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
+                <p className="relative text-gray-800 leading-relaxed font-medium">{feature.description}</p>
+                
+                {/* Inner light reflections */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-300/30 to-transparent rounded-full blur-2xl" />
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tl from-orange-400/20 to-transparent rounded-full blur-xl" />
               </motion.div>
             </motion.div>
           ))}
